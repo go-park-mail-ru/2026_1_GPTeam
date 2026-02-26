@@ -1,0 +1,707 @@
+openapi: 3.0.4
+info:
+  title: GPTeam Financial Planner API
+  version: 2.0.0
+  description: |
+    REST API для управления финансами и банковскими счетами.
+servers:
+  - url: https://petstore3.swagger.io/api/v3
+tags:
+  - name: registration and authorization
+    description: Регистрация, логин, логаут пользователей
+  - name: profile
+    description: Работа с профилем пользователя
+  - name: category
+    description: Категории транзакций
+  - name: transaction
+    description: Транзакции
+  - name: bank_account
+    description: Счёт
+paths:
+  /login:
+    post:
+      tags:
+        - registration and authorization
+      summary: User login
+      description: |
+        Авторизация пользователя по логину и паролю.
+        В ответе возвращается JWT токен в cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginBody'
+      responses:
+        '200':
+          description: 'Успешная авторизация'
+          headers:
+            Set-Cookie:
+              description: JWT токен и id сессии в cookie
+              schema:
+                type: string
+                example: "jwt=token; sessionId=123; Path=/; Secure; HttpOnly; SameSite=Strict;"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccess'
+        '401':
+          description: 'Ошибка авторизации - неверный логин или пароль'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginError'
+        '500':
+          description: 'server error'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /signup:
+    post:
+      tags:
+        - registration and authorization
+      summary: User registration
+      description: |
+        Регистрация нового пользователя.
+        После успешной регистрации автоматически устанавливается JWT токен в cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterBody'
+      responses:
+        '200':
+          description: 'Успешная регистрация'
+          headers:
+            Set-Cookie:
+              # токен кидаем в куку, а не в тело ответа - так и на логине, и на регистрации единообразно
+              description: JWT токен и id сессии в cookie
+              schema:
+                type: string
+                example: "jwt=token; sessionId=123; Path=/; Secure; HttpOnly; SameSite=Strict;"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterSuccess'
+        '400':
+          description: 'Ошибка валидации - некорректные данные пользователя'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '409':
+          description: 'Конфликт - пользователь с таким логином или email уже существует'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterError'
+        '500':
+          description: 'server error'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /logout:
+    post:
+      tags:
+        - registration and authorization
+      summary: User logout
+      description: |
+        Выход пользователя из системы.
+        Инвалидирует текущий JWT токен и завершает сессию.
+        Устанавливает куку с истёкшим временем жизни чтобы браузер её удалил.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: 'Успешный выход из системы'
+          headers:
+            Set-Cookie:
+              # сделал истёкшее время куки чтобы браузер её удалил при логауте
+              description: Кука с истёкшим временем жизни для удаления токена на клиенте
+              schema:
+                type: string
+                example: "jwt=; sessionId=; Path=/; Secure; HttpOnly; SameSite=Strict; Expires=Thu, 01 Jan 1970 00:00:00 GMT;"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+        '401':
+          description: 'Не авторизован - невалидный или отсутствующий токен'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: 'server error'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /profile:
+    get:
+      tags:
+        - profile
+      summary: Get user profile
+      description: |
+        Возвращает информацию о профиле пользователя.
+        Убраны bank_accounts, last_login, is_staff, is_active - лишние данные на этом уровне.
+        Добавлен avatar для отображения аватарки сразу в профиле.
+        Требует авторизации через JWT токен в cookie или заголовке Authorization: Bearer <token>
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 'Профиль пользователя успешно получен'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: 'Не авторизован - невалидный или отсутствующий токен'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: 'server error'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /profile/balance:
+    get:
+      tags:
+        - profile
+      summary: Get user balance
+      description: |
+        Возвращает текущий баланс пользователя и валюту.
+        Вынесен в отдельный эндпоинт чтобы можно было запрашивать отдельно от профиля.
+        Требует авторизации.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 'Баланс успешно получен'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  balance:
+                    type: number
+                    example: 1250.75
+                  currency:
+                    type: string
+                    example: 'USD'
+                required:
+                  - code
+                  - balance
+                  - currency
+        '401':
+          description: 'Пользователь неавторизирован'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: 'server error'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /get_budgets:
+    get:
+      tags:
+        - profile
+      summary: Get user's budgets ids
+      description: |
+        Возвращает значения id бюджетов пользователя.
+        Требует авторизацию.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 'ok'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  len:
+                    type: integer
+                    example: 3
+                  ids:
+                    type: array
+                    items:
+                      type: integer
+                    example: [1, 3, 4, 7]
+        '401':
+          description: 'Пользователь неавторизирован'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: 'server error'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /get_budget/{id}:
+    get:
+      tags:
+        - profile
+      summary: Get budget (current and target)
+      description: |
+        Возвращает значение текущего и планируемого бюджета.
+        Добавлены start_at и end_at для указания диапазона дат бюджета.
+        Требует авторизацию.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: 'id бюджета'
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 'Бюджет успешно получен'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+        '401':
+          description: 'Пользователь неавторизирован'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: 'У пользователя нет прав на просмотр'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '404':
+          description: 'Бюджет не найден'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '500':
+          description: 'server error'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT токен получается после успешного логина или регистрации через cookie.
+        Можно также передавать в заголовке Authorization: Bearer <token>
+
+  schemas:
+    # ===================== схемы успешных ответов
+
+    OK:
+      description: Стандартный ответ OK для простых эндпоинтов
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'ok'
+      required:
+        - code
+        - message
+
+    LoginSuccess:
+      description: Успешный ответ при авторизации пользователя
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Login successful'
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 12345
+            username:
+              type: string
+              example: 'johndoe'
+            email:
+              type: string
+              format: email
+              example: 'john@example.com'
+            last_login:
+              type: string
+              format: date-time
+              example: '2024-02-22T10:30:00Z'
+      required:
+        - code
+        - message
+        - user
+
+    RegisterSuccess:
+      description: Успешный ответ при регистрации нового пользователя
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Registration successful'
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 12345
+            username:
+              type: string
+              example: 'johndoe'
+            email:
+              type: string
+              format: email
+              example: 'john@example.com'
+            created_at:
+              type: string
+              format: date-time
+              example: '2024-02-22T10:30:00Z'
+        # убрал token из тела ответа - токен теперь только в cookie, как и на /login
+      required:
+        - code
+        - message
+        - user
+
+    LogoutSuccess:
+      description: Успешный выход из системы
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Logout successful'
+        logged_out_at:
+          type: string
+          format: date-time
+          example: '2024-02-22T11:45:00Z'
+      required:
+        - code
+        - message
+
+    # ===================== схемы данных
+
+    User:
+      description: |
+        Информация о профиле пользователя.
+        Убраны bank_accounts, last_login, is_staff, is_active - лишние поля для этого эндпоинта.
+        Убраны balance и currency - вынесены в /profile/balance.
+        Добавлен avatar_url для отображения аватарки.
+      type: object
+      properties:
+        username:
+          type: string
+          description: Имя пользователя (логин)
+          example: 'johndoe'
+        email:
+          type: string
+          format: email
+          example: 'john@example.com'
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-01-15T08:00:00Z'
+        avatar_url:
+          # перенёс сюда из /get_avatar - аватарка логично живёт в профиле
+          type: string
+          format: uri
+          description: 'Ссылка на аватар пользователя'
+          example: 'https://example.com/avatars/user123.jpg'
+      required:
+        - username
+        - email
+
+    Budget:
+      description: 'Бюджет (фактический и планируемый) с диапазоном дат'
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'Бюджет на январь'
+        description:
+          type: string
+          example: 'Расходы за январь 2024'
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-02-22T10:30:00Z'
+        start_at:
+          # добавил start_at и end_at чтобы показывать диапазон бюджета, например "1 января по 1 февраля"
+          type: string
+          format: date-time
+          description: 'Начало периода бюджета'
+          example: '2024-01-01T00:00:00Z'
+        end_at:
+          type: string
+          format: date-time
+          description: 'Конец периода бюджета'
+          example: '2024-02-01T00:00:00Z'
+        actual:
+          type: integer
+          example: 10000
+        target:
+          type: integer
+          example: 500000
+        currency:
+          type: string
+          example: 'USD'
+      required:
+        - title
+        - description
+        - created_at
+        - start_at
+        - end_at
+        - actual
+        - target
+        - currency
+
+    # ===================== схемы запросов
+
+    RegisterBody:
+      description: |
+        Тело запроса для регистрации нового пользователя.
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Имя пользователя (логин), от 3 до 50 символов
+          example: 'johndoe'
+        password:
+          # убрал confirm_password - проверка совпадения паролей на фронте, не нужно дублировать на бэк
+          # пароль теперь: минимум 8 символов, 1 заглавная, 1 строчная, 1 цифра
+          type: string
+          minLength: 8
+          format: password
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
+          description: 'Пароль: минимум 8 символов, минимум 1 заглавная буква, 1 строчная буква и 1 цифра'
+          example: 'SecurePass123!'
+        email:
+          type: string
+          format: email
+          description: Email для связи и восстановления пароля
+          example: 'john@example.com'
+      required:
+        - username
+        - password
+        - email
+
+    LoginBody:
+      description: |
+        Тело запроса для авторизации пользователя.
+      type: object
+      properties:
+        username:
+          type: string
+          description: Имя пользователя (логин)
+          example: 'johndoe'
+        password:
+          type: string
+          format: password
+          description: Пароль пользователя
+          example: 'SecurePass123!'
+      required:
+        - username
+        - password
+
+    # ===================== схемы ошибок
+
+    RegisterError:
+      description: Ошибка регистрации - пользователь уже существует
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 409
+        message:
+          # убрал details - фронт в основном обрабатывает message, details не нужен
+          type: string
+          example: 'User with this username or email already exists'
+        errors:
+          # привёл к единому виду с ValidationError - везде одинаковый массив errors
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: 'username'
+              message:
+                type: string
+                example: 'User with this username already exists'
+            required:
+              - field
+              - message
+      required:
+        - code
+        - message
+
+    LoginError:
+      description: Ошибка авторизации - неверный логин или пароль
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: 'Invalid username or password'
+        errors:
+          # привёл к единому виду - везде errors, даже если одна ошибка
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: 'username'
+              message:
+                type: string
+                example: 'Invalid username or password'
+            required:
+              - field
+              - message
+      required:
+        - code
+        - message
+
+    ValidationError:
+      description: |
+        Ошибка валидации входных данных.
+        Возвращается когда данные не соответствуют требованиям.
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: 'Validation error'
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: 'password'
+              message:
+                type: string
+                example: 'Password must be at least 8 characters, include uppercase, lowercase and a digit'
+            required:
+              - field
+              - message
+          example:
+            - field: 'password'
+              message: 'Password must be at least 8 characters, include uppercase, lowercase and a digit'
+            - field: 'email'
+              message: 'Invalid email format'
+      required:
+        - code
+        - message
+        - errors
+
+    UnauthorizedError:
+      description: Ошибка авторизации - невалидный или отсутствующий JWT токен
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: 'Unauthorized - invalid or missing token'
+      required:
+        - code
+        - message
+
+    ForbiddenError:
+      description: Доступ к ресурсу запрещён
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 403
+        message:
+          type: string
+          example: '403 - Forbidden'
+      required:
+        - code
+        - message
+
+    NotFoundError:
+      description: Не найдено
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 404
+        message:
+          type: string
+          example: '404 - Not Found'
+      required:
+        - code
+        - message
+
+    ServerError:
+      description: Внутренняя ошибка сервера
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 500
+        message:
+          type: string
+          example: 'Internal server error'
+        request_id:
+          type: string
+          example: 'req_abc123xyz'
+      required:
+        - code
+        - message

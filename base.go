@@ -20,25 +20,31 @@ func NewOkResponse() OkResponse {
 }
 
 type LoginSuccessResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	User    User   `json:"user"`
+	SimpleResponse
+	User AuthUser `json:"user"`
 }
 
 type RegisterSuccessResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	User    User   `json:"user"`
+	SimpleResponse
+	User AuthUser `json:"user"`
 }
 
 type LogoutSuccessResponse struct {
-	Code        int       `json:"code"`
-	Message     string    `json:"message"`
+	SimpleResponse
 	LoggedOutAt time.Time `json:"logged_out_at"`
 }
 
-type User struct {
+// юзер для авторизации
+type AuthUser struct {
 	Id        int       `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	LastLogin time.Time `json:"last_login,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+}
+
+// юзер для профиля
+type User struct {
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
@@ -56,6 +62,18 @@ type Budget struct {
 	Currency    string    `json:"currency"`
 }
 
+type BalanceResponse struct {
+	SimpleResponse
+	Balance  float64 `json:"balance"`
+	Currency string  `json:"currency"`
+}
+
+type BudgetsIdsResponse struct {
+	SimpleResponse
+	Len int   `json:"len"`
+	Ids []int `json:"ids"`
+}
+
 type RegisterBodyRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -67,13 +85,15 @@ type LoginBodyRequest struct {
 	Password string `json:"password"`
 }
 
-type RequestWithErrors struct {
-	Code    int    `json:"code"`
+type FieldError struct {
+	Field   string `json:"field"`
 	Message string `json:"message"`
-	Errors  []struct {
-		Field   string `json:"field"`
-		Message string `json:"message"`
-	} `json:"errors"`
+}
+
+type RequestWithErrors struct {
+	Code    int          `json:"code"`
+	Message string       `json:"message"`
+	Errors  []FieldError `json:"errors"`
 }
 
 type RegisterErrorResponse RequestWithErrors
@@ -81,7 +101,7 @@ type RegisterErrorResponse RequestWithErrors
 func NewRegisterErrorResponse() RegisterErrorResponse {
 	return RegisterErrorResponse{
 		Code:    http.StatusConflict,
-		Message: "User with this username or email already exists",
+		Message: "Пользователь с таким именем или email уже существует",
 	}
 }
 
@@ -90,7 +110,7 @@ type LoginErrorResponse RequestWithErrors
 func NewLoginErrorResponse() LoginErrorResponse {
 	return LoginErrorResponse{
 		Code:    http.StatusUnauthorized,
-		Message: "Invalid username or password",
+		Message: "Неверный логин или пароль",
 	}
 }
 
@@ -99,7 +119,7 @@ type ValidationErrorResponse RequestWithErrors
 func NewValidationErrorResponse() ValidationErrorResponse {
 	return ValidationErrorResponse{
 		Code:    http.StatusBadRequest,
-		Message: "Validation error",
+		Message: "Ошибка валидации",
 	}
 }
 
@@ -108,7 +128,7 @@ type UnauthorizedErrorResponse SimpleResponse
 func NewUnauthorizedErrorResponse() UnauthorizedErrorResponse {
 	return UnauthorizedErrorResponse{
 		Code:    http.StatusUnauthorized,
-		Message: "Unauthorized - invalid or missing token",
+		Message: "Не авторизован — невалидный или отсутствующий токен",
 	}
 }
 
@@ -117,7 +137,7 @@ type ForbiddenErrorResponse SimpleResponse
 func NewForbiddenErrorResponse() ForbiddenErrorResponse {
 	return ForbiddenErrorResponse{
 		Code:    http.StatusForbidden,
-		Message: "403 - Forbidden",
+		Message: "Доступ запрещён",
 	}
 }
 
@@ -126,7 +146,7 @@ type NotFoundErrorResponse SimpleResponse
 func NewNotFoundErrorResponse() NotFoundErrorResponse {
 	return NotFoundErrorResponse{
 		Code:    http.StatusNotFound,
-		Message: "404 - Not Found",
+		Message: "Не найдено",
 	}
 }
 
@@ -136,9 +156,10 @@ type ServerErrorResponse struct {
 	RequestId string `json:"request_id"`
 }
 
-func NewServerErrorResponse() ServerErrorResponse {
+func NewServerErrorResponse(requestId string) ServerErrorResponse {
 	return ServerErrorResponse{
-		Code:    http.StatusInternalServerError,
-		Message: "Internal server error",
+		Code:      http.StatusInternalServerError,
+		Message:   "Внутренняя ошибка сервера",
+		RequestId: requestId,
 	}
 }
