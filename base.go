@@ -65,7 +65,7 @@ func NewLogoutSuccessResponse(loggedOutAt time.Time) LogoutSuccessResponse {
 }
 
 type AuthUser struct {
-	Id        int       `json:"id"`
+	ID        int       `json:"id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	LastLogin time.Time `json:"last_login,omitempty"`
@@ -107,20 +107,20 @@ func NewBalanceResponse(balance float64, currency string) BalanceResponse {
 	}
 }
 
-type BudgetsIdsResponse struct {
+type BudgetsIDsResponse struct {
 	SimpleResponse
 	Len int   `json:"len"`
-	Ids []int `json:"ids"`
+	IDs []int `json:"ids"`
 }
 
-func NewBudgetsIdsResponse(ids []int) BudgetsIdsResponse {
-	return BudgetsIdsResponse{
+func NewBudgetsIDsResponse(ids []int) BudgetsIDsResponse {
+	return BudgetsIDsResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
 			Message: "Ok",
 		},
 		Len: len(ids),
-		Ids: ids,
+		IDs: ids,
 	}
 }
 
@@ -213,13 +213,13 @@ func NewNotFoundErrorResponse() NotFoundErrorResponse {
 type ServerErrorResponse struct {
 	Code      int    `json:"code"`
 	Message   string `json:"message"`
-	RequestId string `json:"request_id"`
+	RequestID string `json:"request_id"`
 }
 
-func NewServerErrorResponse(requestId string) ServerErrorResponse {
+func NewServerErrorResponse(requestID string) ServerErrorResponse {
 	return ServerErrorResponse{
 		Code:      http.StatusInternalServerError,
 		Message:   "Внутренняя ошибка сервера",
-		RequestId: requestId,
+		RequestID: requestID,
 	}
 }
