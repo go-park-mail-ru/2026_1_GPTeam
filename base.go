@@ -7,7 +7,7 @@ import (
 
 type SimpleResponse struct {
 	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Message string `json:"message,omitempty"`
 }
 
 type OkResponse SimpleResponse
@@ -24,9 +24,29 @@ type LoginSuccessResponse struct {
 	User AuthUser `json:"user"`
 }
 
+func NewLoginSuccessResponse(user AuthUser) LoginSuccessResponse {
+	return LoginSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Вход в систему прошел успешно",
+		},
+		User: user,
+	}
+}
+
 type RegisterSuccessResponse struct {
 	SimpleResponse
 	User AuthUser `json:"user"`
+}
+
+func NewRegisterSuccessResponse(user AuthUser) RegisterSuccessResponse {
+	return RegisterSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Регистрация прошла успешно",
+		},
+		User: user,
+	}
 }
 
 type LogoutSuccessResponse struct {
@@ -34,7 +54,16 @@ type LogoutSuccessResponse struct {
 	LoggedOutAt time.Time `json:"logged_out_at"`
 }
 
-// юзер для авторизации
+func NewLogoutSuccessResponse(loggedOutAt time.Time) LogoutSuccessResponse {
+	return LogoutSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Успешный выход из системы",
+		},
+		LoggedOutAt: loggedOutAt,
+	}
+}
+
 type AuthUser struct {
 	Id        int       `json:"id"`
 	Username  string    `json:"username"`
@@ -43,7 +72,6 @@ type AuthUser struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
-// юзер для профиля
 type User struct {
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
@@ -68,10 +96,32 @@ type BalanceResponse struct {
 	Currency string  `json:"currency"`
 }
 
+func NewBalanceResponse(balance float64, currency string) BalanceResponse {
+	return BalanceResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Balance:  balance,
+		Currency: currency,
+	}
+}
+
 type BudgetsIdsResponse struct {
 	SimpleResponse
 	Len int   `json:"len"`
 	Ids []int `json:"ids"`
+}
+
+func NewBudgetsIdsResponse(ids []int) BudgetsIdsResponse {
+	return BudgetsIdsResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Len: len(ids),
+		Ids: ids,
+	}
 }
 
 type RegisterBodyRequest struct {
@@ -90,6 +140,13 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
+func NewFieldError(field string, message string) FieldError {
+	return FieldError{
+		Field:   field,
+		Message: message,
+	}
+}
+
 type RequestWithErrors struct {
 	Code    int          `json:"code"`
 	Message string       `json:"message"`
@@ -98,28 +155,31 @@ type RequestWithErrors struct {
 
 type RegisterErrorResponse RequestWithErrors
 
-func NewRegisterErrorResponse() RegisterErrorResponse {
+func NewRegisterErrorResponse(errors []FieldError) RegisterErrorResponse {
 	return RegisterErrorResponse{
 		Code:    http.StatusConflict,
 		Message: "Пользователь с таким именем или email уже существует",
+		Errors:  errors,
 	}
 }
 
 type LoginErrorResponse RequestWithErrors
 
-func NewLoginErrorResponse() LoginErrorResponse {
+func NewLoginErrorResponse(errors []FieldError) LoginErrorResponse {
 	return LoginErrorResponse{
 		Code:    http.StatusUnauthorized,
 		Message: "Неверный логин или пароль",
+		Errors:  errors,
 	}
 }
 
 type ValidationErrorResponse RequestWithErrors
 
-func NewValidationErrorResponse() ValidationErrorResponse {
+func NewValidationErrorResponse(errors []FieldError) ValidationErrorResponse {
 	return ValidationErrorResponse{
 		Code:    http.StatusBadRequest,
 		Message: "Ошибка валидации",
+		Errors:  errors,
 	}
 }
 
