@@ -9,7 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var SECRET = []byte("myawesomesecret")
+var SECRET []byte
 
 type RefreshTokenInfo struct {
 	UserID    string
@@ -84,7 +84,7 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 }
 
 func GenerateToken(userID string) (string, error) {
-	expirationTime := time.Now().Add(15 * time.Second)
+	expirationTime := time.Now().Add(15 * time.Minute)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":  userID,
 		"exp": expirationTime.Unix(),
@@ -100,9 +100,9 @@ func GenerateToken(userID string) (string, error) {
 
 func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 	expirationTime := time.Now().AddDate(0, 0, 7)
-	TokenStore.Mu.RLock()
+	TokenStore.Mu.Lock()
+	defer TokenStore.Mu.Unlock()
 	tokenID := strconv.Itoa(TokenStore.NextID)
-	TokenStore.Mu.RUnlock()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":      tokenID,
 		"exp":     expirationTime.Unix(),
@@ -113,8 +113,6 @@ func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 		return "", err
 	}
 
-	TokenStore.Mu.Lock()
-	defer TokenStore.Mu.Unlock()
 	TokenStore.Tokens[tokenID] = RefreshTokenInfo{
 		UserID:    userID,
 		DeviceID:  deviceID,
