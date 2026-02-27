@@ -49,9 +49,9 @@ func main() {
 	jwt.SECRET = []byte(os.Getenv("JWT_SECRET"))
 
 	http.HandleFunc("/", root_handler)
-	http.HandleFunc("/login/", login_handler)
-	http.HandleFunc("/signup/", signup_handler)
-	http.HandleFunc("/logout/", logout_handler)
+	http.HandleFunc("/login", login_handler)
+	http.HandleFunc("/signup", signup_handler)
+	http.HandleFunc("/logout", logout_handler)
 
 	fmt.Println("starting server at :8080")
 	http.ListenAndServe(":8080", nil)
