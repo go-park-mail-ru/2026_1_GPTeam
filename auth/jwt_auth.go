@@ -44,13 +44,25 @@ func GetRefreshToken(r *http.Request) (*http.Cookie, error) {
 	return cookie, err
 }
 
-func IsAuth(r *http.Request) (bool, string) {
+func IsAuth(w http.ResponseWriter, r *http.Request) (bool, string) {
 	cookie, err := GetAuthCookie(r)
 	if err != nil {
 		return false, ""
 	}
 	token := cookie.Value
 	isValid, userID := jwt.CheckToken(token)
+	if isValid {
+		return true, userID
+	}
+	cookie, err = GetRefreshToken(r)
+	if err != nil {
+		return false, ""
+	}
+	token = cookie.Value
+	isValid, userID = jwt.CheckRefreshToken(token)
+	if isValid {
+		RefreshToken(w, r, userID)
+	}
 	return isValid, userID
 }
 
@@ -78,6 +90,7 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 }
 
-func RefreshToken() {
-
+func RefreshToken(w http.ResponseWriter, r *http.Request, userID string) {
+	ClearOldToken(w, r)
+	GenerateNewAuthCookie(w, userID)
 }

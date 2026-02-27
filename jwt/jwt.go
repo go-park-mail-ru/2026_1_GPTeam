@@ -12,9 +12,8 @@ import (
 var SECRET = []byte("myawesomesecret")
 
 type RefreshTokenInfo struct {
-	UserID    string
-	ExpiredAt time.Time
-	DeviceID  string
+	UserID   string
+	DeviceID string
 }
 
 type RefreshTokenStore struct {
@@ -47,6 +46,42 @@ func CheckToken(tokenStr string) (bool, string) {
 	return false, ""
 }
 
+func CheckRefreshToken(tokenStr string) (bool, string) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return SECRET, nil
+	})
+	if err != nil {
+		return false, ""
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return false, ""
+	}
+	tokenID, ok := claims["id"].(string)
+	if !ok {
+		return false, ""
+	}
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		return false, ""
+	}
+
+	TokenStore.Mu.RLock()
+	defer TokenStore.Mu.RUnlock()
+	storedToken, exists := TokenStore.Tokens[tokenID]
+	if !exists {
+		return false, ""
+	}
+	if storedToken.UserID != userID {
+		return false, ""
+	}
+	return true, userID
+}
+
 func GenerateToken(userID string) (string, error) {
 	expirationTime := time.Now().Add(15 * time.Minute)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -66,8 +101,9 @@ func GenerateRefreshToken(userID string, deviseID string) (string, error) {
 	expirationTime := time.Now().AddDate(0, 0, 7)
 	tokenID := strconv.Itoa(TokenStore.NextID)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":  tokenID,
-		"exp": expirationTime.Unix(),
+		"id":      tokenID,
+		"exp":     expirationTime.Unix(),
+		"user_id": userID,
 	})
 	refreshString, err := token.SignedString(SECRET)
 	if err != nil {
@@ -77,9 +113,8 @@ func GenerateRefreshToken(userID string, deviseID string) (string, error) {
 	TokenStore.Mu.Lock()
 	defer TokenStore.Mu.Unlock()
 	TokenStore.Tokens[tokenID] = RefreshTokenInfo{
-		UserID:    userID,
-		ExpiredAt: expirationTime,
-		DeviceID:  deviseID,
+		UserID:   userID,
+		DeviceID: deviseID,
 	}
 	TokenStore.NextID++
 
@@ -103,9 +138,7 @@ func DeleteRefreshToken(tokenStr string) {
 			return
 		}
 		TokenStore.Mu.Lock()
-		fmt.Println(TokenStore.Tokens)
 		delete(TokenStore.Tokens, id)
-		fmt.Println(TokenStore.Tokens)
 		TokenStore.Mu.Unlock()
 	}
 }

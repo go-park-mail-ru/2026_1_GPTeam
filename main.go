@@ -9,12 +9,12 @@ import (
 
 func root_handler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintln(w, "<h1>Привет, мир!</h1>")
-	isAuth, userID := auth.IsAuth(r)
+	isAuth, userID := auth.IsAuth(w, r)
 	fmt.Fprintln(w, "Is auth = ", isAuth)
 	if isAuth {
 		fmt.Fprintln(w, "user id = ", userID)
 	}
+	fmt.Fprintln(w, "<h1>Привет, мир!</h1>")
 }
 
 func login_handler(w http.ResponseWriter, r *http.Request) {
