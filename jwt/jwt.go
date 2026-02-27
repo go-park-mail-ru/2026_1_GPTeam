@@ -12,8 +12,9 @@ import (
 var SECRET = []byte("myawesomesecret")
 
 type RefreshTokenInfo struct {
-	UserID   string
-	DeviceID string
+	UserID    string
+	ExpiredAt time.Time
+	DeviceID  string
 }
 
 type RefreshTokenStore struct {
@@ -83,7 +84,7 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 }
 
 func GenerateToken(userID string) (string, error) {
-	expirationTime := time.Now().Add(15 * time.Minute)
+	expirationTime := time.Now().Add(15 * time.Second)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":  userID,
 		"exp": expirationTime.Unix(),
@@ -97,9 +98,11 @@ func GenerateToken(userID string) (string, error) {
 	return tokenString, nil
 }
 
-func GenerateRefreshToken(userID string, deviseID string) (string, error) {
+func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 	expirationTime := time.Now().AddDate(0, 0, 7)
+	TokenStore.Mu.RLock()
 	tokenID := strconv.Itoa(TokenStore.NextID)
+	TokenStore.Mu.RUnlock()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":      tokenID,
 		"exp":     expirationTime.Unix(),
@@ -113,8 +116,9 @@ func GenerateRefreshToken(userID string, deviseID string) (string, error) {
 	TokenStore.Mu.Lock()
 	defer TokenStore.Mu.Unlock()
 	TokenStore.Tokens[tokenID] = RefreshTokenInfo{
-		UserID:   userID,
-		DeviceID: deviseID,
+		UserID:    userID,
+		DeviceID:  deviceID,
+		ExpiredAt: expirationTime,
 	}
 	TokenStore.NextID++
 
