@@ -15,10 +15,13 @@ func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
 		return
 	}
 	cookie := &http.Cookie{
-		Name:    TokenName,
-		Value:   token,
-		Path:    "/",
-		Expires: time.Now().AddDate(0, 1, 0),
+		Name:     TokenName,
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().AddDate(0, 1, 0),
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
 	token, err = jwt.GenerateRefreshToken(userID, "pass")
@@ -26,10 +29,13 @@ func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
 		return
 	}
 	cookie = &http.Cookie{
-		Name:    RefreshTokenName,
-		Value:   token,
-		Path:    "/",
-		Expires: time.Now().AddDate(0, 1, 0),
+		Name:     RefreshTokenName,
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().AddDate(0, 1, 0),
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
 }
@@ -75,17 +81,23 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	jwt.DeleteRefreshToken(refreshToken)
 
 	cookie = &http.Cookie{
-		Name:    TokenName,
-		Value:   "",
-		Path:    "/",
-		Expires: time.Now().AddDate(0, -1, 0),
+		Name:     TokenName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Now().AddDate(0, -1, 0),
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
 	cookie = &http.Cookie{
-		Name:    RefreshTokenName,
-		Value:   "",
-		Path:    "/",
-		Expires: time.Now().AddDate(0, -1, 0),
+		Name:     RefreshTokenName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Now().AddDate(0, -1, 0),
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
 }

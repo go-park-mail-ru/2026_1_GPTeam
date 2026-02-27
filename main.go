@@ -5,6 +5,9 @@ import (
 	"main/auth"
 	"main/jwt"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func root_handler(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +41,13 @@ func logout_handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	jwt.TokenStore.NextID = 0
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file")
+		return
+	}
+	jwt.SECRET = []byte(os.Getenv("JWT_SECRET"))
+
 	http.HandleFunc("/", root_handler)
 	http.HandleFunc("/login/", login_handler)
 	http.HandleFunc("/signup/", signup_handler)
