@@ -1,58 +1,99 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"main/auth"
 	"main/jwt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
-func root_handler(w http.ResponseWriter, r *http.Request) {
+func SetCORS(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+}
+
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	SetCORS(w)
 	w.Header().Set("Content-Type", "application/json")
-	isAuth, userID := auth.IsAuth(w, r)
-	fmt.Fprintln(w, "Is auth = ", isAuth)
-	if isAuth {
-		fmt.Fprintln(w, "user id = ", userID)
+	isAuth, userID := auth.IsAuth(r)
+	data := make(map[string]interface{})
+	data["is_auth"] = isAuth
+	data["user_id"] = userID
+	err := json.NewEncoder(w).Encode(data)
+	if err != nil {
+		fmt.Println(err)
 	}
-	fmt.Fprintln(w, "<h1>Привет, мир!</h1>")
 }
 
-func login_handler(w http.ResponseWriter, r *http.Request) {
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	SetCORS(w)
 	auth.GenerateNewAuthCookie(w, "1")
-
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintln(w, "<h1>Страница логина</h1>")
+	user := AuthUser{
+		ID:        1,
+		Username:  "username",
+		Email:     "email",
+		LastLogin: time.Time{},
+		CreatedAt: time.Time{},
+	}
+	response := NewLoginSuccessResponse(user)
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
-func signup_handler(w http.ResponseWriter, r *http.Request) {
+func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	SetCORS(w)
+	w.Header().Set("Content-Type", "application/json")
+	isAuth, userID := auth.RefreshToken(w, r)
+	data := make(map[string]interface{})
+	data["is_auth"] = isAuth
+	data["user_id"] = userID
+	err := json.NewEncoder(w).Encode(data)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func signupHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintln(w, "<h1>Страница регистрации</h1>")
 }
 
-func logout_handler(w http.ResponseWriter, r *http.Request) {
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	auth.ClearOldToken(w, r)
-
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintln(w, "<h1>Страница выхода</h1>")
 }
 
 func main() {
-	jwt.TokenStore.NextID = 0
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("Error loading .env file")
 		return
 	}
-	jwt.SECRET = []byte(os.Getenv("JWT_SECRET"))
 
-	http.HandleFunc("/", root_handler)
-	http.HandleFunc("/login", login_handler)
-	http.HandleFunc("/signup", signup_handler)
-	http.HandleFunc("/logout", logout_handler)
+	jwt.TokenStore, err = jwt.NewRefreshTokenStore(os.Getenv("JWT_SECRET"))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/auth/login", loginHandler)
+	http.HandleFunc("/signup", signupHandler)
+	http.HandleFunc("/auth/logout", logoutHandler)
+	http.HandleFunc("/auth/refresh", refreshTokenHandler)
 
 	fmt.Println("starting server at :8080")
-	http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":8080", nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }

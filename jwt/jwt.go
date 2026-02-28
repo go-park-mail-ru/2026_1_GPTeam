@@ -9,7 +9,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var SECRET []byte
+const AccessTokenExpirationTime = time.Minute * 15
+const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
 type RefreshTokenInfo struct {
 	UserID    string
@@ -21,25 +22,36 @@ type RefreshTokenStore struct {
 	Mu     sync.RWMutex
 	Tokens map[string]RefreshTokenInfo // key: tokenID -> информация о токене
 	NextID int
+	secret []byte
 }
 
-var TokenStore = RefreshTokenStore{
-	Tokens: make(map[string]RefreshTokenInfo),
+func NewRefreshTokenStore(secret string) (*RefreshTokenStore, error) {
+	if len(secret) < 8 {
+		return nil, fmt.Errorf("secret must be at least 8 bytes")
+	}
+	return &RefreshTokenStore{
+		Tokens: make(map[string]RefreshTokenInfo),
+		NextID: 0,
+		secret: []byte(secret),
+	}, nil
 }
+
+var TokenStore *RefreshTokenStore
 
 func CheckToken(tokenStr string) (bool, string) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
-		return SECRET, nil
+		return TokenStore.secret, nil
 	})
 	if err != nil {
+		fmt.Println(err)
 		return false, ""
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		userID, ok := claims["id"].(string)
+		userID, ok := claims["user_id"].(string)
 		if ok {
 			return true, userID
 		}
@@ -52,9 +64,10 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
-		return SECRET, nil
+		return TokenStore.secret, nil
 	})
 	if err != nil {
+		fmt.Println(err)
 		return false, ""
 	}
 
@@ -84,14 +97,15 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 }
 
 func GenerateToken(userID string) (string, error) {
-	expirationTime := time.Now().Add(15 * time.Minute)
+	expirationTime := time.Now().Add(AccessTokenExpirationTime)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":  userID,
-		"exp": expirationTime.Unix(),
+		"user_id": userID,
+		"exp":     expirationTime.Unix(),
 	})
 
-	tokenString, err := token.SignedString(SECRET)
+	tokenString, err := token.SignedString(TokenStore.secret)
 	if err != nil {
+		fmt.Println(err)
 		return "", err
 	}
 
@@ -99,7 +113,7 @@ func GenerateToken(userID string) (string, error) {
 }
 
 func GenerateRefreshToken(userID string, deviceID string) (string, error) {
-	expirationTime := time.Now().AddDate(0, 0, 7)
+	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
 	TokenStore.Mu.Lock()
 	defer TokenStore.Mu.Unlock()
 	tokenID := strconv.Itoa(TokenStore.NextID)
@@ -108,8 +122,9 @@ func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 		"exp":     expirationTime.Unix(),
 		"user_id": userID,
 	})
-	refreshString, err := token.SignedString(SECRET)
+	refreshString, err := token.SignedString(TokenStore.secret)
 	if err != nil {
+		fmt.Println(err)
 		return "", err
 	}
 
@@ -128,9 +143,10 @@ func DeleteRefreshToken(tokenStr string) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
-		return SECRET, nil
+		return TokenStore.secret, nil
 	})
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 

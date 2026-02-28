@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"main/jwt"
 	"net/http"
 	"time"
@@ -18,7 +19,7 @@ func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
 		Name:     TokenName,
 		Value:    token,
 		Path:     "/",
-		Expires:  time.Now().AddDate(0, 1, 0),
+		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
@@ -31,8 +32,8 @@ func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
 	cookie = &http.Cookie{
 		Name:     RefreshTokenName,
 		Value:    token,
-		Path:     "/",
-		Expires:  time.Now().AddDate(0, 1, 0),
+		Path:     "/auth/",
+		Expires:  time.Now().Add(jwt.RefreshTokenExpirationTime),
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
@@ -50,31 +51,21 @@ func GetRefreshToken(r *http.Request) (*http.Cookie, error) {
 	return cookie, err
 }
 
-func IsAuth(w http.ResponseWriter, r *http.Request) (bool, string) {
+func IsAuth(r *http.Request) (bool, string) {
 	cookie, err := GetAuthCookie(r)
 	if err != nil {
+		fmt.Println(err)
 		return false, ""
 	}
 	token := cookie.Value
 	isValid, userID := jwt.CheckToken(token)
-	if isValid {
-		return true, userID
-	}
-	cookie, err = GetRefreshToken(r)
-	if err != nil {
-		return false, ""
-	}
-	token = cookie.Value
-	isValid, userID = jwt.CheckRefreshToken(token)
-	if isValid {
-		RefreshToken(w, r, userID)
-	}
 	return isValid, userID
 }
 
 func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	cookie, err := GetRefreshToken(r)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 	refreshToken := cookie.Value
@@ -93,7 +84,7 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	cookie = &http.Cookie{
 		Name:     RefreshTokenName,
 		Value:    "",
-		Path:     "/",
+		Path:     "/auth/",
 		Expires:  time.Now().AddDate(0, -1, 0),
 		Secure:   true,
 		HttpOnly: true,
@@ -102,7 +93,17 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 }
 
-func RefreshToken(w http.ResponseWriter, r *http.Request, userID string) {
+func RefreshToken(w http.ResponseWriter, r *http.Request) (bool, string) {
+	cookie, err := GetRefreshToken(r)
+	if err != nil {
+		return false, ""
+	}
+	token := cookie.Value
+	isValid, userID := jwt.CheckRefreshToken(token)
+	if !isValid {
+		return false, ""
+	}
 	ClearOldToken(w, r)
 	GenerateNewAuthCookie(w, userID)
+	return isValid, userID
 }
