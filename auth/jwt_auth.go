@@ -96,6 +96,7 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 func RefreshToken(w http.ResponseWriter, r *http.Request) (bool, string) {
 	cookie, err := GetRefreshToken(r)
 	if err != nil {
+		fmt.Println(err)
 		return false, ""
 	}
 	token := cookie.Value

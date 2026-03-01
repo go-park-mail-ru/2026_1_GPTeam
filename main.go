@@ -13,21 +13,10 @@ import (
 )
 
 func SetCORS(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("FRONT_URL"))
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
-}
-
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	SetCORS(w)
-	w.Header().Set("Content-Type", "application/json")
-	isAuth, userID := auth.IsAuth(r)
-	data := make(map[string]interface{})
-	data["is_auth"] = isAuth
-	data["user_id"] = userID
-	err := json.NewEncoder(w).Encode(data)
-	if err != nil {
-		fmt.Println(err)
-	}
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Origin, Cache-Control, X-Requested-With")
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +73,6 @@ func main() {
 		return
 	}
 
-	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/auth/login", loginHandler)
 	http.HandleFunc("/signup", signupHandler)
 	http.HandleFunc("/auth/logout", logoutHandler)
