@@ -51,8 +51,27 @@ func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
+	SetCORS(w)
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintln(w, "<h1>Страница регистрации</h1>")
+	var body RegisterBodyRequest
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(NewValidationErrorResponse(nil))
+		return
+	}
+	auth.GenerateNewAuthCookie(w, "1")
+	user := AuthUser{
+		ID:        1,
+		Username:  "username",
+		Email:     "email",
+		CreatedAt: time.Time{},
+	}
+	response := NewRegisterSuccessResponse(user)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
