@@ -9,13 +9,13 @@ import (
 	"github.com/google/uuid"
 )
 
-const AccessTokenExpirationTime = time.Second * 15
+const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
 func CheckToken(tokenStr string) (bool, string) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
 		return storage.GetJWTSecret(), nil
 	})

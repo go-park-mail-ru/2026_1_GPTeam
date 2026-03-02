@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"main/auth"
+	"main/base"
 	"main/storage"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -21,17 +23,48 @@ func SetCORS(w http.ResponseWriter) {
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	SetCORS(w)
-	auth.GenerateNewAuthCookie(w, "1")
 	w.Header().Set("Content-Type", "application/json")
-	user := AuthUser{
-		ID:        1,
-		Username:  "username",
-		Email:     "email",
-		LastLogin: time.Time{},
-		CreatedAt: time.Time{},
+	if r.Method != http.MethodPost {
+		response := base.NewMethodError()
+		err := json.NewEncoder(w).Encode(response)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return
 	}
-	response := NewLoginSuccessResponse(user)
-	err := json.NewEncoder(w).Encode(response)
+
+	var userRequest base.LoginBodyRequest
+	err := json.NewDecoder(r.Body).Decode(&userRequest)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	storedUser, exists := storage.FindUserByCredentials(userRequest)
+	var response interface{}
+	if exists {
+		user := base.AuthUser{
+			ID:        storedUser.Id,
+			Username:  storedUser.Username,
+			Email:     storedUser.Email,
+			LastLogin: time.Now(),
+			CreatedAt: time.Time{},
+		}
+		response = base.NewLoginSuccessResponse(user)
+		auth.GenerateNewAuthCookie(w, strconv.Itoa(storedUser.Id))
+	} else {
+		errors := make([]base.FieldError, 0)
+		errors = append(errors, base.FieldError{
+			Field:   "username",
+			Message: "Такого пользователя нет",
+		})
+		errors = append(errors, base.FieldError{
+			Field:   "password",
+			Message: "Такого пользователя нет",
+		})
+		response = base.NewLoginErrorResponse(errors)
+	}
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -73,6 +106,7 @@ func main() {
 		return
 	}
 	storage.NewUserStore()
+	storage.NewBudgetStore()
 
 	http.HandleFunc("/auth/login", loginHandler)
 	http.HandleFunc("/signup", signupHandler)
