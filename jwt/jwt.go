@@ -2,7 +2,6 @@ package jwt
 
 import (
 	"fmt"
-	"main/storage"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,7 +16,7 @@ func CheckToken(tokenStr string) (bool, string) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
-		return storage.GetJWTSecret(), nil
+		return getJWTSecret(), nil
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -38,7 +37,7 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
-		return storage.GetJWTSecret(), nil
+		return getJWTSecret(), nil
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -58,7 +57,7 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 		return false, ""
 	}
 
-	storedToken, exists := storage.GetToken(tokenID)
+	storedToken, exists := getToken(tokenID)
 	if !exists {
 		return false, ""
 	}
@@ -75,7 +74,7 @@ func GenerateToken(userID string) (string, error) {
 		"exp":     expirationTime.Unix(),
 	})
 
-	tokenString, err := token.SignedString(storage.GetJWTSecret())
+	tokenString, err := token.SignedString(getJWTSecret())
 	if err != nil {
 		fmt.Println(err)
 		return "", err
@@ -93,13 +92,13 @@ func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 		"exp":     expirationTime.Unix(),
 		"user_id": userID,
 	})
-	refreshString, err := token.SignedString(storage.GetJWTSecret())
+	refreshString, err := token.SignedString(getJWTSecret())
 	if err != nil {
 		fmt.Println(err)
 		return "", err
 	}
 
-	storage.AddToken(storage.RefreshTokenInfo{
+	addToken(RefreshTokenInfo{
 		UserID:    userID,
 		DeviceID:  deviceID,
 		ExpiredAt: expirationTime,
@@ -113,7 +112,7 @@ func DeleteRefreshToken(tokenStr string) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
-		return storage.GetJWTSecret(), nil
+		return getJWTSecret(), nil
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -125,6 +124,6 @@ func DeleteRefreshToken(tokenStr string) {
 		if !ok {
 			return
 		}
-		storage.DeleteToken(id)
+		deleteToken(id)
 	}
 }

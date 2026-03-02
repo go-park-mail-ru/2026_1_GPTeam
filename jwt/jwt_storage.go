@@ -1,4 +1,4 @@
-package storage
+package jwt
 
 import (
 	"fmt"
@@ -38,30 +38,24 @@ func NewRefreshTokenStore(secret string) error {
 	return nil
 }
 
-func GetJWTSecret() []byte {
+func getJWTSecret() []byte {
 	return tokenStore.secret
 }
 
-func GetToken(tokenID string) (RefreshTokenInfo, bool) {
+func getToken(tokenID string) (RefreshTokenInfo, bool) {
 	tokenStore.mu.RLock()
 	defer tokenStore.mu.RUnlock()
 	storedToken, exists := tokenStore.tokens[tokenID]
 	return storedToken, exists
 }
 
-func DoTokenWithLock(f func()) {
-	tokenStore.mu.Lock()
-	defer tokenStore.mu.Unlock()
-	f()
-}
-
-func AddToken(obj RefreshTokenInfo, id string) {
+func addToken(obj RefreshTokenInfo, id string) {
 	tokenStore.mu.Lock()
 	defer tokenStore.mu.Unlock()
 	tokenStore.tokens[id] = obj
 }
 
-func DeleteToken(id string) {
+func deleteToken(id string) {
 	tokenStore.mu.Lock()
 	defer tokenStore.mu.Unlock()
 	delete(tokenStore.tokens, id)

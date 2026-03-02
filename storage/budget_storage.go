@@ -38,12 +38,6 @@ func NewBudgetStore() {
 	})
 }
 
-func DoBudgetWithLock(f func()) {
-	budgetStore.mu.Lock()
-	defer budgetStore.mu.Unlock()
-	f()
-}
-
 func GetBudgetByID(id string) (BudgetInfo, bool) {
 	budgetStore.mu.RLock()
 	defer budgetStore.mu.RUnlock()

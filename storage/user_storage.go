@@ -2,7 +2,6 @@ package storage
 
 import (
 	"main/base"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -11,7 +10,7 @@ var onceUser sync.Once
 var userStore UserStore
 
 type UserStore struct {
-	users map[string]UserInfo
+	users map[int]UserInfo
 	mu    sync.RWMutex
 }
 
@@ -27,7 +26,7 @@ type UserInfo struct {
 
 func initUserStorage() {
 	userStore = UserStore{
-		users: make(map[string]UserInfo),
+		users: make(map[int]UserInfo),
 	}
 }
 
@@ -37,27 +36,20 @@ func NewUserStore() {
 	})
 }
 
-func DoUserWithLock(f func()) {
-	userStore.mu.Lock()
-	defer userStore.mu.Unlock()
-	f()
-}
-
-func GetUserByID(id string) (UserInfo, bool) {
+func GetUserByID(id int) (UserInfo, bool) {
 	userStore.mu.RLock()
 	defer userStore.mu.RUnlock()
 	user, exists := userStore.users[id]
 	return user, exists
 }
 
-func AddUser(user UserInfo) string {
+func AddUser(user UserInfo) int {
 	userStore.mu.Lock()
 	defer userStore.mu.Unlock()
 	id := len(userStore.users)
 	user.Id = id
-	key := strconv.Itoa(id)
-	userStore.users[key] = user
-	return key
+	userStore.users[id] = user
+	return id
 }
 
 func FindUserByCredentials(user base.LoginBodyRequest) (UserInfo, bool) {
