@@ -72,6 +72,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	storage.NewUserStore()
 
 	http.HandleFunc("/auth/login", loginHandler)
 	http.HandleFunc("/signup", signupHandler)

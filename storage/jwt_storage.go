@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-var once sync.Once
+var onceJWT sync.Once
 var tokenStore RefreshTokenStore
 
 type RefreshTokenInfo struct {
@@ -32,7 +32,7 @@ func NewRefreshTokenStore(secret string) error {
 	if len(secret) < 8 {
 		return fmt.Errorf("secret must be at least 8 bytes")
 	}
-	once.Do(func() {
+	onceJWT.Do(func() {
 		initTokenStorage(secret)
 	})
 	return nil
@@ -49,7 +49,7 @@ func GetToken(tokenID string) (RefreshTokenInfo, bool) {
 	return storedToken, exists
 }
 
-func DoWithLock(f func()) {
+func DoTokenWithLock(f func()) {
 	tokenStore.mu.Lock()
 	defer tokenStore.mu.Unlock()
 	f()
