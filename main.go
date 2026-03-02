@@ -60,6 +60,33 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
+func profileHandler(w http.ResponseWriter, r *http.Request) {
+	SetCORS(w)
+	w.Header().Set("Content-Type", "application/json")
+	isAuth, userID := auth.IsAuth(r)
+	var response interface{}
+	if !isAuth {
+		response = NewUnauthorizedErrorResponse()
+		err := json.NewEncoder(w).Encode(response)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
+	storedUser := User{
+		Username:  "username",
+		Email:     "email",
+		CreatedAt: time.Now(),
+		AvatarUrl: "img/123.png",
+	}
+	_ = userID
+	err := json.NewEncoder(w).Encode(storedUser)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -77,6 +104,7 @@ func main() {
 	http.HandleFunc("/signup", signupHandler)
 	http.HandleFunc("/auth/logout", logoutHandler)
 	http.HandleFunc("/auth/refresh", refreshTokenHandler)
+	http.HandleFunc("/profile", profileHandler)
 
 	fmt.Println("starting server at :8080")
 	err = http.ListenAndServe(":8080", nil)
