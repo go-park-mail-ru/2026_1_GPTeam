@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"main/auth"
-	"main/jwt"
+	"main/storage"
 	"net/http"
 	"os"
 	"time"
@@ -67,7 +67,7 @@ func main() {
 		return
 	}
 
-	jwt.TokenStore, err = jwt.NewRefreshTokenStore(os.Getenv("JWT_SECRET"))
+	err = storage.NewRefreshTokenStore(os.Getenv("JWT_SECRET"))
 	if err != nil {
 		fmt.Println(err)
 		return
