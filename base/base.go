@@ -1,4 +1,4 @@
-package main
+package base
 
 import (
 	"net/http"
@@ -221,5 +221,14 @@ func NewServerErrorResponse(requestID string) ServerErrorResponse {
 		Code:      http.StatusInternalServerError,
 		Message:   "Внутренняя ошибка сервера",
 		RequestID: requestID,
+	}
+}
+
+type MethodError SimpleResponse
+
+func NewMethodError() MethodError {
+	return MethodError{
+		Code:    http.StatusMethodNotAllowed,
+		Message: "Метод не поддерживается",
 	}
 }
