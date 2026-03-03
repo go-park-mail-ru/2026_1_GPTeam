@@ -2,48 +2,21 @@ package jwt
 
 import (
 	"fmt"
-	"strconv"
-	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
-type RefreshTokenInfo struct {
-	UserID    string
-	ExpiredAt time.Time
-	DeviceID  string
-}
-
-type RefreshTokenStore struct {
-	Mu     sync.RWMutex
-	Tokens map[string]RefreshTokenInfo // key: tokenID -> информация о токене
-	NextID int
-	secret []byte
-}
-
-func NewRefreshTokenStore(secret string) (*RefreshTokenStore, error) {
-	if len(secret) < 8 {
-		return nil, fmt.Errorf("secret must be at least 8 bytes")
-	}
-	return &RefreshTokenStore{
-		Tokens: make(map[string]RefreshTokenInfo),
-		NextID: 0,
-		secret: []byte(secret),
-	}, nil
-}
-
-var TokenStore *RefreshTokenStore
-
 func CheckToken(tokenStr string) (bool, string) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
-		return TokenStore.secret, nil
+		return getJWTSecret(), nil
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -62,9 +35,9 @@ func CheckToken(tokenStr string) (bool, string) {
 func CheckRefreshToken(tokenStr string) (bool, string) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
-		return TokenStore.secret, nil
+		return getJWTSecret(), nil
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -84,9 +57,7 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 		return false, ""
 	}
 
-	TokenStore.Mu.RLock()
-	defer TokenStore.Mu.RUnlock()
-	storedToken, exists := TokenStore.Tokens[tokenID]
+	storedToken, exists := getToken(tokenID)
 	if !exists {
 		return false, ""
 	}
@@ -103,7 +74,7 @@ func GenerateToken(userID string) (string, error) {
 		"exp":     expirationTime.Unix(),
 	})
 
-	tokenString, err := token.SignedString(TokenStore.secret)
+	tokenString, err := token.SignedString(getJWTSecret())
 	if err != nil {
 		fmt.Println(err)
 		return "", err
@@ -114,26 +85,24 @@ func GenerateToken(userID string) (string, error) {
 
 func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
-	TokenStore.Mu.Lock()
-	defer TokenStore.Mu.Unlock()
-	tokenID := strconv.Itoa(TokenStore.NextID)
+
+	tokenID := uuid.New().String()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":      tokenID,
 		"exp":     expirationTime.Unix(),
 		"user_id": userID,
 	})
-	refreshString, err := token.SignedString(TokenStore.secret)
+	refreshString, err := token.SignedString(getJWTSecret())
 	if err != nil {
 		fmt.Println(err)
 		return "", err
 	}
 
-	TokenStore.Tokens[tokenID] = RefreshTokenInfo{
+	addToken(RefreshTokenInfo{
 		UserID:    userID,
 		DeviceID:  deviceID,
 		ExpiredAt: expirationTime,
-	}
-	TokenStore.NextID++
+	}, tokenID)
 
 	return refreshString, nil
 }
@@ -141,9 +110,9 @@ func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 func DeleteRefreshToken(tokenStr string) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
-		return TokenStore.secret, nil
+		return getJWTSecret(), nil
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -155,8 +124,6 @@ func DeleteRefreshToken(tokenStr string) {
 		if !ok {
 			return
 		}
-		TokenStore.Mu.Lock()
-		delete(TokenStore.Tokens, id)
-		TokenStore.Mu.Unlock()
+		deleteToken(id)
 	}
 }
