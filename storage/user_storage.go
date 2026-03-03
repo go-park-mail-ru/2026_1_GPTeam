@@ -2,6 +2,7 @@ package storage
 
 import (
 	"main/base"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -15,14 +16,15 @@ type UserStore struct {
 }
 
 type UserInfo struct {
-	Id        int
-	Username  string
-	Password  string
-	Email     string
-	CreatedAt time.Time
-	LastLogin time.Time
-	AvatarUrl string
-	Balance   int
+	Id              int
+	Username        string
+	Password        string
+	Email           string
+	CreatedAt       time.Time
+	LastLogin       time.Time
+	AvatarUrl       string
+	Balance         float64
+	BalanceCurrency string
 }
 
 func initUserStorage() {
@@ -60,4 +62,27 @@ func FindUserByCredentials(user base.LoginBodyRequest) (UserInfo, bool) {
 		}
 	}
 	return UserInfo{}, false
+}
+
+func IsAuthUserInDatabase(isAuth bool, userID string) (base.User, bool) {
+	if !isAuth {
+		return base.User{}, false
+	}
+	id, err := strconv.Atoi(userID)
+	if err != nil {
+		return base.User{}, false
+	}
+	storedUser, exists := GetUserByID(id)
+	if !exists {
+		return base.User{}, false
+	}
+	authUser := base.User{
+		Username:        storedUser.Username,
+		Email:           storedUser.Email,
+		LastLogin:       storedUser.LastLogin,
+		CreatedAt:       storedUser.CreatedAt,
+		Balance:         storedUser.Balance,
+		BalanceCurrency: storedUser.BalanceCurrency,
+	}
+	return authUser, true
 }

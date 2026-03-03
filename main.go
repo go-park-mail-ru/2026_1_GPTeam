@@ -57,12 +57,14 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	user := base.AuthUser{
-		ID:        storedUser.Id,
-		Username:  storedUser.Username,
-		Email:     storedUser.Email,
-		LastLogin: time.Now(),
-		CreatedAt: time.Time{},
+	user := base.User{
+		Username:        storedUser.Username,
+		Email:           storedUser.Email,
+		LastLogin:       time.Now(),
+		CreatedAt:       storedUser.CreatedAt,
+		AvatarUrl:       storedUser.AvatarUrl,
+		Balance:         storedUser.Balance,
+		BalanceCurrency: storedUser.BalanceCurrency,
 	}
 	response := base.NewLoginSuccessResponse(user)
 	auth.GenerateNewAuthCookie(w, strconv.Itoa(storedUser.Id))
@@ -76,29 +78,11 @@ func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	isAuth, userID := auth.RefreshToken(w, r)
-	if !isAuth {
+	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
+	if !ok {
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
-	}
-	id, err := strconv.Atoi(userID)
-	if err != nil {
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	storedUser, exists := storage.GetUserByID(id)
-	if !exists {
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	authUser := base.AuthUser{
-		ID:        storedUser.Id,
-		Username:  storedUser.Username,
-		Email:     storedUser.Email,
-		LastLogin: storedUser.LastLogin,
-		CreatedAt: storedUser.CreatedAt,
 	}
 	response := base.NewLoginSuccessResponse(authUser)
 	base.WriteResponseJSON(w, response.Code, response)
@@ -143,29 +127,11 @@ func isLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	isAuth, userID := auth.IsAuth(r)
-	if !isAuth {
+	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
+	if !ok {
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
-	}
-	id, err := strconv.Atoi(userID)
-	if err != nil {
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	storedUser, exists := storage.GetUserByID(id)
-	if !exists {
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	authUser := base.AuthUser{
-		ID:        storedUser.Id,
-		Username:  storedUser.Username,
-		Email:     storedUser.Email,
-		LastLogin: storedUser.LastLogin,
-		CreatedAt: storedUser.CreatedAt,
 	}
 	response := base.NewLoginSuccessResponse(authUser)
 	base.WriteResponseJSON(w, response.Code, response)
@@ -192,6 +158,20 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	base.WriteResponseJSON(w, http.StatusOK, storedUser)
 }
 
+func balanceHandler(w http.ResponseWriter, r *http.Request) {
+	isAuth, userID := auth.IsAuth(r)
+	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
+	if !ok {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	balance := authUser.Balance
+	currency := authUser.BalanceCurrency
+	response := base.NewBalanceResponse(balance, currency, 100, 46)
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -206,13 +186,15 @@ func main() {
 	}
 	storage.NewUserStore()
 	storage.AddUser(storage.UserInfo{
-		Id:        0,
-		Username:  "admin",
-		Password:  "Adm1n123",
-		Email:     "email",
-		CreatedAt: time.Now(),
-		LastLogin: time.Now(),
-		AvatarUrl: "img/123.png",
+		Id:              0,
+		Username:        "admin",
+		Password:        "Adm1n123",
+		Email:           "email",
+		CreatedAt:       time.Now(),
+		LastLogin:       time.Now(),
+		AvatarUrl:       "img/123.png",
+		Balance:         100.5,
+		BalanceCurrency: "RUB",
 	})
 	storage.NewBudgetStore()
 
@@ -223,6 +205,7 @@ func main() {
 	mux.HandleFunc("/auth/refresh", refreshTokenHandler)
 	mux.HandleFunc("/profile", profileHandler)
 	mux.HandleFunc("/is_login", isLogin)
+	mux.HandleFunc("/balance", balanceHandler)
 
 	handler := middleware.CORSMiddleware(mux)
 
