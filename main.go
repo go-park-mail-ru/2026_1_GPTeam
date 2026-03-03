@@ -70,11 +70,38 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response := base.NewMethodError()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
 	isAuth, userID := auth.RefreshToken(w, r)
-	data := make(map[string]interface{})
-	data["is_auth"] = isAuth
-	data["user_id"] = userID
-	base.WriteResponseJSON(w, http.StatusOK, data)
+	if !isAuth {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	id, err := strconv.Atoi(userID)
+	if err != nil {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	storedUser, exists := storage.GetUserByID(id)
+	if !exists {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	authUser := base.AuthUser{
+		ID:        storedUser.Id,
+		Username:  storedUser.Username,
+		Email:     storedUser.Email,
+		LastLogin: storedUser.LastLogin,
+		CreatedAt: storedUser.CreatedAt,
+	}
+	response := base.NewLoginSuccessResponse(authUser)
+	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
@@ -109,31 +136,60 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func profileHandler(w http.ResponseWriter, r *http.Request) {
-	SetCORS(w)
-	w.Header().Set("Content-Type", "application/json")
-	isAuth, userID := auth.IsAuth(r)
-	var response interface{}
-	if !isAuth {
-		response = NewUnauthorizedErrorResponse()
-		err := json.NewEncoder(w).Encode(response)
-		if err != nil {
-			fmt.Println(err)
-		}
+func isLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response := base.NewMethodError()
+		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	storedUser := User{
-		Username:  "username",
+	isAuth, userID := auth.IsAuth(r)
+	if !isAuth {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	id, err := strconv.Atoi(userID)
+	if err != nil {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	storedUser, exists := storage.GetUserByID(id)
+	if !exists {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	authUser := base.AuthUser{
+		ID:        storedUser.Id,
+		Username:  storedUser.Username,
+		Email:     storedUser.Email,
+		LastLogin: storedUser.LastLogin,
+		CreatedAt: storedUser.CreatedAt,
+	}
+	response := base.NewLoginSuccessResponse(authUser)
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
+func profileHandler(w http.ResponseWriter, r *http.Request) {
+	isAuth, userID := auth.IsAuth(r)
+	if !isAuth {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	storedUser := storage.UserInfo{
+		Id:        0,
+		Username:  "admin",
+		Password:  "Adm1n123",
 		Email:     "email",
 		CreatedAt: time.Now(),
+		LastLogin: time.Now(),
 		AvatarUrl: "img/123.png",
+		Balance:   0,
 	}
 	_ = userID
-	err := json.NewEncoder(w).Encode(storedUser)
-
-	if err != nil {
-		fmt.Println(err)
-	}
+	base.WriteResponseJSON(w, http.StatusOK, storedUser)
 }
 
 func main() {
@@ -155,7 +211,7 @@ func main() {
 		Password:  "Adm1n123",
 		Email:     "email",
 		CreatedAt: time.Now(),
-		LastLogin: time.Time{},
+		LastLogin: time.Now(),
 		AvatarUrl: "img/123.png",
 	})
 	storage.NewBudgetStore()
@@ -165,6 +221,8 @@ func main() {
 	mux.HandleFunc("/signup", signupHandler)
 	mux.HandleFunc("/auth/logout", logoutHandler)
 	mux.HandleFunc("/auth/refresh", refreshTokenHandler)
+	mux.HandleFunc("/profile", profileHandler)
+	mux.HandleFunc("/is_login", isLogin)
 
 	handler := middleware.CORSMiddleware(mux)
 
