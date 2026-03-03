@@ -93,23 +93,29 @@ func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
-	SetCORS(w)
-	w.Header().Set("Content-Type", "application/json")
-	var body RegisterBodyRequest
+	if r.Method != http.MethodPost {
+		response := base.NewMethodError()
+		err := base.WriteResponseJSON(w, response.Code, response)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
+	var body base.RegisterBodyRequest
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(NewValidationErrorResponse(nil))
+		json.NewEncoder(w).Encode(base.NewValidationErrorResponse(nil))
 		return
 	}
 	auth.GenerateNewAuthCookie(w, "1")
-	user := AuthUser{
+	user := base.AuthUser{
 		ID:        1,
 		Username:  "username",
 		Email:     "email",
 		CreatedAt: time.Time{},
 	}
-	response := NewRegisterSuccessResponse(user)
+	response := base.NewRegisterSuccessResponse(user)
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		fmt.Println(err)
