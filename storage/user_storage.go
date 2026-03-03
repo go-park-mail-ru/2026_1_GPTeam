@@ -22,6 +22,7 @@ type UserInfo struct {
 	CreatedAt time.Time
 	LastLogin time.Time
 	AvatarUrl string
+	Balance   int
 }
 
 func initUserStorage() {

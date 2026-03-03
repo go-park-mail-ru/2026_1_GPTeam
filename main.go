@@ -19,10 +19,7 @@ import (
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response := base.NewMethodError()
-		err := base.WriteResponseJSON(w, response.Code, response)
-		if err != nil {
-			fmt.Println(err)
-		}
+		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
@@ -41,10 +38,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 		response := base.NewLoginErrorResponse(errors)
-		err = base.WriteResponseJSON(w, response.Code, response)
-		if err != nil {
-			fmt.Println(err)
-		}
+		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
@@ -60,10 +54,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			Message: "Неверный логин или пароль",
 		})
 		response := base.NewLoginErrorResponse(errors)
-		err = base.WriteResponseJSON(w, response.Code, response)
-		if err != nil {
-			fmt.Println(err)
-		}
+		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	user := base.AuthUser{
@@ -75,10 +66,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	response := base.NewLoginSuccessResponse(user)
 	auth.GenerateNewAuthCookie(w, strconv.Itoa(storedUser.Id))
-	err = base.WriteResponseJSON(w, response.Code, response)
-	if err != nil {
-		fmt.Println(err)
-	}
+	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
@@ -86,19 +74,13 @@ func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	data := make(map[string]interface{})
 	data["is_auth"] = isAuth
 	data["user_id"] = userID
-	err := base.WriteResponseJSON(w, http.StatusOK, data)
-	if err != nil {
-		fmt.Println(err)
-	}
+	base.WriteResponseJSON(w, http.StatusOK, data)
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response := base.NewMethodError()
-		err := base.WriteResponseJSON(w, response.Code, response)
-		if err != nil {
-			fmt.Println(err)
-		}
+		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	var body base.RegisterBodyRequest

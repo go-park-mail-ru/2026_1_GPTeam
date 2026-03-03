@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"strconv"
 	"sync"
 	"time"
 )
@@ -10,7 +9,7 @@ var onceBudget sync.Once
 var budgetStore BudgetStore
 
 type BudgetStore struct {
-	budgets map[string]BudgetInfo
+	budgets map[int]BudgetInfo
 	mu      sync.RWMutex
 }
 
@@ -24,11 +23,12 @@ type BudgetInfo struct {
 	Actual      int
 	Target      int
 	Currency    string
+	Author      int
 }
 
 func initBudgetStore() {
 	budgetStore = BudgetStore{
-		budgets: make(map[string]BudgetInfo),
+		budgets: make(map[int]BudgetInfo),
 	}
 }
 
@@ -38,19 +38,18 @@ func NewBudgetStore() {
 	})
 }
 
-func GetBudgetByID(id string) (BudgetInfo, bool) {
+func GetBudgetByID(id int) (BudgetInfo, bool) {
 	budgetStore.mu.RLock()
 	defer budgetStore.mu.RUnlock()
 	budget, ok := budgetStore.budgets[id]
 	return budget, ok
 }
 
-func AddBudget(budget BudgetInfo) string {
+func AddBudget(budget BudgetInfo) int {
 	budgetStore.mu.Lock()
 	defer budgetStore.mu.Unlock()
 	id := len(budgetStore.budgets)
 	budget.Id = id
-	key := strconv.Itoa(id)
-	budgetStore.budgets[key] = budget
-	return key
+	budgetStore.budgets[id] = budget
+	return id
 }

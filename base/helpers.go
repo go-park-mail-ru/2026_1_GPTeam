@@ -2,15 +2,18 @@ package base
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 )
 
-func WriteResponseJSON(w http.ResponseWriter, code int, response any) error {
+func WriteResponseJSON(w http.ResponseWriter, code int, response any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	err := json.NewEncoder(w).Encode(response)
-	return err
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func SetCORS(w http.ResponseWriter) {
