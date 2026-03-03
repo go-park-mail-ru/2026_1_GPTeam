@@ -61,3 +61,25 @@ func FindUserByCredentials(user base.LoginBodyRequest) (UserInfo, bool) {
 	}
 	return UserInfo{}, false
 }
+
+func UserExists(username string) bool {
+	userStore.mu.RLock()
+	defer userStore.mu.RUnlock()
+	for _, value := range userStore.users {
+		if value.Username == username {
+			return true
+		}
+	}
+	return false
+}
+
+func EmailExists(email string) bool {
+	userStore.mu.RLock()
+	defer userStore.mu.RUnlock()
+	for _, user := range userStore.users {
+		if user.Email == email {
+			return true
+		}
+	}
+	return false
+}

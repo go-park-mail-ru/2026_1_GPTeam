@@ -34,13 +34,13 @@ func NewLoginSuccessResponse(user AuthUser) LoginSuccessResponse {
 	}
 }
 
-type RegisterSuccessResponse struct {
+type SignupSuccessResponse struct {
 	SimpleResponse
 	User AuthUser `json:"user"`
 }
 
-func NewRegisterSuccessResponse(user AuthUser) RegisterSuccessResponse {
-	return RegisterSuccessResponse{
+func NewSignupSuccessResponse(user AuthUser) SignupSuccessResponse {
+	return SignupSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
 			Message: "Регистрация прошла успешно",
@@ -124,10 +124,11 @@ func NewBudgetsIDsResponse(ids []int) BudgetsIDsResponse {
 	}
 }
 
-type RegisterBodyRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
+type SignupBodyRequest struct {
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+	Email           string `json:"email"`
 }
 
 type LoginBodyRequest struct {
@@ -153,10 +154,10 @@ type RequestWithErrors struct {
 	Errors  []FieldError `json:"errors"`
 }
 
-type RegisterErrorResponse RequestWithErrors
+type SignupErrorResponse RequestWithErrors
 
-func NewRegisterErrorResponse(errors []FieldError) RegisterErrorResponse {
-	return RegisterErrorResponse{
+func NewSignupErrorResponse(errors []FieldError) SignupErrorResponse {
+	return SignupErrorResponse{
 		Code:    http.StatusConflict,
 		Message: "Пользователь с таким именем или email уже существует",
 		Errors:  errors,

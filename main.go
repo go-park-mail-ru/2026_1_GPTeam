@@ -83,25 +83,78 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	var body base.RegisterBodyRequest
+	var body base.SignupBodyRequest
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(base.NewValidationErrorResponse(nil))
+		fmt.Println(err)
+		response := base.NewSignupErrorResponse([]base.FieldError{
+			{
+				Field:   "username",
+				Message: "Не удалось прочитать json",
+			},
+			{
+				Field:   "password",
+				Message: "Не удалось прочитать json",
+			},
+			{
+				Field:   "confirm_password",
+				Message: "Не удалось прочитать json",
+			},
+			{
+				Field:   "email",
+				Message: "Не удалось прочитать json",
+			},
+		})
+		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	auth.GenerateNewAuthCookie(w, "1")
-	user := base.AuthUser{
-		ID:        1,
-		Username:  "username",
-		Email:     "email",
-		CreatedAt: time.Time{},
+	user := storage.UserInfo{
+		Username:  body.Username,
+		Password:  body.Password,
+		Email:     body.Email,
+		CreatedAt: time.Now(),
+		LastLogin: time.Time{},
 	}
-	response := base.NewRegisterSuccessResponse(user)
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		fmt.Println(err)
+	if storage.UserExists(body.Username) {
+		response := base.NewSignupErrorResponse([]base.FieldError{
+			{
+				Field:   "username",
+				Message: "Пользователь с таким именем уже существует",
+			},
+		})
+		base.WriteResponseJSON(w, response.Code, response)
+		return
 	}
+	if storage.EmailExists(body.Email) {
+		response := base.NewSignupErrorResponse([]base.FieldError{
+			{
+				Field:   "email",
+				Message: "Пользователь с таким email уже существует",
+			},
+		})
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	if body.Password != body.ConfirmPassword {
+		response := base.NewSignupErrorResponse([]base.FieldError{
+			{
+				Field:   "confirm_password",
+				Message: "Пароли не совпадают",
+			},
+		})
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	id := storage.AddUser(user)
+	authUser := base.AuthUser{
+		ID:        id,
+		Username:  user.Username,
+		Email:     user.Email,
+		LastLogin: time.Now(),
+	}
+	response := base.NewSignupSuccessResponse(authUser)
+	auth.GenerateNewAuthCookie(w, strconv.Itoa(id))
+	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
