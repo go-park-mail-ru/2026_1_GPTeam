@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -163,6 +164,166 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
+func GetBudgetsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response := base.NewMethodError()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	userID, err := auth.GetUserIDFromCookie(r)
+	if err != nil {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	ids := storage.GetBudgetIDsByUserID(userID)
+	response := base.NewBudgetsIDsResponse(ids)
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
+func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response := base.NewMethodError()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	userID, err := auth.GetUserIDFromCookie(r)
+	if err != nil {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	idStr := strings.TrimPrefix(r.URL.Path, "/get_budget/")
+	if idStr == "" {
+		response := base.NewNotFoundErrorResponse("Не указан ID бюджета")
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	budgetID, err := strconv.Atoi(idStr)
+	if err != nil {
+		response := base.NewNotFoundErrorResponse("Неверный ID бюджета")
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	budget, ok := storage.GetBudgetByIDAndUserID(budgetID, userID)
+	if !ok {
+		response := base.NewNotFoundErrorResponse("Бюджет не найден")
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	result := base.BudgetRequest{
+		Title:       budget.Title,
+		Description: budget.Description,
+		CreatedAt:   budget.CreatedAt,
+		StartAt:     budget.StartAt,
+		EndAt:       budget.EndAt,
+		Actual:      budget.Actual,
+		Target:      budget.Target,
+		Currency:    budget.Currency,
+	}
+	response := base.NewBudgetGetSuccessResponse(result)
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
+func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response := base.NewMethodError()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	userID, err := auth.GetUserIDFromCookie(r)
+	if err != nil {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	var body base.BudgetRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response := base.NewBudgetErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []base.FieldError{
+			{Field: "", Message: "Не удалось прочитать тело запроса"},
+		})
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	var fieldErrors []base.FieldError
+	if body.Title == "" {
+		fieldErrors = append(fieldErrors, base.FieldError{Field: "title", Message: "Поле обязательно для заполнения"})
+	}
+	if body.Target == 0 {
+		fieldErrors = append(fieldErrors, base.FieldError{Field: "target", Message: "Поле обязательно для заполнения"})
+	}
+	if body.Currency == "" {
+		fieldErrors = append(fieldErrors, base.FieldError{Field: "currency", Message: "Поле обязательно для заполнения"})
+	}
+	if len(fieldErrors) > 0 {
+		response := base.NewBudgetErrorResponse(http.StatusBadRequest, "Ошибка валидации", fieldErrors)
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	budget := storage.BudgetInfo{
+		Title:       body.Title,
+		Description: body.Description,
+		CreatedAt:   time.Now(),
+		StartAt:     body.StartAt,
+		EndAt:       body.EndAt,
+		Actual:      0,
+		Target:      body.Target,
+		Currency:    body.Currency,
+		Author:      userID,
+	}
+	id := storage.AddBudget(budget)
+	response := base.NewBudgetCreateSuccessResponse(id)
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
+func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		response := base.NewMethodError()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	userID, err := auth.GetUserIDFromCookie(r)
+	if err != nil {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	idStr := strings.TrimPrefix(r.URL.Path, "/budget/")
+	if idStr == "" {
+		response := base.NewNotFoundErrorResponse("Не указан ID бюджета")
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	budgetID, err := strconv.Atoi(idStr)
+	if err != nil {
+		response := base.NewNotFoundErrorResponse("Неверный ID бюджета")
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	ok := storage.DeleteBudgetByIDAndUserID(budgetID, userID)
+	if !ok {
+		response := base.NewNotFoundErrorResponse("Бюджет не найден")
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	response := base.NewBudgetDeleteSuccessResponse()
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	auth.ClearOldToken(w, r)
 	w.Header().Set("Content-Type", "application/json")
@@ -197,6 +358,10 @@ func main() {
 	mux.HandleFunc("/signup", signupHandler)
 	mux.HandleFunc("/auth/logout", logoutHandler)
 	mux.HandleFunc("/auth/refresh", refreshTokenHandler)
+	mux.HandleFunc("/get_budgets", GetBudgetsHandler)
+	mux.HandleFunc("/get_budget/", GetBudgetHandler)
+	mux.HandleFunc("/budget", CreateBudgetHandler)
+	mux.HandleFunc("/budget/", DeleteBudgetHandler)
 
 	handler := middleware.CORSMiddleware(mux)
 

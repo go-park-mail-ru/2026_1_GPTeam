@@ -79,7 +79,7 @@ type User struct {
 	AvatarUrl string    `json:"avatar_url"`
 }
 
-type Budget struct {
+type BudgetRequest struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -204,10 +204,10 @@ func NewForbiddenErrorResponse() ForbiddenErrorResponse {
 
 type NotFoundErrorResponse SimpleResponse
 
-func NewNotFoundErrorResponse() NotFoundErrorResponse {
+func NewNotFoundErrorResponse(message string) NotFoundErrorResponse {
 	return NotFoundErrorResponse{
 		Code:    http.StatusNotFound,
-		Message: "Не найдено",
+		Message: message,
 	}
 }
 
@@ -231,5 +231,63 @@ func NewMethodError() MethodError {
 	return MethodError{
 		Code:    http.StatusMethodNotAllowed,
 		Message: "Метод не поддерживается",
+	}
+}
+
+type BudgetErrorResponse RequestWithErrors
+
+func NewBudgetErrorResponse(code int, message string, errors []FieldError) BudgetErrorResponse {
+	return BudgetErrorResponse{
+		Code:    code,
+		Message: message,
+		Errors:  errors,
+	}
+}
+
+type BudgetDeleteSuccessResponse SimpleResponse
+
+func NewBudgetDeleteSuccessResponse() BudgetDeleteSuccessResponse {
+	return BudgetDeleteSuccessResponse{
+		Code:    http.StatusOK,
+		Message: "Бюджет успешно удалён",
+	}
+}
+
+type BudgetUpdateSuccessResponse SimpleResponse
+
+func NewBudgetUpdateSuccessResponse() BudgetUpdateSuccessResponse {
+	return BudgetUpdateSuccessResponse{
+		Code:    http.StatusOK,
+		Message: "Бюджет успешно обновлён",
+	}
+}
+
+type BudgetCreateSuccessResponse struct {
+	SimpleResponse
+	BudgetID int `json:"budget_id"`
+}
+
+func NewBudgetCreateSuccessResponse(budgetID int) BudgetCreateSuccessResponse {
+	return BudgetCreateSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Бюджет успешно создан",
+		},
+		BudgetID: budgetID,
+	}
+}
+
+type BudgetGetSuccessResponse struct {
+	SimpleResponse
+	Budget BudgetRequest `json:"budget"`
+}
+
+func NewBudgetGetSuccessResponse(budget BudgetRequest) BudgetGetSuccessResponse {
+	return BudgetGetSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Бюджет успешно получен",
+		},
+		Budget: budget,
 	}
 }
