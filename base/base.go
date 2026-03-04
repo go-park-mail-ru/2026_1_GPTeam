@@ -156,10 +156,10 @@ type RequestWithErrors struct {
 
 type SignupErrorResponse RequestWithErrors
 
-func NewSignupErrorResponse(errors []FieldError) SignupErrorResponse {
+func NewSignupErrorResponse(code int, message string, errors []FieldError) SignupErrorResponse {
 	return SignupErrorResponse{
-		Code:    http.StatusConflict,
-		Message: "Пользователь с таким именем или email уже существует",
+		Code:    code,
+		Message: message,
 		Errors:  errors,
 	}
 }

@@ -84,27 +84,29 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body base.SignupBodyRequest
-	err := json.NewDecoder(r.Body).Decode(&body)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		fmt.Println(err)
-		response := base.NewSignupErrorResponse([]base.FieldError{
-			{
-				Field:   "username",
-				Message: "Не удалось прочитать json",
-			},
-			{
-				Field:   "password",
-				Message: "Не удалось прочитать json",
-			},
-			{
-				Field:   "confirm_password",
-				Message: "Не удалось прочитать json",
-			},
-			{
-				Field:   "email",
-				Message: "Не удалось прочитать json",
-			},
+		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []base.FieldError{
+			{Field: "", Message: "Не удалось прочитать тело запроса"},
 		})
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	if body.Username == "" || body.Password == "" || body.Email == "" || body.ConfirmPassword == "" {
+		var fieldErrors []base.FieldError
+		if body.Username == "" {
+			fieldErrors = append(fieldErrors, base.FieldError{Field: "username", Message: "Поле обязательно для заполнения"})
+		}
+		if body.Password == "" {
+			fieldErrors = append(fieldErrors, base.FieldError{Field: "password", Message: "Поле обязательно для заполнения"})
+		}
+		if body.Email == "" {
+			fieldErrors = append(fieldErrors, base.FieldError{Field: "email", Message: "Поле обязательно для заполнения"})
+		}
+		if body.ConfirmPassword == "" {
+			fieldErrors = append(fieldErrors, base.FieldError{Field: "confirm_password", Message: "Поле обязательно для заполнения"})
+		}
+		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -116,7 +118,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		LastLogin: time.Time{},
 	}
 	if storage.UserExists(body.Username) {
-		response := base.NewSignupErrorResponse([]base.FieldError{
+		response := base.NewSignupErrorResponse(http.StatusConflict, "Пользователь с таким именем уже существует", []base.FieldError{
 			{
 				Field:   "username",
 				Message: "Пользователь с таким именем уже существует",
@@ -126,7 +128,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if storage.EmailExists(body.Email) {
-		response := base.NewSignupErrorResponse([]base.FieldError{
+		response := base.NewSignupErrorResponse(http.StatusConflict, "Пользователь с таким email уже существует", []base.FieldError{
 			{
 				Field:   "email",
 				Message: "Пользователь с таким email уже существует",
@@ -136,7 +138,11 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.Password != body.ConfirmPassword {
-		response := base.NewSignupErrorResponse([]base.FieldError{
+		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Пароли не совпадают", []base.FieldError{
+			{
+				Field:   "password",
+				Message: "Пароли не совпадают",
+			},
 			{
 				Field:   "confirm_password",
 				Message: "Пароли не совпадают",
