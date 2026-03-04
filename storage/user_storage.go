@@ -81,6 +81,7 @@ func IsAuthUserInDatabase(isAuth bool, userID string) (base.User, bool) {
 		Email:           storedUser.Email,
 		LastLogin:       storedUser.LastLogin,
 		CreatedAt:       storedUser.CreatedAt,
+		AvatarUrl:       storedUser.AvatarUrl,
 		Balance:         storedUser.Balance,
 		BalanceCurrency: storedUser.BalanceCurrency,
 	}

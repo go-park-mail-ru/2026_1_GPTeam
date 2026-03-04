@@ -205,7 +205,7 @@ func main() {
 	mux.HandleFunc("/auth/refresh", refreshTokenHandler)
 	mux.HandleFunc("/profile", profileHandler)
 	mux.HandleFunc("/is_login", isLogin)
-	mux.HandleFunc("/balance", balanceHandler)
+	mux.HandleFunc("/profile/balance", balanceHandler)
 
 	handler := middleware.CORSMiddleware(mux)
 
