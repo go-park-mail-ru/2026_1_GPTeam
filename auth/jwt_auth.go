@@ -33,7 +33,7 @@ func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
 	cookie = &http.Cookie{
 		Name:     RefreshTokenName,
 		Value:    token,
-		Path:     "/",
+		Path:     "/auth/",
 		Expires:  time.Now().Add(jwt.RefreshTokenExpirationTime),
 		Secure:   false,
 		HttpOnly: true,
@@ -85,7 +85,7 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	cookie = &http.Cookie{
 		Name:     RefreshTokenName,
 		Value:    "",
-		Path:     "/",
+		Path:     "/auth/",
 		Expires:  time.Now().AddDate(0, -1, 0),
 		Secure:   false,
 		HttpOnly: true,

@@ -11,19 +11,12 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 )
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-
 	var userRequest base.LoginBodyRequest
 	err := json.NewDecoder(r.Body).Decode(&userRequest)
 	if err != nil {
@@ -79,11 +72,6 @@ func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
 	var body base.SignupBodyRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		fmt.Println(err)
@@ -165,12 +153,6 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetBudgetsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-
 	userID, err := auth.GetUserIDFromCookie(r)
 	if err != nil {
 		response := base.NewUnauthorizedErrorResponse()
@@ -184,12 +166,6 @@ func GetBudgetsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-
 	userID, err := auth.GetUserIDFromCookie(r)
 	if err != nil {
 		response := base.NewUnauthorizedErrorResponse()
@@ -197,7 +173,7 @@ func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/get_budget/")
+	idStr := r.PathValue("id")
 	if idStr == "" {
 		response := base.NewNotFoundErrorResponse("Не указан ID бюджета")
 		base.WriteResponseJSON(w, response.Code, response)
@@ -232,12 +208,6 @@ func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-
 	userID, err := auth.GetUserIDFromCookie(r)
 	if err != nil {
 		response := base.NewUnauthorizedErrorResponse()
@@ -287,12 +257,6 @@ func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-
 	userID, err := auth.GetUserIDFromCookie(r)
 	if err != nil {
 		response := base.NewUnauthorizedErrorResponse()
@@ -300,7 +264,7 @@ func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/budget/")
+	idStr := r.PathValue("id")
 	if idStr == "" {
 		response := base.NewNotFoundErrorResponse("Не указан ID бюджета")
 		base.WriteResponseJSON(w, response.Code, response)
@@ -354,15 +318,15 @@ func main() {
 	storage.NewBudgetStore()
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/auth/login", loginHandler)
-	mux.HandleFunc("/signup", signupHandler)
-	mux.HandleFunc("/auth/logout", logoutHandler)
-	mux.HandleFunc("/auth/refresh", refreshTokenHandler)
-	mux.HandleFunc("/get_budgets", GetBudgetsHandler)
-	mux.HandleFunc("/get_budget/", GetBudgetHandler)
-	mux.HandleFunc("/budget", CreateBudgetHandler)
-	mux.HandleFunc("/budget/", DeleteBudgetHandler)
 
+	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(loginHandler)))
+	mux.Handle("/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(signupHandler)))
+	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(logoutHandler)))
+	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(refreshTokenHandler)))
+	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetsHandler)))
+	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetHandler)))
+	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(CreateBudgetHandler)))
+	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(DeleteBudgetHandler)))
 	handler := middleware.CORSMiddleware(mux)
 
 	server := http.Server{
