@@ -21,7 +21,7 @@ func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
 		Value:    token,
 		Path:     "/",
 		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
-		Secure:   false,
+		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
@@ -35,7 +35,7 @@ func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
 		Value:    token,
 		Path:     "/auth/",
 		Expires:  time.Now().Add(jwt.RefreshTokenExpirationTime),
-		Secure:   false,
+		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
@@ -77,7 +77,7 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Now().AddDate(0, -1, 0),
-		Secure:   false,
+		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
@@ -87,7 +87,7 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/auth/",
 		Expires:  time.Now().AddDate(0, -1, 0),
-		Secure:   false,
+		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}

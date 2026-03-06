@@ -1,6 +1,7 @@
 package base
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -21,10 +22,10 @@ func NewOkResponse() OkResponse {
 
 type LoginSuccessResponse struct {
 	SimpleResponse
-	User AuthUser `json:"user"`
+	User User `json:"user"`
 }
 
-func NewLoginSuccessResponse(user AuthUser) LoginSuccessResponse {
+func NewLoginSuccessResponse(user User) LoginSuccessResponse {
 	return LoginSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
@@ -73,10 +74,13 @@ type AuthUser struct {
 }
 
 type User struct {
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-	AvatarUrl string    `json:"avatar_url"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	CreatedAt       time.Time `json:"created_at"`
+	LastLogin       time.Time `json:"last_login,omitempty"`
+	AvatarUrl       string    `json:"avatar_url"`
+	Balance         float64   `json:"balance"`
+	BalanceCurrency string    `json:"currency"`
 }
 
 type BudgetRequest struct {
@@ -94,9 +98,29 @@ type BalanceResponse struct {
 	SimpleResponse
 	Balance  float64 `json:"balance"`
 	Currency string  `json:"currency"`
+	Income   float64 `json:"income"`
+	Expenses float64 `json:"expenses"`
+	Date     string  `json:"date"`
 }
 
-func NewBalanceResponse(balance float64, currency string) BalanceResponse {
+func NewBalanceResponse(balance float64, currency string, income float64, expenses float64) BalanceResponse {
+	months := map[time.Month]string{
+		time.January:   "Январь",
+		time.February:  "Февраль",
+		time.March:     "Март",
+		time.April:     "Апрель",
+		time.May:       "Май",
+		time.June:      "Июнь",
+		time.July:      "Июль",
+		time.August:    "Август",
+		time.September: "Сентябрь",
+		time.October:   "Октябрь",
+		time.November:  "Ноябрь",
+		time.December:  "Декабрь",
+	}
+	curMonth := time.Now().Month()
+	curYear := time.Now().Year()
+	curTime := fmt.Sprintf("%s %d", months[curMonth], curYear)
 	return BalanceResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
@@ -104,6 +128,9 @@ func NewBalanceResponse(balance float64, currency string) BalanceResponse {
 		},
 		Balance:  balance,
 		Currency: currency,
+		Income:   income,
+		Expenses: expenses,
+		Date:     curTime,
 	}
 }
 

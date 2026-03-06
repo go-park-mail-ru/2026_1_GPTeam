@@ -51,12 +51,14 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	user := base.AuthUser{
-		ID:        storedUser.Id,
-		Username:  storedUser.Username,
-		Email:     storedUser.Email,
-		LastLogin: time.Now(),
-		CreatedAt: time.Time{},
+	user := base.User{
+		Username:        storedUser.Username,
+		Email:           storedUser.Email,
+		LastLogin:       time.Now(),
+		CreatedAt:       storedUser.CreatedAt,
+		AvatarUrl:       storedUser.AvatarUrl,
+		Balance:         storedUser.Balance,
+		BalanceCurrency: storedUser.BalanceCurrency,
 	}
 	response := base.NewLoginSuccessResponse(user)
 	auth.GenerateNewAuthCookie(w, strconv.Itoa(storedUser.Id))
@@ -64,11 +66,20 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response := base.NewMethodError()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
 	isAuth, userID := auth.RefreshToken(w, r)
-	data := make(map[string]interface{})
-	data["is_auth"] = isAuth
-	data["user_id"] = userID
-	base.WriteResponseJSON(w, http.StatusOK, data)
+	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
+	if !ok {
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	response := base.NewLoginSuccessResponse(authUser)
+	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
@@ -293,6 +304,21 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
+func balanceHandler(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	balance := authUser.Balance
+	currency := authUser.BalanceCurrency
+	response := base.NewBalanceResponse(balance, currency, 100, 46)
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -307,27 +333,31 @@ func main() {
 	}
 	storage.NewUserStore()
 	storage.AddUser(storage.UserInfo{
-		Id:        0,
-		Username:  "admin",
-		Password:  "Adm1n123",
-		Email:     "email",
-		CreatedAt: time.Now(),
-		LastLogin: time.Time{},
-		AvatarUrl: "img/123.png",
+		Id:              0,
+		Username:        "admin",
+		Password:        "Adm1n123",
+		Email:           "email",
+		CreatedAt:       time.Now(),
+		LastLogin:       time.Now(),
+		AvatarUrl:       "img/123.png",
+		Balance:         100.5,
+		BalanceCurrency: "RUB",
 	})
 	storage.NewBudgetStore()
 
 	mux := http.NewServeMux()
-
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(loginHandler)))
 	mux.Handle("/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(signupHandler)))
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(logoutHandler)))
 	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(refreshTokenHandler)))
+	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(balanceHandler)))
 	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetsHandler)))
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetHandler)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(CreateBudgetHandler)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(DeleteBudgetHandler)))
-	handler := middleware.CORSMiddleware(mux)
+
+	handler := middleware.AuthMiddleware(mux)
+	handler = middleware.CORSMiddleware(handler)
 
 	server := http.Server{
 		Addr:         ":8080",
