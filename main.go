@@ -179,48 +179,11 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func isLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	isAuth, userID := auth.IsAuth(r)
-	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
-	if !ok {
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	response := base.NewLoginSuccessResponse(authUser)
-	base.WriteResponseJSON(w, response.Code, response)
-}
-
-func profileHandler(w http.ResponseWriter, r *http.Request) {
-	isAuth, userID := auth.IsAuth(r)
-	if !isAuth {
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	storedUser := storage.UserInfo{
-		Id:        0,
-		Username:  "admin",
-		Password:  "Adm1n123",
-		Email:     "email",
-		CreatedAt: time.Now(),
-		LastLogin: time.Now(),
-		AvatarUrl: "img/123.png",
-		Balance:   0,
-	}
-	_ = userID
-	base.WriteResponseJSON(w, http.StatusOK, storedUser)
-}
-
 func balanceHandler(w http.ResponseWriter, r *http.Request) {
-	isAuth, userID := auth.IsAuth(r)
-	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
 	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -262,11 +225,10 @@ func main() {
 	mux.HandleFunc("/signup", signupHandler)
 	mux.HandleFunc("/auth/logout", logoutHandler)
 	mux.HandleFunc("/auth/refresh", refreshTokenHandler)
-	mux.HandleFunc("/profile", profileHandler)
-	mux.HandleFunc("/is_login", isLogin)
 	mux.HandleFunc("/profile/balance", balanceHandler)
 
-	handler := middleware.CORSMiddleware(mux)
+	handler := middleware.AuthMiddleware(mux)
+	handler = middleware.CORSMiddleware(handler)
 
 	server := http.Server{
 		Addr:         ":8080",

@@ -86,7 +86,8 @@ func IsAuthUserInDatabase(isAuth bool, userID string) (base.User, bool) {
 		BalanceCurrency: storedUser.BalanceCurrency,
 	}
 	return authUser, true
-  
+}
+
 func UserExists(username string) bool {
 	userStore.mu.RLock()
 	defer userStore.mu.RUnlock()
