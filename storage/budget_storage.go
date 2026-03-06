@@ -45,6 +45,31 @@ func GetBudgetByID(id int) (BudgetInfo, bool) {
 	return budget, ok
 }
 
+func GetBudgetIDsByUserID(userID int) []int {
+	budgetStore.mu.RLock()
+	defer budgetStore.mu.RUnlock()
+	var ids []int
+	for id, budget := range budgetStore.budgets {
+		if budget.Author == userID {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func GetBudgetByIDAndUserID(budgetID int, userID int) (BudgetInfo, bool) {
+	budgetStore.mu.RLock()
+	defer budgetStore.mu.RUnlock()
+	budget, ok := budgetStore.budgets[budgetID]
+	if !ok {
+		return BudgetInfo{}, false
+	}
+	if budget.Author != userID {
+		return BudgetInfo{}, false
+	}
+	return budget, true
+}
+
 func AddBudget(budget BudgetInfo) int {
 	budgetStore.mu.Lock()
 	defer budgetStore.mu.Unlock()
@@ -52,4 +77,18 @@ func AddBudget(budget BudgetInfo) int {
 	budget.Id = id
 	budgetStore.budgets[id] = budget
 	return id
+}
+
+func DeleteBudgetByIDAndUserID(budgetID int, userID int) bool {
+	budgetStore.mu.Lock()
+	defer budgetStore.mu.Unlock()
+	budget, ok := budgetStore.budgets[budgetID]
+	if !ok {
+		return false
+	}
+	if budget.Author != userID {
+		return false
+	}
+	delete(budgetStore.budgets, budgetID)
+	return true
 }

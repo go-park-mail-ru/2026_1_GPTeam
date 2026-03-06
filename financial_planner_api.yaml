@@ -2,8 +2,7 @@ openapi: 3.0.4
 info:
   title: GPTeam Financial Planner API
   version: 2.0.0
-  description: |
-    REST API для управления финансами и банковскими счетами.
+  description: REST API для управления финансами и банковскими счетами.
 servers:
   - url: https://petstore3.swagger.io/api/v3
 tags:
@@ -23,9 +22,7 @@ paths:
       tags:
         - registration and authorization
       summary: User login
-      description: |
-        Авторизация пользователя по логину и паролю.
-        В ответе возвращается JWT токен в cookie.
+      description: Авторизация пользователя по логину и паролю. В ответе возвращается JWT токен в cookie.
       requestBody:
         required: true
         content:
@@ -34,7 +31,7 @@ paths:
               $ref: '#/components/schemas/LoginBody'
       responses:
         '200':
-          description: 'Успешная авторизация'
+          description: Успешная авторизация
           headers:
             Set-Cookie:
               description: JWT токен и id сессии в cookie
@@ -46,13 +43,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/LoginSuccess'
         '401':
-          description: 'Ошибка авторизации - неверный логин или пароль'
+          description: Ошибка авторизации - неверный логин или пароль
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginError'
         '500':
-          description: 'server error'
+          description: server error
           content:
             application/json:
               schema:
@@ -63,21 +60,18 @@ paths:
       tags:
         - registration and authorization
       summary: User registration
-      description: |
-        Регистрация нового пользователя.
-        После успешной регистрации автоматически устанавливается JWT токен в cookie.
+      description: Регистрация нового пользователя. После успешной регистрации автоматически устанавливается JWT токен в cookie.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterBody'
+              $ref: '#/components/schemas/SignupBody'
       responses:
         '200':
-          description: 'Успешная регистрация'
+          description: Успешная регистрация
           headers:
             Set-Cookie:
-              # токен кидаем в куку, а не в тело ответа - так и на логине, и на регистрации единообразно
               description: JWT токен и id сессии в cookie
               schema:
                 type: string
@@ -85,21 +79,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegisterSuccess'
+                $ref: '#/components/schemas/SignupSuccess'
         '400':
-          description: 'Ошибка валидации - некорректные данные пользователя'
+          description: Ошибка валидации - некорректные данные пользователя
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationError'
         '409':
-          description: 'Конфликт - пользователь с таким логином или email уже существует'
+          description: Конфликт - пользователь с таким логином или email уже существует
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegisterError'
+                $ref: '#/components/schemas/SignupError'
         '500':
-          description: 'server error'
+          description: server error
           content:
             application/json:
               schema:
@@ -110,19 +104,15 @@ paths:
       tags:
         - registration and authorization
       summary: User logout
-      description: |
-        Выход пользователя из системы.
-        Инвалидирует текущий JWT токен и завершает сессию.
-        Устанавливает куку с истёкшим временем жизни чтобы браузер её удалил.
+      description: Выход пользователя из системы. Инвалидирует текущий JWT токен и завершает сессию.
       security:
         - bearerAuth: []
         - cookieAuth: []
       responses:
         '200':
-          description: 'Успешный выход из системы'
+          description: Успешный выход из системы
           headers:
             Set-Cookie:
-              # сделал истёкшее время куки чтобы браузер её удалил при логауте
               description: Кука с истёкшим временем жизни для удаления токена на клиенте
               schema:
                 type: string
@@ -132,13 +122,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/LogoutSuccess'
         '401':
-          description: 'Не авторизован - невалидный или отсутствующий токен'
+          description: Не авторизован - невалидный или отсутствующий токен
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
         '500':
-          description: 'server error'
+          description: server error
           content:
             application/json:
               schema:
@@ -149,28 +139,24 @@ paths:
       tags:
         - profile
       summary: Get user profile
-      description: |
-        Возвращает информацию о профиле пользователя.
-        Убраны bank_accounts, last_login, is_staff, is_active - лишние данные на этом уровне.
-        Добавлен avatar для отображения аватарки сразу в профиле.
-        Требует авторизации через JWT токен в cookie или заголовке Authorization: Bearer <token>
+      description: Возвращает информацию о профиле пользователя. Требует авторизации.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: 'Профиль пользователя успешно получен'
+          description: Профиль пользователя успешно получен
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
         '401':
-          description: 'Не авторизован - невалидный или отсутствующий токен'
+          description: Не авторизован - невалидный или отсутствующий токен
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
         '500':
-          description: 'server error'
+          description: server error
           content:
             application/json:
               schema:
@@ -181,15 +167,12 @@ paths:
       tags:
         - profile
       summary: Get user balance
-      description: |
-        Возвращает текущий баланс пользователя и валюту.
-        Вынесен в отдельный эндпоинт чтобы можно было запрашивать отдельно от профиля.
-        Требует авторизации.
+      description: Возвращает текущий баланс пользователя и валюту. Требует авторизации.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: 'Баланс успешно получен'
+          description: Баланс успешно получен
           content:
             application/json:
               schema:
@@ -209,13 +192,13 @@ paths:
                   - balance
                   - currency
         '401':
-          description: 'Пользователь неавторизирован'
+          description: Пользователь неавторизирован
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
         '500':
-          description: 'server error'
+          description: server error
           content:
             application/json:
               schema:
@@ -226,14 +209,12 @@ paths:
       tags:
         - profile
       summary: Get user's budgets ids
-      description: |
-        Возвращает значения id бюджетов пользователя.
-        Требует авторизацию.
+      description: Возвращает значения id бюджетов пользователя. Требует авторизацию.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: 'ok'
+          description: ok
           content:
             application/json:
               schema:
@@ -251,63 +232,87 @@ paths:
                       type: integer
                     example: [1, 3, 4, 7]
         '401':
-          description: 'Пользователь неавторизирован'
+          description: Пользователь неавторизирован
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
         '500':
-          description: 'server error'
+          description: server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ServerError'
 
-  /get_budget/{id}:
-    get:
+  /budget/{id}:
+    delete:
       tags:
         - profile
-      summary: Get budget (current and target)
-      description: |
-        Возвращает значение текущего и планируемого бюджета.
-        Добавлены start_at и end_at для указания диапазона дат бюджета.
-        Требует авторизацию.
+      summary: Delete budget
+      description: Удаляет бюджет по ID. Требует авторизацию.
       security:
         - bearerAuth: []
       parameters:
         - name: id
           in: path
-          description: 'id бюджета'
+          description: ID бюджета
           required: true
           schema:
             type: integer
       responses:
         '200':
-          description: 'Бюджет успешно получен'
+          description: Бюджет успешно удалён
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Budget'
+                $ref: '#/components/schemas/BudgetDeleteSuccess'
         '401':
-          description: 'Пользователь неавторизирован'
+          description: Не авторизован
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
-        '403':
-          description: 'У пользователя нет прав на просмотр'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ForbiddenError'
         '404':
-          description: 'Бюджет не найден'
+          description: Бюджет не найден
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
+  /budget:
+    post:
+      tags:
+        - profile
+      summary: Create budget
+      description: Создаёт новый бюджет. Требует авторизацию.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BudgetBody'
+      responses:
+        '200':
+          description: Бюджет успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetCreateSuccess'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
         '500':
-          description: 'server error'
+          description: server error
           content:
             application/json:
               schema:
@@ -319,15 +324,9 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: |
-        JWT токен получается после успешного логина или регистрации через cookie.
-        Можно также передавать в заголовке Authorization: Bearer <token>
 
   schemas:
-    # ===================== схемы успешных ответов
-
     OK:
-      description: Стандартный ответ OK для простых эндпоинтов
       type: object
       properties:
         code:
@@ -341,7 +340,6 @@ components:
         - message
 
     LoginSuccess:
-      description: Успешный ответ при авторизации пользователя
       type: object
       properties:
         code:
@@ -349,7 +347,7 @@ components:
           example: 200
         message:
           type: string
-          example: 'Login successful'
+          example: 'Вход в систему прошел успешно'
         user:
           type: object
           properties:
@@ -372,8 +370,7 @@ components:
         - message
         - user
 
-    RegisterSuccess:
-      description: Успешный ответ при регистрации нового пользователя
+    SignupSuccess:
       type: object
       properties:
         code:
@@ -381,7 +378,7 @@ components:
           example: 200
         message:
           type: string
-          example: 'Registration successful'
+          example: 'Регистрация прошла успешно'
         user:
           type: object
           properties:
@@ -399,14 +396,12 @@ components:
               type: string
               format: date-time
               example: '2024-02-22T10:30:00Z'
-        # убрал token из тела ответа - токен теперь только в cookie, как и на /login
       required:
         - code
         - message
         - user
 
     LogoutSuccess:
-      description: Успешный выход из системы
       type: object
       properties:
         code:
@@ -414,7 +409,7 @@ components:
           example: 200
         message:
           type: string
-          example: 'Logout successful'
+          example: 'Успешный выход из системы'
         logged_out_at:
           type: string
           format: date-time
@@ -423,19 +418,11 @@ components:
         - code
         - message
 
-    # ===================== схемы данных
-
     User:
-      description: |
-        Информация о профиле пользователя.
-        Убраны bank_accounts, last_login, is_staff, is_active - лишние поля для этого эндпоинта.
-        Убраны balance и currency - вынесены в /profile/balance.
-        Добавлен avatar_url для отображения аватарки.
       type: object
       properties:
         username:
           type: string
-          description: Имя пользователя (логин)
           example: 'johndoe'
         email:
           type: string
@@ -446,17 +433,14 @@ components:
           format: date-time
           example: '2024-01-15T08:00:00Z'
         avatar_url:
-          # перенёс сюда из /get_avatar - аватарка логично живёт в профиле
           type: string
           format: uri
-          description: 'Ссылка на аватар пользователя'
           example: 'https://example.com/avatars/user123.jpg'
       required:
         - username
         - email
 
     Budget:
-      description: 'Бюджет (фактический и планируемый) с диапазоном дат'
       type: object
       properties:
         title:
@@ -470,15 +454,12 @@ components:
           format: date-time
           example: '2024-02-22T10:30:00Z'
         start_at:
-          # добавил start_at и end_at чтобы показывать диапазон бюджета, например "1 января по 1 февраля"
           type: string
           format: date-time
-          description: 'Начало периода бюджета'
           example: '2024-01-01T00:00:00Z'
         end_at:
           type: string
           format: date-time
-          description: 'Конец периода бюджета'
           example: '2024-02-01T00:00:00Z'
         actual:
           type: integer
@@ -491,19 +472,86 @@ components:
           example: 'USD'
       required:
         - title
-        - description
         - created_at
-        - start_at
-        - end_at
         - actual
         - target
         - currency
 
-    # ===================== схемы запросов
+    BudgetGetSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Бюджет успешно получен'
+        budget:
+          $ref: '#/components/schemas/Budget'
+      required:
+        - code
+        - message
+        - budget
 
-    RegisterBody:
-      description: |
-        Тело запроса для регистрации нового пользователя.
+    BudgetCreateSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Бюджет успешно создан'
+        budget_id:
+          type: integer
+          example: 5
+      required:
+        - code
+        - message
+        - budget_id
+
+    BudgetBody:
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'Бюджет на январь'
+        description:
+          type: string
+          example: 'Расходы за январь'
+        start_at:
+          type: string
+          format: date-time
+          example: '2024-01-01T00:00:00Z'
+        end_at:
+          type: string
+          format: date-time
+          example: '2024-02-01T00:00:00Z'
+        target:
+          type: integer
+          example: 500000
+        currency:
+          type: string
+          example: 'USD'
+      required:
+        - title
+        - target
+        - currency
+      
+    BudgetDeleteSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Бюджет успешно удалён'
+      required:
+        - code
+        - message
+
+    SignupBody:
       type: object
       properties:
         username:
@@ -511,60 +559,52 @@ components:
           minLength: 3
           maxLength: 50
           pattern: '^[a-zA-Z0-9_-]+$'
-          description: Имя пользователя (логин), от 3 до 50 символов
           example: 'johndoe'
         password:
-          # убрал confirm_password - проверка совпадения паролей на фронте, не нужно дублировать на бэк
-          # пароль теперь: минимум 8 символов, 1 заглавная, 1 строчная, 1 цифра
           type: string
           minLength: 8
           format: password
           pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
-          description: 'Пароль: минимум 8 символов, минимум 1 заглавная буква, 1 строчная буква и 1 цифра'
           example: 'SecurePass123!'
         email:
           type: string
           format: email
-          description: Email для связи и восстановления пароля
           example: 'john@example.com'
+        confirm_password:
+          type: string
+          minLength: 8
+          format: password
+          example: 'SecurePass123!'
       required:
         - username
         - password
         - email
+        - confirm_password
 
     LoginBody:
-      description: |
-        Тело запроса для авторизации пользователя.
       type: object
       properties:
         username:
           type: string
-          description: Имя пользователя (логин)
           example: 'johndoe'
         password:
           type: string
           format: password
-          description: Пароль пользователя
           example: 'SecurePass123!'
       required:
         - username
         - password
 
-    # ===================== схемы ошибок
-
-    RegisterError:
-      description: Ошибка регистрации - пользователь уже существует
+    SignupError:
       type: object
       properties:
         code:
           type: integer
           example: 409
         message:
-          # убрал details - фронт в основном обрабатывает message, details не нужен
           type: string
-          example: 'User with this username or email already exists'
+          example: 'Пользователь с таким именем уже существует'
         errors:
-          # привёл к единому виду с ValidationError - везде одинаковый массив errors
           type: array
           items:
             type: object
@@ -574,7 +614,7 @@ components:
                 example: 'username'
               message:
                 type: string
-                example: 'User with this username already exists'
+                example: 'Пользователь с таким именем уже существует'
             required:
               - field
               - message
@@ -583,7 +623,6 @@ components:
         - message
 
     LoginError:
-      description: Ошибка авторизации - неверный логин или пароль
       type: object
       properties:
         code:
@@ -591,9 +630,8 @@ components:
           example: 401
         message:
           type: string
-          example: 'Invalid username or password'
+          example: 'Неверный логин или пароль'
         errors:
-          # привёл к единому виду - везде errors, даже если одна ошибка
           type: array
           items:
             type: object
@@ -603,7 +641,7 @@ components:
                 example: 'username'
               message:
                 type: string
-                example: 'Invalid username or password'
+                example: 'Неверный логин или пароль'
             required:
               - field
               - message
@@ -612,9 +650,6 @@ components:
         - message
 
     ValidationError:
-      description: |
-        Ошибка валидации входных данных.
-        Возвращается когда данные не соответствуют требованиям.
       type: object
       properties:
         code:
@@ -622,7 +657,7 @@ components:
           example: 400
         message:
           type: string
-          example: 'Validation error'
+          example: 'Ошибка валидации'
         errors:
           type: array
           items:
@@ -633,22 +668,16 @@ components:
                 example: 'password'
               message:
                 type: string
-                example: 'Password must be at least 8 characters, include uppercase, lowercase and a digit'
+                example: 'Поле обязательно для заполнения'
             required:
               - field
               - message
-          example:
-            - field: 'password'
-              message: 'Password must be at least 8 characters, include uppercase, lowercase and a digit'
-            - field: 'email'
-              message: 'Invalid email format'
       required:
         - code
         - message
         - errors
 
     UnauthorizedError:
-      description: Ошибка авторизации - невалидный или отсутствующий JWT токен
       type: object
       properties:
         code:
@@ -656,13 +685,12 @@ components:
           example: 401
         message:
           type: string
-          example: 'Unauthorized - invalid or missing token'
+          example: 'Не авторизован — невалидный или отсутствующий токен'
       required:
         - code
         - message
 
     ForbiddenError:
-      description: Доступ к ресурсу запрещён
       type: object
       properties:
         code:
@@ -670,13 +698,12 @@ components:
           example: 403
         message:
           type: string
-          example: '403 - Forbidden'
+          example: 'Доступ запрещён'
       required:
         - code
         - message
 
     NotFoundError:
-      description: Не найдено
       type: object
       properties:
         code:
@@ -684,13 +711,12 @@ components:
           example: 404
         message:
           type: string
-          example: '404 - Not Found'
+          example: 'Не найдено'
       required:
         - code
         - message
 
     ServerError:
-      description: Внутренняя ошибка сервера
       type: object
       properties:
         code:
@@ -698,7 +724,7 @@ components:
           example: 500
         message:
           type: string
-          example: 'Internal server error'
+          example: 'Внутренняя ошибка сервера'
         request_id:
           type: string
           example: 'req_abc123xyz'
