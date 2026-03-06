@@ -3,15 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"main/auth"
-	"main/base"
-	"main/jwt"
-	"main/middleware"
-	"main/storage"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 
 	"github.com/joho/godotenv"
 )
