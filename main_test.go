@@ -89,7 +89,7 @@ func TestSignup(t *testing.T) {
 		method       string
 		data         map[string]string
 		expectedCode int
-		response     interface{}
+		response     any
 	}{
 		{"get", http.MethodGet, map[string]string{}, http.StatusMethodNotAllowed, nil},
 		{"empty body", http.MethodPost, map[string]string{"": ""}, http.StatusBadRequest, base.SignupErrorResponse{
@@ -168,7 +168,7 @@ func TestRefresh(t *testing.T) {
 		method       string
 		data         map[string]string
 		expectedCode int
-		response     interface{}
+		response     any
 	}{
 		{"get", http.MethodGet, map[string]string{}, http.StatusMethodNotAllowed, nil},
 	}
