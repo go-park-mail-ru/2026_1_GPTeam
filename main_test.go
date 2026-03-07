@@ -74,11 +74,28 @@ func TestLogin(t *testing.T) {
 			t.Parallel()
 			body, err := json.Marshal(tc.data)
 			require.NoError(t, err)
-			request, err := http.NewRequest(tc.method, url, bytes.NewBuffer(body))
-			require.NoError(t, err)
+			request := httptest.NewRequest(tc.method, url, bytes.NewBuffer(body))
 			r := httptest.NewRecorder()
 			mux.ServeHTTP(r, request)
 			require.Equal(t, tc.expectedCode, r.Code)
+			if r.Code != http.StatusOK {
+				return
+			}
+			cookies := r.Result().Cookies()
+			require.Equal(t, 2, len(cookies))
+			for i, cookie := range cookies {
+				if i == 0 {
+					require.Equal(t, "token", cookie.Name)
+					require.Equal(t, "/", cookie.Path)
+				} else {
+					require.Equal(t, "refresh_token", cookie.Name)
+					require.Equal(t, "/auth/", cookie.Path)
+				}
+				require.NotEmpty(t, cookie.Value)
+				require.True(t, cookie.HttpOnly)
+				require.True(t, cookie.Secure)
+				require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+			}
 		})
 	}
 }
@@ -153,11 +170,28 @@ func TestSignup(t *testing.T) {
 			t.Parallel()
 			body, err := json.Marshal(tc.data)
 			require.NoError(t, err)
-			request, err := http.NewRequest(tc.method, url, bytes.NewBuffer(body))
-			require.NoError(t, err)
+			request := httptest.NewRequest(tc.method, url, bytes.NewBuffer(body))
 			r := httptest.NewRecorder()
 			mux.ServeHTTP(r, request)
 			require.Equal(t, tc.expectedCode, r.Code)
+			if r.Code != http.StatusOK {
+				return
+			}
+			cookies := r.Result().Cookies()
+			require.Equal(t, 2, len(cookies))
+			for i, cookie := range cookies {
+				if i == 0 {
+					require.Equal(t, "token", cookie.Name)
+					require.Equal(t, "/", cookie.Path)
+				} else {
+					require.Equal(t, "refresh_token", cookie.Name)
+					require.Equal(t, "/auth/", cookie.Path)
+				}
+				require.NotEmpty(t, cookie.Value)
+				require.True(t, cookie.HttpOnly)
+				require.True(t, cookie.Secure)
+				require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+			}
 		})
 	}
 }
@@ -181,8 +215,7 @@ func TestRefresh(t *testing.T) {
 			t.Parallel()
 			body, err := json.Marshal(tc.data)
 			require.NoError(t, err)
-			request, err := http.NewRequest(tc.method, url, bytes.NewBuffer(body))
-			require.NoError(t, err)
+			request := httptest.NewRequest(tc.method, url, bytes.NewBuffer(body))
 			r := httptest.NewRecorder()
 			mux.ServeHTTP(r, request)
 			require.Equal(t, tc.expectedCode, r.Code)
@@ -195,8 +228,7 @@ func TestRefresh(t *testing.T) {
 	}
 	body, err := json.Marshal(data)
 	require.NoError(t, err)
-	request, err := http.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
-	require.NoError(t, err)
+	request := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
 	r := httptest.NewRecorder()
 	mux.ServeHTTP(r, request)
 	require.Equal(t, http.StatusOK, r.Code)
@@ -219,7 +251,7 @@ func TestRefresh(t *testing.T) {
 		require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
 	}
 
-	request, err = http.NewRequest(http.MethodPost, url, nil)
+	request = httptest.NewRequest(http.MethodPost, url, nil)
 	require.NoError(t, err)
 	request.AddCookie(cookies[1])
 	r = httptest.NewRecorder()
@@ -227,7 +259,7 @@ func TestRefresh(t *testing.T) {
 	require.Equal(t, http.StatusOK, r.Code)
 
 	incorrectToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzM0ODg2ODQsImlkIjoiYTc3OGQ1YzktZjY1MS00NjQ5LWI3MGQtY2QxNWFiZmJhYmEwIiwidXNlcl9pZCI6IjEifQ.pIIPP8Mb_yqg_37OmZVZERJxMDKboau0xsgYVsfpgxs"
-	request, err = http.NewRequest(http.MethodPost, url, nil)
+	request = httptest.NewRequest(http.MethodPost, url, nil)
 	require.NoError(t, err)
 	request.AddCookie(&http.Cookie{
 		Name:     "refresh_token",
@@ -263,7 +295,7 @@ func TestGetBudgets(t *testing.T) {
 			t.Parallel()
 			body, err := json.Marshal(tc.data)
 			require.NoError(t, err)
-			request, err := http.NewRequest(tc.method, url, bytes.NewBuffer(body))
+			request := httptest.NewRequest(tc.method, url, bytes.NewBuffer(body))
 			require.NoError(t, err)
 			r := httptest.NewRecorder()
 			mux.ServeHTTP(r, request)
@@ -277,14 +309,14 @@ func TestGetBudgets(t *testing.T) {
 	}
 	body, err := json.Marshal(data)
 	require.NoError(t, err)
-	request, err := http.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
+	request := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
 	require.NoError(t, err)
 	r := httptest.NewRecorder()
 	mux.ServeHTTP(r, request)
 	require.Equal(t, http.StatusOK, r.Code)
 	cookies := r.Result().Cookies()
 
-	request, err = http.NewRequest(http.MethodGet, url, nil)
+	request = httptest.NewRequest(http.MethodGet, url, nil)
 	require.NoError(t, err)
 	request.AddCookie(cookies[0])
 	request.AddCookie(cookies[1])
