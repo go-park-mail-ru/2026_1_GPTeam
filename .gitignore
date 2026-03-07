@@ -35,6 +35,11 @@ go.work
 .idea/**/dictionaries
 .idea/**/shelf
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
 # AWS User-specific
 .idea/**/aws.xml
 
