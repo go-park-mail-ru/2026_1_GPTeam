@@ -90,7 +90,7 @@ func TestSignup(t *testing.T) {
 		response     interface{}
 	}{
 		{"get", http.MethodGet, map[string]string{}, http.StatusMethodNotAllowed, nil},
-		{"post invalid", http.MethodPost, map[string]string{"username": "", "password": "", "email": "", "confirm_password": ""}, http.StatusBadRequest, base.SignupErrorResponse{
+		{"empty body", http.MethodPost, map[string]string{"username": "", "password": "", "email": "", "confirm_password": ""}, http.StatusBadRequest, base.SignupErrorResponse{
 			Code:    http.StatusBadRequest,
 			Message: "Неверный формат запроса",
 			Errors: []base.FieldError{
@@ -100,7 +100,28 @@ func TestSignup(t *testing.T) {
 				{Field: "confirm_password", Message: "Поле обязательно для заполнения"},
 			},
 		}},
-		{"post valid", http.MethodPost, map[string]string{"username": "username", "password": "Admin123", "email": "email@example.com", "confirm_password": "Admin123"}, http.StatusOK, base.SignupSuccessResponse{
+		{"username exist", http.MethodPost, map[string]string{"username": "admin", "password": "Adm1n123", "email": "new@email.com", "confirm_password": "Adm1n123"}, http.StatusConflict, base.SignupErrorResponse{
+			Code:    http.StatusConflict,
+			Message: "Пользователь с таким именем уже существует",
+			Errors: []base.FieldError{
+				{Field: "username", Message: "Пользователь с таким именем уже существует"},
+			},
+		}},
+		{"email exist", http.MethodPost, map[string]string{"username": "admin2", "password": "Adm1n123", "email": "email", "confirm_password": "Adm1n123"}, http.StatusConflict, base.SignupErrorResponse{
+			Code:    http.StatusConflict,
+			Message: "Пользователь с таким email уже существует",
+			Errors: []base.FieldError{
+				{Field: "email", Message: "Пользователь с таким email уже существует"},
+			},
+		}},
+		{"diff passwords", http.MethodPost, map[string]string{"username": "admin2", "password": "Adm1n123", "email": "email2", "confirm_password": "Adm1n123456"}, http.StatusBadRequest, base.SignupErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Пароли не совпадают",
+			Errors: []base.FieldError{
+				{Field: "password", Message: "Пароли не совпадают"}, {Field: "confirm_password", Message: "Пароли не совпадают"},
+			},
+		}},
+		{"valid body", http.MethodPost, map[string]string{"username": "username", "password": "Admin123", "email": "email@example.com", "confirm_password": "Admin123"}, http.StatusOK, base.SignupSuccessResponse{
 			SimpleResponse: base.SimpleResponse{
 				Code:    http.StatusOK,
 				Message: "Регистрация прошла успешно",
