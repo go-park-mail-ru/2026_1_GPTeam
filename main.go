@@ -160,21 +160,25 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetBudgetsHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromCookie(r)
-	if err != nil {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	ids := storage.GetBudgetIDsByUserID(userID)
+	ids := storage.GetBudgetIDsByUserID(authUser.Id)
 	response := base.NewBudgetsIDsResponse(ids)
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromCookie(r)
-	if err != nil {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -193,7 +197,7 @@ func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	budget, ok := storage.GetBudgetByIDAndUserID(budgetID, userID)
+	budget, ok := storage.GetBudgetByIDAndUserID(budgetID, authUser.Id)
 	if !ok {
 		response := base.NewNotFoundErrorResponse("Бюджет не найден")
 		base.WriteResponseJSON(w, response.Code, response)
@@ -215,8 +219,10 @@ func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromCookie(r)
-	if err != nil {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -256,7 +262,7 @@ func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
 		Actual:      0,
 		Target:      body.Target,
 		Currency:    body.Currency,
-		Author:      userID,
+		Author:      authUser.Id,
 	}
 	id := storage.AddBudget(budget)
 	response := base.NewBudgetCreateSuccessResponse(id)
@@ -264,8 +270,10 @@ func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromCookie(r)
-	if err != nil {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -284,7 +292,7 @@ func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok := storage.DeleteBudgetByIDAndUserID(budgetID, userID)
+	ok = storage.DeleteBudgetByIDAndUserID(budgetID, authUser.Id)
 	if !ok {
 		response := base.NewNotFoundErrorResponse("Бюджет не найден")
 		base.WriteResponseJSON(w, response.Code, response)

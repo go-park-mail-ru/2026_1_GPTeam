@@ -19,7 +19,7 @@ import (
 
 var once sync.Once
 
-func SetupRouter() *http.ServeMux {
+func SetupRouter() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(loginHandler)))
 	mux.Handle("/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(signupHandler)))
@@ -30,7 +30,9 @@ func SetupRouter() *http.ServeMux {
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetHandler)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(CreateBudgetHandler)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(DeleteBudgetHandler)))
-	return mux
+
+	handler := middleware.AuthMiddleware(mux)
+	return handler
 }
 
 func SetupStorage() {
@@ -220,6 +222,73 @@ func TestRefresh(t *testing.T) {
 	request, err = http.NewRequest(http.MethodPost, url, nil)
 	require.NoError(t, err)
 	request.AddCookie(cookies[1])
+	r = httptest.NewRecorder()
+	mux.ServeHTTP(r, request)
+	require.Equal(t, http.StatusOK, r.Code)
+
+	incorrectToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzM0ODg2ODQsImlkIjoiYTc3OGQ1YzktZjY1MS00NjQ5LWI3MGQtY2QxNWFiZmJhYmEwIiwidXNlcl9pZCI6IjEifQ.pIIPP8Mb_yqg_37OmZVZERJxMDKboau0xsgYVsfpgxs"
+	request, err = http.NewRequest(http.MethodPost, url, nil)
+	require.NoError(t, err)
+	request.AddCookie(&http.Cookie{
+		Name:     "refresh_token",
+		Value:    incorrectToken,
+		Path:     "/auth/",
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
+	})
+	r = httptest.NewRecorder()
+	mux.ServeHTTP(r, request)
+	require.Equal(t, http.StatusUnauthorized, r.Code)
+}
+
+func TestGetBudgets(t *testing.T) {
+	testsCases := []struct {
+		name         string
+		method       string
+		data         map[string]string
+		expectedCode int
+		response     interface{}
+	}{
+		{"empty get", http.MethodGet, map[string]string{}, http.StatusUnauthorized, nil},
+		{"post", http.MethodPost, map[string]string{}, http.StatusUnauthorized, nil},
+	}
+	SetupStorage()
+	mux := SetupRouter()
+	url := "/get_budgets"
+
+	for _, tc := range testsCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			body, err := json.Marshal(tc.data)
+			require.NoError(t, err)
+			request, err := http.NewRequest(tc.method, url, bytes.NewBuffer(body))
+			require.NoError(t, err)
+			r := httptest.NewRecorder()
+			mux.ServeHTTP(r, request)
+			require.Equal(t, tc.expectedCode, r.Code)
+		})
+	}
+
+	data := map[string]string{
+		"username": "admin",
+		"password": "Adm1n123",
+	}
+	body, err := json.Marshal(data)
+	require.NoError(t, err)
+	request, err := http.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
+	require.NoError(t, err)
+	r := httptest.NewRecorder()
+	mux.ServeHTTP(r, request)
+	require.Equal(t, http.StatusOK, r.Code)
+	cookies := r.Result().Cookies()
+
+	request, err = http.NewRequest(http.MethodGet, url, nil)
+	require.NoError(t, err)
+	request.AddCookie(cookies[0])
+	request.AddCookie(cookies[1])
+
 	r = httptest.NewRecorder()
 	mux.ServeHTTP(r, request)
 	require.Equal(t, http.StatusOK, r.Code)
