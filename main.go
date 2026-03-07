@@ -67,11 +67,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
 	isAuth, userID := auth.RefreshToken(w, r)
 	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
 	if !ok {

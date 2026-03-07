@@ -90,7 +90,14 @@ func TestSignup(t *testing.T) {
 		response     interface{}
 	}{
 		{"get", http.MethodGet, map[string]string{}, http.StatusMethodNotAllowed, nil},
-		{"empty body", http.MethodPost, map[string]string{"username": "", "password": "", "email": "", "confirm_password": ""}, http.StatusBadRequest, base.SignupErrorResponse{
+		{"empty body", http.MethodPost, map[string]string{"": ""}, http.StatusBadRequest, base.SignupErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: "Неверный формат запроса",
+			Errors: []base.FieldError{
+				{Field: "", Message: "Не удалось прочитать тело запроса"},
+			},
+		}},
+		{"empty data", http.MethodPost, map[string]string{"username": "", "password": "", "email": "", "confirm_password": ""}, http.StatusBadRequest, base.SignupErrorResponse{
 			Code:    http.StatusBadRequest,
 			Message: "Неверный формат запроса",
 			Errors: []base.FieldError{
@@ -151,4 +158,69 @@ func TestSignup(t *testing.T) {
 			require.Equal(t, tc.expectedCode, r.Code)
 		})
 	}
+}
+
+func TestRefresh(t *testing.T) {
+	testsCases := []struct {
+		name         string
+		method       string
+		data         map[string]string
+		expectedCode int
+		response     interface{}
+	}{
+		{"get", http.MethodGet, map[string]string{}, http.StatusMethodNotAllowed, nil},
+	}
+	SetupStorage()
+	mux := SetupRouter()
+	url := "/auth/refresh"
+
+	for _, tc := range testsCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			body, err := json.Marshal(tc.data)
+			require.NoError(t, err)
+			request, err := http.NewRequest(tc.method, url, bytes.NewBuffer(body))
+			require.NoError(t, err)
+			r := httptest.NewRecorder()
+			mux.ServeHTTP(r, request)
+			require.Equal(t, tc.expectedCode, r.Code)
+		})
+	}
+
+	data := map[string]string{
+		"username": "admin",
+		"password": "Adm1n123",
+	}
+	body, err := json.Marshal(data)
+	require.NoError(t, err)
+	request, err := http.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
+	require.NoError(t, err)
+	r := httptest.NewRecorder()
+	mux.ServeHTTP(r, request)
+	require.Equal(t, http.StatusOK, r.Code)
+
+	response := r.Result()
+	defer response.Body.Close()
+	cookies := response.Cookies()
+	require.Equal(t, 2, len(cookies))
+	for i, cookie := range cookies {
+		if i == 0 {
+			require.Equal(t, "token", cookie.Name)
+			require.Equal(t, "/", cookie.Path)
+		} else {
+			require.Equal(t, "refresh_token", cookie.Name)
+			require.Equal(t, "/auth/", cookie.Path)
+		}
+		require.NotEmpty(t, cookie.Value)
+		require.True(t, cookie.HttpOnly)
+		require.True(t, cookie.Secure)
+		require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+	}
+
+	request, err = http.NewRequest(http.MethodPost, url, nil)
+	require.NoError(t, err)
+	request.AddCookie(cookies[1])
+	r = httptest.NewRecorder()
+	mux.ServeHTTP(r, request)
+	require.Equal(t, http.StatusOK, r.Code)
 }
