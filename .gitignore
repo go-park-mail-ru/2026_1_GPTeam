@@ -35,6 +35,11 @@ go.work
 .idea/**/dictionaries
 .idea/**/shelf
 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
 # AWS User-specific
 .idea/**/aws.xml
 
@@ -176,3 +181,4 @@ $RECYCLE.BIN/
 /.env
 *.pem
 /db/migrations/run-tern.ps1
+*coverage
