@@ -4,15 +4,33 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
-	err := godotenv.Load("../../../.env")
-	if err != nil {
-		fmt.Println("Error loading .env file")
+	envPaths := []string{
+		".env",
+		"../.env",
+		"../../.env",
+		"../../../.env",
+	}
+
+	var loaded bool
+	for _, path := range envPaths {
+		if _, err := os.Stat(path); err == nil {
+			if err := godotenv.Load(path); err == nil {
+				loaded = true
+				break
+			}
+		}
+	}
+	if !loaded {
+		fmt.Println("No .env files found")
 		return
 	}
 
@@ -28,5 +46,46 @@ func main() {
 		fmt.Printf("Unable to connect to database: %v\n", err)
 		return
 	}
-	defer conn.Close(context.Background())
+
+	adminUsername := pgtype.Text{
+		String: "admin",
+		Valid:  true,
+	}
+	plainPassword := os.Getenv("DEFAULT_USER_PASSWORD")
+	bytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
+	if err != nil {
+		fmt.Printf("Unable to hash password: %v\n", err)
+		return
+	}
+	adminPassword := pgtype.Text{
+		String: string(bytes),
+		Valid:  true,
+	}
+	adminEmail := pgtype.Text{
+		String: "admin@example.com",
+		Valid:  true,
+	}
+	adminLastLogin := pgtype.Timestamp{
+		Time:  time.Time{},
+		Valid: false,
+	}
+	adminAvatar := pgtype.Text{
+		String: "img/123.png",
+		Valid:  true,
+	}
+	addUserSQL := "insert into \"user\" (username, password, email, last_login, avatar_url) VALUES ($1, $2, $3, $4, $5);"
+
+	_, err = conn.Exec(context.Background(), addUserSQL, adminUsername, adminPassword, adminEmail, adminLastLogin, adminAvatar)
+	if err != nil {
+		fmt.Printf("Unable to execute sql: %v\n", err)
+		return
+	}
+	fmt.Println("Added admin user")
+
+	defer func() {
+		err = conn.Close(context.Background())
+		if err != nil {
+			fmt.Printf("Unable to close connection: %v\n", err)
+		}
+	}()
 }

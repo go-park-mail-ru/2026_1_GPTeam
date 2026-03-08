@@ -4,7 +4,7 @@ create table if not exists transaction (
     account_id int not null references account(id),
     value double precision not null,
     type text not null,
-    category_id int not null references category(id),
+    category category_type not null,
     description text not null,
     created_at timestamp not null default now(),
     transaction_date timestamp not null default now(),
