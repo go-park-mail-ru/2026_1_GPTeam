@@ -1,14 +1,15 @@
 package middleware
 
 import (
-	"fmt"
 	"context"
-	"main/auth"
-	"main/base"
-	"main/storage"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 )
 
 func CORSMiddleware(next http.Handler) http.Handler {
