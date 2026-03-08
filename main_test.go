@@ -11,12 +11,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
+	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	testUsername = "admin"
+	testPassword = "Adm1n123"
 )
 
 var once sync.Once
@@ -27,8 +34,8 @@ func SetupStorage() {
 		storage.NewUserStore()
 		storage.AddUser(storage.UserInfo{
 			Id:              0,
-			Username:        "admin",
-			Password:        "Adm1n123",
+			Username:        testUsername,
+			Password:        testPassword,
 			Email:           "email",
 			CreatedAt:       time.Now(),
 			LastLogin:       time.Now(),
@@ -42,7 +49,7 @@ func SetupStorage() {
 
 func loginAndGetCookies(t *testing.T, handler http.Handler) []*http.Cookie {
 	t.Helper()
-	body, err := json.Marshal(map[string]string{"username": "admin", "password": "Adm1n123"})
+	body, err := json.Marshal(map[string]string{"username": testUsername, "password": testPassword})
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
 	w := httptest.NewRecorder()
@@ -58,8 +65,8 @@ func assertAuthCookies(t *testing.T, cookies []*http.Cookie) {
 		cookieMap[c.Name] = c
 	}
 	for name, expectedPath := range map[string]string{
-		"token":         "/",
-		"refresh_token": "/auth/",
+		auth.TokenName:        "/",
+		auth.RefreshTokenName: "/auth/",
 	} {
 		c, ok := cookieMap[name]
 		require.True(t, ok, "кука %q отсутствует в ответе", name)
@@ -93,12 +100,6 @@ func TestLogin(t *testing.T) {
 		assertFunc   func(*testing.T, *httptest.ResponseRecorder)
 	}
 
-	mustJSON := func(v any) []byte {
-		b, err := json.Marshal(v)
-		require.NoError(t, err)
-		return b
-	}
-
 	cases := []tc{
 		{
 			name:         "GET метод не разрешён",
@@ -115,13 +116,13 @@ func TestLogin(t *testing.T) {
 		{
 			name:         "неверные credentials",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]string{"username": "", "password": ""}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": "", "password": ""}),
 			expectedCode: http.StatusUnauthorized,
 		},
 		{
 			name:         "успешный логин куки выставлены",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]string{"username": "admin", "password": "Adm1n123"}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": testUsername, "password": testPassword}),
 			expectedCode: http.StatusOK,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
 				assertAuthCookies(t, w.Result().Cookies())
@@ -155,12 +156,6 @@ func TestSignup(t *testing.T) {
 		assertFunc   func(*testing.T, *httptest.ResponseRecorder)
 	}
 
-	mustJSON := func(v any) []byte {
-		b, err := json.Marshal(v)
-		require.NoError(t, err)
-		return b
-	}
-
 	cases := []tc{
 		{
 			name:         "GET метод не разрешён",
@@ -186,7 +181,7 @@ func TestSignup(t *testing.T) {
 		{
 			name:         "все поля пустые",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]string{"username": "", "password": "", "email": "", "confirm_password": ""}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": "", "password": "", "email": "", "confirm_password": ""}),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
 				var resp base.SignupErrorResponse
@@ -204,7 +199,7 @@ func TestSignup(t *testing.T) {
 		{
 			name:         "username уже занят",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]string{"username": "admin", "password": "Adm1n123", "email": "new@email.com", "confirm_password": "Adm1n123"}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": testUsername, "password": testPassword, "email": "new@email.com", "confirm_password": testPassword}),
 			expectedCode: http.StatusConflict,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
 				var resp base.SignupErrorResponse
@@ -219,7 +214,7 @@ func TestSignup(t *testing.T) {
 		{
 			name:         "email уже занят",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]string{"username": "admin2", "password": "Adm1n123", "email": "email", "confirm_password": "Adm1n123"}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email", "confirm_password": testPassword}),
 			expectedCode: http.StatusConflict,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
 				var resp base.SignupErrorResponse
@@ -234,7 +229,7 @@ func TestSignup(t *testing.T) {
 		{
 			name:         "пароли не совпадают",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]string{"username": "admin2", "password": "Adm1n123", "email": "email2", "confirm_password": "Adm1n123456"}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email2", "confirm_password": "Adm1n123456"}),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
 				var resp base.SignupErrorResponse
@@ -250,7 +245,7 @@ func TestSignup(t *testing.T) {
 		{
 			name:         "успешная регистрация куки выставлены",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]string{"username": "newuser", "password": "Admin123", "email": "new@example.com", "confirm_password": "Admin123"}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": "newuser", "password": "Admin123", "email": "new@example.com", "confirm_password": "Admin123"}),
 			expectedCode: http.StatusOK,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
 				assertAuthCookies(t, w.Result().Cookies())
@@ -313,7 +308,7 @@ func TestRefresh_WithValidToken(t *testing.T) {
 
 	var refreshCookie *http.Cookie
 	for _, c := range cookies {
-		if c.Name == "refresh_token" {
+		if c.Name == auth.RefreshTokenName {
 			refreshCookie = c
 		}
 	}
@@ -336,7 +331,7 @@ func TestRefresh_WithInvalidToken(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
 	req.AddCookie(&http.Cookie{
-		Name:     "refresh_token",
+		Name:     auth.RefreshTokenName,
 		Value:    incorrectToken,
 		Path:     "/auth/",
 		Secure:   true,
@@ -510,8 +505,7 @@ func TestGetBudget(t *testing.T) {
 
 	cookies := loginAndGetCookies(t, handler)
 
-	budgetBody, err := json.Marshal(map[string]any{"title": "Тестовый бюджет", "target": 5000, "currency": "RUB"})
-	require.NoError(t, err)
+	budgetBody := testhelper.MustJSON(t, map[string]any{"title": "Тестовый бюджет", "target": 5000, "currency": "RUB"})
 	reqCreate := httptest.NewRequest(http.MethodPost, "/budget", bytes.NewBuffer(budgetBody))
 	for _, c := range cookies {
 		reqCreate.AddCookie(c)
@@ -565,12 +559,6 @@ func TestCreateBudget(t *testing.T) {
 
 	cookies := loginAndGetCookies(t, handler)
 
-	mustJSON := func(v any) []byte {
-		b, err := json.Marshal(v)
-		require.NoError(t, err)
-		return b
-	}
-
 	cases := []struct {
 		name         string
 		method       string
@@ -589,7 +577,7 @@ func TestCreateBudget(t *testing.T) {
 		{
 			name:         "без авторизации",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]any{"title": "test", "target": 100, "currency": "RUB"}),
+			body:         testhelper.MustJSON(t, map[string]any{"title": "test", "target": 100, "currency": "RUB"}),
 			withAuth:     false,
 			expectedCode: http.StatusUnauthorized,
 		},
@@ -603,7 +591,7 @@ func TestCreateBudget(t *testing.T) {
 		{
 			name:         "пустые обязательные поля",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]any{"title": "", "target": 0, "currency": ""}),
+			body:         testhelper.MustJSON(t, map[string]any{"title": "", "target": 0, "currency": ""}),
 			withAuth:     true,
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
@@ -620,7 +608,7 @@ func TestCreateBudget(t *testing.T) {
 		{
 			name:         "успешное создание",
 			method:       http.MethodPost,
-			body:         mustJSON(map[string]any{"title": "Отпуск", "target": 10000, "currency": "RUB"}),
+			body:         testhelper.MustJSON(t, map[string]any{"title": "Отпуск", "target": 10000, "currency": "RUB"}),
 			withAuth:     true,
 			expectedCode: http.StatusOK,
 		},
@@ -659,8 +647,7 @@ func TestDeleteBudget(t *testing.T) {
 
 	cookies := loginAndGetCookies(t, handler)
 
-	budgetBody, err := json.Marshal(map[string]any{"title": "Бюджет для удаления", "target": 1000, "currency": "RUB"})
-	require.NoError(t, err)
+	budgetBody := testhelper.MustJSON(t, map[string]any{"title": "Бюджет для удаления", "target": 1000, "currency": "RUB"})
 	reqCreate := httptest.NewRequest(http.MethodPost, "/budget", bytes.NewBuffer(budgetBody))
 	for _, c := range cookies {
 		reqCreate.AddCookie(c)
@@ -733,7 +720,7 @@ func TestHandlers_EmptyPathID(t *testing.T) {
 
 	user := storage.UserInfo{
 		Id:       0,
-		Username: "admin",
+		Username: testUsername,
 	}
 
 	withUser := func(r *http.Request) *http.Request {
