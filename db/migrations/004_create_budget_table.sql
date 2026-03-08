@@ -9,7 +9,7 @@ create table if not exists budget (
     actual double precision not null,
     target double precision not null,
     currency currency_code not null,
-    author int not null references "user"(id)
+    author int not null references "user"(id),
 
     constraint title_length check ( length(title) > 0 and length(title) <= 255 ),
     constraint description_length check ( length(description) > 0 ),
@@ -17,7 +17,7 @@ create table if not exists budget (
     constraint end_after_start check ( end_at is null or end_at > start_at ),
     constraint updated_at_not_in_past check ( updated_at >= created_at ),
     constraint actual_not_negative check ( actual >= 0 ),
-    constraint target_greater_then_actual check ( target > actual )
+    constraint target_greater_than_actual check ( target > actual )
 );
 
 create trigger update_timestamp
