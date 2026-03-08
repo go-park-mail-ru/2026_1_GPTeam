@@ -1,5 +1,5 @@
 create table if not exists jwt (
-    uuid text primary key not null,
+    uuid text primary key,
     user_id int not null references "user"(id),
     expired_at timestamp not null default now() + interval '7 day',
 
