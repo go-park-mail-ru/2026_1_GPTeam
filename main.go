@@ -305,7 +305,9 @@ func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	auth.ClearOldToken(w, r)
-	w.Header().Set("Content-Type", "application/json")
+	response := base.NewLogoutSuccessResponse()
+	fmt.Println(response)
+	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func balanceHandler(w http.ResponseWriter, r *http.Request) {
