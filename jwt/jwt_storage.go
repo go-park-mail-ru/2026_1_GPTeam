@@ -2,7 +2,6 @@ package jwt
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"time"
 )
@@ -31,11 +30,10 @@ func initTokenStorage(secret string, version string) {
 	}
 }
 
-func NewRefreshTokenStore(secret string) error {
+func NewRefreshTokenStore(secret string, version string) error {
 	if len(secret) < 8 {
 		return fmt.Errorf("secret must be at least 8 bytes")
 	}
-	version := os.Getenv("JWT_VERSION")
 	if version == "" {
 		return fmt.Errorf("JWT_VERSION env variable not set")
 	}

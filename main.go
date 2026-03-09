@@ -352,7 +352,7 @@ func main() {
 		return
 	}
 
-	err = jwt.NewRefreshTokenStore(os.Getenv("JWT_SECRET"))
+	err = jwt.NewRefreshTokenStore(os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
 		fmt.Println(err)
 		return
