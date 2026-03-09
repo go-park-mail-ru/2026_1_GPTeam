@@ -323,6 +323,28 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
+func profileHandler(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	userResponse := base.User{
+		Username:        authUser.Username,
+		Email:           authUser.Email,
+		CreatedAt:       authUser.CreatedAt,
+		LastLogin:       authUser.LastLogin,
+		AvatarUrl:       authUser.AvatarUrl,
+		Balance:         authUser.Balance,
+		BalanceCurrency: authUser.BalanceCurrency,
+	}
+	response := base.NewLoginSuccessResponse(userResponse)
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -359,6 +381,7 @@ func main() {
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetHandler)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(CreateBudgetHandler)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(DeleteBudgetHandler)))
+	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(profileHandler)))
 
 	handler := middleware.AuthMiddleware(mux)
 	handler = middleware.CORSMiddleware(handler)
