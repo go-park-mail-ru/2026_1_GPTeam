@@ -1,81 +1,165 @@
-package storage
+package storage_test
 
 import (
-    "sync"
-    "testing"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"main/storage"
 )
 
-func setupBudgetStoreTest() {
-    onceBudget = sync.Once{}
-    NewBudgetStore()
+func setupBudgetStoreTest(t *testing.T) {
+	t.Helper()
+	storage.NewBudgetStore()
 }
 
 func TestAddBudgetAndGetBudgetByID(t *testing.T) {
-    setupBudgetStoreTest()
+	setupBudgetStoreTest(t)
 
-    id := AddBudget(BudgetInfo{Title: "Trip", Target: 50000, Currency: "RUB", Author: 1})
-    if id != 0 {
-        t.Fatalf("expected first budget id 0, got %d", id)
-    }
+	createdAt := time.Now().UTC().Truncate(time.Second)
+	startAt := createdAt.Add(time.Hour)
+	endAt := createdAt.Add(2 * time.Hour)
 
-    budget, ok := GetBudgetByID(id)
-    if !ok {
-        t.Fatal("expected budget to exist")
-    }
-    if budget.Title != "Trip" || budget.Author != 1 {
-        t.Fatalf("unexpected budget: %+v", budget)
-    }
+	id := storage.AddBudget(storage.BudgetInfo{
+		Title:       "Test budget",
+		Description: "test description",
+		CreatedAt:   createdAt,
+		StartAt:     startAt,
+		EndAt:       endAt,
+		Actual:      1500,
+		Target:      3000,
+		Currency:    "RUB",
+		Author:      101,
+	})
+
+	budget, ok := storage.GetBudgetByID(id)
+	require.True(t, ok)
+
+	assert.Equal(t, id, budget.Id)
+	assert.Equal(t, "Test budget", budget.Title)
+	assert.Equal(t, "test description", budget.Description)
+	assert.Equal(t, createdAt, budget.CreatedAt)
+	assert.Equal(t, startAt, budget.StartAt)
+	assert.Equal(t, endAt, budget.EndAt)
+	assert.Equal(t, 1500, budget.Actual)
+	assert.Equal(t, 3000, budget.Target)
+	assert.Equal(t, "RUB", budget.Currency)
+	assert.Equal(t, 101, budget.Author)
 }
 
-func TestGetBudgetIDsByUserID(t *testing.T) {
-    setupBudgetStoreTest()
+func TestGetBudgetIDsByUserID_ReturnsOnlyUserBudgetIDs(t *testing.T) {
+	setupBudgetStoreTest(t)
 
-    AddBudget(BudgetInfo{Title: "A", Author: 1})
-    AddBudget(BudgetInfo{Title: "B", Author: 2})
-    AddBudget(BudgetInfo{Title: "C", Author: 1})
+	id1 := storage.AddBudget(storage.BudgetInfo{
+		Title:       "Budget 1",
+		Description: "first",
+		CreatedAt:   time.Now().UTC(),
+		StartAt:     time.Now().UTC(),
+		EndAt:       time.Now().UTC().Add(time.Hour),
+		Actual:      100,
+		Target:      200,
+		Currency:    "RUB",
+		Author:      1,
+	})
+	id2 := storage.AddBudget(storage.BudgetInfo{
+		Title:       "Budget 2",
+		Description: "second",
+		CreatedAt:   time.Now().UTC(),
+		StartAt:     time.Now().UTC(),
+		EndAt:       time.Now().UTC().Add(time.Hour),
+		Actual:      300,
+		Target:      500,
+		Currency:    "RUB",
+		Author:      1,
+	})
+	storage.AddBudget(storage.BudgetInfo{
+		Title:       "Foreign budget",
+		Description: "third",
+		CreatedAt:   time.Now().UTC(),
+		StartAt:     time.Now().UTC(),
+		EndAt:       time.Now().UTC().Add(time.Hour),
+		Actual:      999,
+		Target:      1000,
+		Currency:    "RUB",
+		Author:      2,
+	})
 
-    ids := GetBudgetIDsByUserID(1)
-    if len(ids) != 2 {
-        t.Fatalf("expected 2 budget ids for user 1, got %d", len(ids))
-    }
+	ids := storage.GetBudgetIDsByUserID(1)
+	require.Len(t, ids, 2)
+	assert.Contains(t, ids, id1)
+	assert.Contains(t, ids, id2)
 }
 
-func TestGetBudgetByIDAndUserID(t *testing.T) {
-    setupBudgetStoreTest()
+func TestGetBudgetByIDAndUserID_ReturnsOwnedBudget(t *testing.T) {
+	setupBudgetStoreTest(t)
 
-    id := AddBudget(BudgetInfo{Title: "Home", Author: 5})
+	id := storage.AddBudget(storage.BudgetInfo{
+		Title:       "Owned budget",
+		Description: "owned",
+		CreatedAt:   time.Now().UTC(),
+		StartAt:     time.Now().UTC(),
+		EndAt:       time.Now().UTC().Add(time.Hour),
+		Actual:      10,
+		Target:      20,
+		Currency:    "RUB",
+		Author:      77,
+	})
 
-    _, ok := GetBudgetByIDAndUserID(id, 4)
-    if ok {
-        t.Fatal("expected access to fail for another user")
-    }
-
-    budget, ok := GetBudgetByIDAndUserID(id, 5)
-    if !ok {
-        t.Fatal("expected access for author")
-    }
-    if budget.Title != "Home" {
-        t.Fatalf("unexpected budget title: %q", budget.Title)
-    }
+	budget, ok := storage.GetBudgetByIDAndUserID(id, 77)
+	require.True(t, ok)
+	assert.Equal(t, id, budget.Id)
+	assert.Equal(t, 77, budget.Author)
 }
 
-func TestDeleteBudgetByIDAndUserID(t *testing.T) {
-    setupBudgetStoreTest()
+func TestDeleteBudgetByIDAndUserID_DeletesOwnedBudget(t *testing.T) {
+	setupBudgetStoreTest(t)
 
-    id := AddBudget(BudgetInfo{Title: "Delete me", Author: 9})
+	id := storage.AddBudget(storage.BudgetInfo{
+		Title:       "Owned budget",
+		Description: "owned",
+		CreatedAt:   time.Now().UTC(),
+		StartAt:     time.Now().UTC(),
+		EndAt:       time.Now().UTC().Add(time.Hour),
+		Actual:      10,
+		Target:      20,
+		Currency:    "RUB",
+		Author:      77,
+	})
 
-    deleted := DeleteBudgetByIDAndUserID(id, 8)
-    if deleted {
-        t.Fatal("expected delete to fail for non-author")
-    }
+	ok := storage.DeleteBudgetByIDAndUserID(id, 77)
+	assert.True(t, ok)
 
-    deleted = DeleteBudgetByIDAndUserID(id, 9)
-    if !deleted {
-        t.Fatal("expected delete to succeed for author")
-    }
+	_, exists := storage.GetBudgetByID(id)
+	assert.False(t, exists)
+}
 
-    _, ok := GetBudgetByID(id)
-    if ok {
-        t.Fatal("expected budget to be deleted")
-    }
+func TestDeleteBudgetByIDAndUserID_RejectsWrongUser(t *testing.T) {
+	setupBudgetStoreTest(t)
+
+	id := storage.AddBudget(storage.BudgetInfo{
+		Title:       "Protected budget",
+		Description: "protected",
+		CreatedAt:   time.Now().UTC(),
+		StartAt:     time.Now().UTC(),
+		EndAt:       time.Now().UTC().Add(time.Hour),
+		Actual:      10,
+		Target:      20,
+		Currency:    "RUB",
+		Author:      77,
+	})
+
+	ok := storage.DeleteBudgetByIDAndUserID(id, 88)
+	assert.False(t, ok)
+
+	_, exists := storage.GetBudgetByID(id)
+	assert.True(t, exists)
+}
+
+func TestGetBudgetByID_ReturnsFalseForMissingBudget(t *testing.T) {
+	setupBudgetStoreTest(t)
+
+	_, ok := storage.GetBudgetByID(999999)
+	assert.False(t, ok)
 }

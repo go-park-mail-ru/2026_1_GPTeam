@@ -1,20 +1,23 @@
-package auth
+package auth_test
 
 import (
-	"main/jwt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"main/auth"
+	"main/jwt"
 )
 
 func setupAuthJWT(t *testing.T) {
 	t.Helper()
-
-	if err := jwt.NewRefreshTokenStore("testsecret123"); err != nil {
-		t.Fatalf("failed to init jwt storage: %v", err)
-	}
+	err := jwt.NewRefreshTokenStore("testsecret123")
+	require.NoError(t, err)
 }
 
 func findCookie(cookies []*http.Cookie, name string) *http.Cookie {
@@ -30,18 +33,14 @@ func issueAuthCookies(t *testing.T, userID string) (*http.Cookie, *http.Cookie) 
 	t.Helper()
 
 	rec := httptest.NewRecorder()
-	GenerateNewAuthCookie(rec, userID)
+	auth.GenerateNewAuthCookie(rec, userID)
 
 	cookies := rec.Result().Cookies()
-	accessCookie := findCookie(cookies, TokenName)
-	refreshCookie := findCookie(cookies, RefreshTokenName)
+	accessCookie := findCookie(cookies, auth.TokenName)
+	refreshCookie := findCookie(cookies, auth.RefreshTokenName)
 
-	if accessCookie == nil {
-		t.Fatal("expected access cookie to be set")
-	}
-	if refreshCookie == nil {
-		t.Fatal("expected refresh cookie to be set")
-	}
+	require.NotNil(t, accessCookie)
+	require.NotNil(t, refreshCookie)
 
 	return accessCookie, refreshCookie
 }
@@ -51,18 +50,10 @@ func TestGenerateNewAuthCookie_SetsAccessCookie(t *testing.T) {
 
 	accessCookie, _ := issueAuthCookies(t, "123")
 
-	if accessCookie.Name != TokenName {
-		t.Fatalf("expected cookie name %q, got %q", TokenName, accessCookie.Name)
-	}
-	if accessCookie.Value == "" {
-		t.Fatal("expected access cookie value to be non-empty")
-	}
-	if accessCookie.Path != "/" {
-		t.Fatalf("expected access cookie path '/', got %q", accessCookie.Path)
-	}
-	if !accessCookie.HttpOnly {
-		t.Fatal("expected access cookie to be HttpOnly")
-	}
+	assert.Equal(t, auth.TokenName, accessCookie.Name)
+	assert.NotEmpty(t, accessCookie.Value)
+	assert.Equal(t, "/", accessCookie.Path)
+	assert.True(t, accessCookie.HttpOnly)
 }
 
 func TestGenerateNewAuthCookie_SetsRefreshCookie(t *testing.T) {
@@ -70,18 +61,10 @@ func TestGenerateNewAuthCookie_SetsRefreshCookie(t *testing.T) {
 
 	_, refreshCookie := issueAuthCookies(t, "123")
 
-	if refreshCookie.Name != RefreshTokenName {
-		t.Fatalf("expected cookie name %q, got %q", RefreshTokenName, refreshCookie.Name)
-	}
-	if refreshCookie.Value == "" {
-		t.Fatal("expected refresh cookie value to be non-empty")
-	}
-	if refreshCookie.Path != "/auth/" {
-		t.Fatalf("expected refresh cookie path '/auth/', got %q", refreshCookie.Path)
-	}
-	if !refreshCookie.HttpOnly {
-		t.Fatal("expected refresh cookie to be HttpOnly")
-	}
+	assert.Equal(t, auth.RefreshTokenName, refreshCookie.Name)
+	assert.NotEmpty(t, refreshCookie.Value)
+	assert.Equal(t, "/auth/", refreshCookie.Path)
+	assert.True(t, refreshCookie.HttpOnly)
 }
 
 func TestGetAuthCookie_ReturnsCookie(t *testing.T) {
@@ -92,13 +75,11 @@ func TestGetAuthCookie_ReturnsCookie(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(accessCookie)
 
-	cookie, err := GetAuthCookie(req)
-	if err != nil {
-		t.Fatalf("GetAuthCookie returned error: %v", err)
-	}
-	if cookie.Value != accessCookie.Value {
-		t.Fatal("returned cookie value does not match original")
-	}
+	cookie, err := auth.GetAuthCookie(req)
+	require.NoError(t, err)
+	require.NotNil(t, cookie)
+
+	assert.Equal(t, accessCookie.Value, cookie.Value)
 }
 
 func TestIsAuth_ReturnsAuthorizedUser(t *testing.T) {
@@ -109,13 +90,9 @@ func TestIsAuth_ReturnsAuthorizedUser(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(accessCookie)
 
-	ok, userID := IsAuth(req)
-	if !ok {
-		t.Fatal("expected request to be authorized")
-	}
-	if userID != "44" {
-		t.Fatalf("expected userID %q, got %q", "44", userID)
-	}
+	ok, userID := auth.IsAuth(req)
+	assert.True(t, ok)
+	assert.Equal(t, "44", userID)
 }
 
 func TestIsAuth_RejectsMissingCookie(t *testing.T) {
@@ -123,13 +100,9 @@ func TestIsAuth_RejectsMissingCookie(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 
-	ok, userID := IsAuth(req)
-	if ok {
-		t.Fatal("expected request without cookie to be unauthorized")
-	}
-	if userID != "" {
-		t.Fatalf("expected empty userID, got %q", userID)
-	}
+	ok, userID := auth.IsAuth(req)
+	assert.False(t, ok)
+	assert.Empty(t, userID)
 }
 
 func TestGetUserIDFromCookie_ReturnsIntUserID(t *testing.T) {
@@ -140,13 +113,10 @@ func TestGetUserIDFromCookie_ReturnsIntUserID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(accessCookie)
 
-	userID, err := GetUserIDFromCookie(req)
-	if err != nil {
-		t.Fatalf("GetUserIDFromCookie returned error: %v", err)
-	}
-	if userID != 77 {
-		t.Fatalf("expected userID 77, got %d", userID)
-	}
+	userID, err := auth.GetUserIDFromCookie(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, 77, userID)
 }
 
 func TestGetUserIDFromCookie_RejectsInvalidToken(t *testing.T) {
@@ -154,37 +124,29 @@ func TestGetUserIDFromCookie_RejectsInvalidToken(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  TokenName,
+		Name:  auth.TokenName,
 		Value: "broken-token",
 	})
 
-	_, err := GetUserIDFromCookie(req)
-	if err == nil {
-		t.Fatal("expected error for invalid token")
-	}
+	_, err := auth.GetUserIDFromCookie(req)
+	require.Error(t, err)
 }
 
 func TestGetUserIDFromCookie_RejectsNonNumericUserID(t *testing.T) {
 	setupAuthJWT(t)
 
 	token, err := jwt.GenerateToken("abc")
-	if err != nil {
-		t.Fatalf("GenerateToken returned error: %v", err)
-	}
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{
-		Name:  TokenName,
+		Name:  auth.TokenName,
 		Value: token,
 	})
 
-	_, err = GetUserIDFromCookie(req)
-	if err == nil {
-		t.Fatal("expected error for non-numeric userID")
-	}
-	if !strings.Contains(err.Error(), strconv.ErrSyntax.Error()) {
-		t.Fatalf("expected strconv syntax error, got %v", err)
-	}
+	_, err = auth.GetUserIDFromCookie(req)
+	require.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), strconv.ErrSyntax.Error()))
 }
 
 func TestRefreshToken_RotatesCookies(t *testing.T) {
@@ -196,31 +158,20 @@ func TestRefreshToken_RotatesCookies(t *testing.T) {
 	req.AddCookie(oldRefreshCookie)
 
 	rec := httptest.NewRecorder()
-	ok, userID := RefreshToken(rec, req)
+	ok, userID := auth.RefreshToken(rec, req)
 
-	if !ok {
-		t.Fatal("expected refresh to succeed")
-	}
-	if userID != "501" {
-		t.Fatalf("expected userID %q, got %q", "501", userID)
-	}
+	assert.True(t, ok)
+	assert.Equal(t, "501", userID)
 
 	newCookies := rec.Result().Cookies()
-	newAccessCookie := findCookie(newCookies, TokenName)
-	newRefreshCookie := findCookie(newCookies, RefreshTokenName)
+	newAccessCookie := findCookie(newCookies, auth.TokenName)
+	newRefreshCookie := findCookie(newCookies, auth.RefreshTokenName)
 
-	if newAccessCookie == nil {
-		t.Fatal("expected new access cookie after refresh")
-	}
-	if newRefreshCookie == nil {
-		t.Fatal("expected new refresh cookie after refresh")
-	}
-	if newAccessCookie.Value == oldAccessCookie.Value {
-		t.Fatal("expected access token to rotate")
-	}
-	if newRefreshCookie.Value == oldRefreshCookie.Value {
-		t.Fatal("expected refresh token to rotate")
-	}
+	require.NotNil(t, newAccessCookie)
+	require.NotNil(t, newRefreshCookie)
+
+	assert.NotEqual(t, oldAccessCookie.Value, newAccessCookie.Value)
+	assert.NotEqual(t, oldRefreshCookie.Value, newRefreshCookie.Value)
 }
 
 func TestRefreshToken_OldRefreshTokenBecomesInvalid(t *testing.T) {
@@ -232,22 +183,17 @@ func TestRefreshToken_OldRefreshTokenBecomesInvalid(t *testing.T) {
 	req1.AddCookie(oldRefreshCookie)
 
 	rec1 := httptest.NewRecorder()
-	ok, userID := RefreshToken(rec1, req1)
-	if !ok || userID != "501" {
-		t.Fatalf("expected first refresh to succeed, got ok=%v userID=%q", ok, userID)
-	}
+	ok, userID := auth.RefreshToken(rec1, req1)
+	assert.True(t, ok)
+	assert.Equal(t, "501", userID)
 
 	req2 := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
 	req2.AddCookie(oldRefreshCookie)
 
 	rec2 := httptest.NewRecorder()
-	ok, userID = RefreshToken(rec2, req2)
-	if ok {
-		t.Fatal("expected old refresh token to be invalid after rotation")
-	}
-	if userID != "" {
-		t.Fatalf("expected empty userID, got %q", userID)
-	}
+	ok, userID = auth.RefreshToken(rec2, req2)
+	assert.False(t, ok)
+	assert.Empty(t, userID)
 }
 
 func TestClearOldToken_ExpiresCookies(t *testing.T) {
@@ -259,25 +205,17 @@ func TestClearOldToken_ExpiresCookies(t *testing.T) {
 	req.AddCookie(refreshCookie)
 
 	rec := httptest.NewRecorder()
-	ClearOldToken(rec, req)
+	auth.ClearOldToken(rec, req)
 
 	cookies := rec.Result().Cookies()
-	clearedAccessCookie := findCookie(cookies, TokenName)
-	clearedRefreshCookie := findCookie(cookies, RefreshTokenName)
+	clearedAccessCookie := findCookie(cookies, auth.TokenName)
+	clearedRefreshCookie := findCookie(cookies, auth.RefreshTokenName)
 
-	if clearedAccessCookie == nil {
-		t.Fatal("expected cleared access cookie")
-	}
-	if clearedRefreshCookie == nil {
-		t.Fatal("expected cleared refresh cookie")
-	}
-	if clearedAccessCookie.Value != "" {
-		t.Fatal("expected cleared access cookie value to be empty")
-	}
-	if clearedRefreshCookie.Value != "" {
-		t.Fatal("expected cleared refresh cookie value to be empty")
-	}
-	if !clearedAccessCookie.Expires.Before(refreshCookie.Expires) {
-		t.Fatal("expected cleared access cookie to expire before original refresh cookie")
-	}
+	require.NotNil(t, clearedAccessCookie)
+	require.NotNil(t, clearedRefreshCookie)
+
+	assert.Empty(t, clearedAccessCookie.Value)
+	assert.Empty(t, clearedRefreshCookie.Value)
+	assert.Equal(t, "/", clearedAccessCookie.Path)
+	assert.Equal(t, "/auth/", clearedRefreshCookie.Path)
 }
