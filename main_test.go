@@ -30,7 +30,7 @@ var once sync.Once
 
 func SetupStorage() {
 	once.Do(func() {
-		_ = jwt.NewRefreshTokenStore("secret123")
+		_ = jwt.NewRefreshTokenStore("secret123", "0")
 		storage.NewUserStore()
 		storage.AddUser(storage.UserInfo{
 			Id:              0,
