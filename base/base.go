@@ -55,7 +55,8 @@ type LogoutSuccessResponse struct {
 	LoggedOutAt time.Time `json:"logged_out_at"`
 }
 
-func NewLogoutSuccessResponse(loggedOutAt time.Time) LogoutSuccessResponse {
+func NewLogoutSuccessResponse() LogoutSuccessResponse {
+	loggedOutAt := time.Now()
 	return LogoutSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
