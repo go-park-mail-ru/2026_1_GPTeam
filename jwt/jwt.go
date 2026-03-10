@@ -11,13 +11,21 @@ import (
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
-func CheckToken(tokenStr string) (bool, string) {
+func parseToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
 		return getJWTSecret(), nil
 	})
+	if err != nil {
+		return &jwt.Token{}, err
+	}
+	return token, nil
+}
+
+func CheckToken(tokenStr string) (bool, string) {
+	token, err := parseToken(tokenStr)
 	if err != nil {
 		fmt.Println(err)
 		return false, ""
@@ -45,12 +53,7 @@ func CheckToken(tokenStr string) (bool, string) {
 }
 
 func CheckRefreshToken(tokenStr string) (bool, string) {
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
-		}
-		return getJWTSecret(), nil
-	})
+	token, err := parseToken(tokenStr)
 	if err != nil {
 		fmt.Println(err)
 		return false, ""
@@ -60,6 +63,7 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 	if !ok || !token.Valid {
 		return false, ""
 	}
+
 	version, ok := claims["version"].(string)
 	if !ok {
 		return false, ""
@@ -68,10 +72,12 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 	if version != curVersion {
 		return false, ""
 	}
+
 	tokenID, ok := claims["id"].(string)
 	if !ok {
 		return false, ""
 	}
+
 	userID, ok := claims["user_id"].(string)
 	if !ok {
 		return false, ""
@@ -130,12 +136,7 @@ func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 }
 
 func DeleteRefreshToken(tokenStr string) {
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
-		}
-		return getJWTSecret(), nil
-	})
+	token, err := parseToken(tokenStr)
 	if err != nil {
 		fmt.Println(err)
 		return
