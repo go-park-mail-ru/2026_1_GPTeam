@@ -205,9 +205,9 @@ func TestSignup(t *testing.T) {
 				var resp base.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusConflict, resp.Code)
-				require.Equal(t, "Пользователь с таким именем уже существует", resp.Message)
+				require.Equal(t, "Пользователь с таким логином уже существует", resp.Message)
 				require.Equal(t, []base.FieldError{
-					{Field: "username", Message: "Пользователь с таким именем уже существует"},
+					{Field: "username", Message: "Пользователь с таким логином уже существует"},
 				}, resp.Errors)
 			},
 		},
@@ -257,7 +257,7 @@ func TestSignup(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			handler := middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(signupHandler))
-			req := httptest.NewRequest(c.method, "/signup", bytes.NewBuffer(c.body))
+			req := httptest.NewRequest(c.method, "/auth/signup", bytes.NewBuffer(c.body))
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
 			require.Equal(t, c.expectedCode, w.Code)
@@ -459,7 +459,7 @@ func TestGetBudgets(t *testing.T) {
 		handler http.HandlerFunc
 	}{
 		"/auth/login":  {http.MethodPost, loginHandler},
-		"/get_budgets": {http.MethodGet, GetBudgetsHandler},
+		"/get_budgets": {http.MethodGet, getBudgetsHandler},
 	})
 
 	cookies := loginAndGetCookies(t, handler)
@@ -499,8 +499,8 @@ func TestGetBudget(t *testing.T) {
 		handler http.HandlerFunc
 	}{
 		"/auth/login":      {http.MethodPost, loginHandler},
-		"/budget":          {http.MethodPost, CreateBudgetHandler},
-		"/get_budget/{id}": {http.MethodGet, GetBudgetHandler},
+		"/budget":          {http.MethodPost, createBudgetHandler},
+		"/get_budget/{id}": {http.MethodGet, getBudgetHandler},
 	})
 
 	cookies := loginAndGetCookies(t, handler)
@@ -554,7 +554,7 @@ func TestCreateBudget(t *testing.T) {
 		handler http.HandlerFunc
 	}{
 		"/auth/login": {http.MethodPost, loginHandler},
-		"/budget":     {http.MethodPost, CreateBudgetHandler},
+		"/budget":     {http.MethodPost, createBudgetHandler},
 	})
 
 	cookies := loginAndGetCookies(t, handler)
@@ -641,7 +641,7 @@ func TestDeleteBudget(t *testing.T) {
 		handler http.HandlerFunc
 	}{
 		"/auth/login":  {http.MethodPost, loginHandler},
-		"/budget":      {http.MethodPost, CreateBudgetHandler},
+		"/budget":      {http.MethodPost, createBudgetHandler},
 		"/budget/{id}": {http.MethodDelete, DeleteBudgetHandler},
 	})
 
@@ -697,9 +697,9 @@ func TestHandlersNoUserInContext(t *testing.T) {
 		method  string
 		body    []byte
 	}{
-		{"GetBudgetsHandler", GetBudgetsHandler, http.MethodGet, nil},
-		{"GetBudgetHandler", GetBudgetHandler, http.MethodGet, nil},
-		{"CreateBudgetHandler", CreateBudgetHandler, http.MethodPost, []byte(`{"title":"t","target":1,"currency":"RUB"}`)},
+		{"getBudgetsHandler", getBudgetsHandler, http.MethodGet, nil},
+		{"getBudgetHandler", getBudgetHandler, http.MethodGet, nil},
+		{"createBudgetHandler", createBudgetHandler, http.MethodPost, []byte(`{"title":"t","target":1,"currency":"RUB"}`)},
 		{"DeleteBudgetHandler", DeleteBudgetHandler, http.MethodDelete, nil},
 		{"balanceHandler", balanceHandler, http.MethodGet, nil},
 	}
@@ -728,11 +728,11 @@ func TestHandlersEmptyPathID(t *testing.T) {
 		return r.WithContext(ctx)
 	}
 
-	t.Run("GetBudgetHandler пустой id", func(t *testing.T) {
+	t.Run("getBudgetHandler пустой id", func(t *testing.T) {
 		t.Parallel()
 		req := withUser(httptest.NewRequest(http.MethodGet, "/get_budget/", nil))
 		w := httptest.NewRecorder()
-		GetBudgetHandler(w, req)
+		getBudgetHandler(w, req)
 		require.Equal(t, http.StatusNotFound, w.Code)
 	})
 
