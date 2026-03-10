@@ -268,7 +268,7 @@ func TestSignup(t *testing.T) {
 	}
 }
 
-func TestRefresh_MethodNotAllowed(t *testing.T) {
+func TestRefreshMethodNotAllowed(t *testing.T) {
 	SetupStorage()
 
 	cases := []struct {
@@ -292,7 +292,7 @@ func TestRefresh_MethodNotAllowed(t *testing.T) {
 	}
 }
 
-func TestRefresh_WithValidToken(t *testing.T) {
+func TestRefreshWithValidToken(t *testing.T) {
 	SetupStorage()
 
 	handler := newMux(map[string]struct {
@@ -323,7 +323,7 @@ func TestRefresh_WithValidToken(t *testing.T) {
 	assertAuthCookies(t, w.Result().Cookies())
 }
 
-func TestRefresh_WithInvalidToken(t *testing.T) {
+func TestRefreshWithInvalidToken(t *testing.T) {
 	SetupStorage()
 
 	handler := middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(refreshTokenHandler))
@@ -688,7 +688,7 @@ func TestDeleteBudget(t *testing.T) {
 	}
 }
 
-func TestHandlers_NoUserInContext(t *testing.T) {
+func TestHandlersNoUserInContext(t *testing.T) {
 	SetupStorage()
 
 	handlers := []struct {
@@ -715,7 +715,7 @@ func TestHandlers_NoUserInContext(t *testing.T) {
 	}
 }
 
-func TestHandlers_EmptyPathID(t *testing.T) {
+func TestHandlersEmptyPathID(t *testing.T) {
 	SetupStorage()
 
 	user := storage.UserInfo{
