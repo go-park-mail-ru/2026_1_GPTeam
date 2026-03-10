@@ -1,10 +1,11 @@
 package storage
 
 import (
-	"main/base"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
 )
 
 var onceUser sync.Once

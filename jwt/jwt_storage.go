@@ -16,30 +16,43 @@ type RefreshTokenInfo struct {
 }
 
 type RefreshTokenStore struct {
-	mu     sync.RWMutex
-	tokens map[string]RefreshTokenInfo // key: tokenID -> информация о токене
-	secret []byte
+	mu      sync.RWMutex
+	tokens  map[string]RefreshTokenInfo // key: tokenID -> информация о токене
+	secret  []byte
+	version string
 }
 
-func initTokenStorage(secret string) {
+func initTokenStorage(secret string, version string) {
 	tokenStore = RefreshTokenStore{
-		tokens: make(map[string]RefreshTokenInfo),
-		secret: []byte(secret),
+		tokens:  make(map[string]RefreshTokenInfo),
+		secret:  []byte(secret),
+		version: version,
 	}
 }
 
-func NewRefreshTokenStore(secret string) error {
+func NewRefreshTokenStore(secret string, version string) error {
 	if len(secret) < 8 {
 		return fmt.Errorf("secret must be at least 8 bytes")
 	}
+	if version == "" {
+		return fmt.Errorf("JWT_VERSION env variable not set")
+	}
 	onceJWT.Do(func() {
-		initTokenStorage(secret)
+		initTokenStorage(secret, version)
 	})
 	return nil
 }
 
 func getJWTSecret() []byte {
+	tokenStore.mu.RLock()
+	defer tokenStore.mu.RUnlock()
 	return tokenStore.secret
+}
+
+func getVersion() string {
+	tokenStore.mu.RLock()
+	defer tokenStore.mu.RUnlock()
+	return tokenStore.version
 }
 
 func getToken(tokenID string) (RefreshTokenInfo, bool) {

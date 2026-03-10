@@ -3,15 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"main/auth"
-	"main/base"
-	"main/jwt"
-	"main/middleware"
-	"main/storage"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 
 	"github.com/joho/godotenv"
 )
@@ -66,11 +67,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func refreshTokenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		response := base.NewMethodError()
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
 	isAuth, userID := auth.RefreshToken(w, r)
 	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
 	if !ok {
@@ -164,21 +160,25 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetBudgetsHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromCookie(r)
-	if err != nil {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	ids := storage.GetBudgetIDsByUserID(userID)
+	ids := storage.GetBudgetIDsByUserID(authUser.Id)
 	response := base.NewBudgetsIDsResponse(ids)
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromCookie(r)
-	if err != nil {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -197,7 +197,7 @@ func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	budget, ok := storage.GetBudgetByIDAndUserID(budgetID, userID)
+	budget, ok := storage.GetBudgetByIDAndUserID(budgetID, authUser.Id)
 	if !ok {
 		response := base.NewNotFoundErrorResponse("Бюджет не найден")
 		base.WriteResponseJSON(w, response.Code, response)
@@ -219,8 +219,10 @@ func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromCookie(r)
-	if err != nil {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -260,7 +262,7 @@ func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
 		Actual:      0,
 		Target:      body.Target,
 		Currency:    body.Currency,
-		Author:      userID,
+		Author:      authUser.Id,
 	}
 	id := storage.AddBudget(budget)
 	response := base.NewBudgetCreateSuccessResponse(id)
@@ -268,8 +270,10 @@ func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromCookie(r)
-	if err != nil {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -288,7 +292,7 @@ func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok := storage.DeleteBudgetByIDAndUserID(budgetID, userID)
+	ok = storage.DeleteBudgetByIDAndUserID(budgetID, authUser.Id)
 	if !ok {
 		response := base.NewNotFoundErrorResponse("Бюджет не найден")
 		base.WriteResponseJSON(w, response.Code, response)
@@ -301,7 +305,9 @@ func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	auth.ClearOldToken(w, r)
-	w.Header().Set("Content-Type", "application/json")
+	response := base.NewLogoutSuccessResponse()
+	fmt.Println(response)
+	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func balanceHandler(w http.ResponseWriter, r *http.Request) {
@@ -319,6 +325,28 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
+func profileHandler(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(storage.UserInfo)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
+		response := base.NewUnauthorizedErrorResponse()
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	userResponse := base.User{
+		Username:        authUser.Username,
+		Email:           authUser.Email,
+		CreatedAt:       authUser.CreatedAt,
+		LastLogin:       authUser.LastLogin,
+		AvatarUrl:       authUser.AvatarUrl,
+		Balance:         authUser.Balance,
+		BalanceCurrency: authUser.BalanceCurrency,
+	}
+	response := base.NewLoginSuccessResponse(userResponse)
+	base.WriteResponseJSON(w, response.Code, response)
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -326,7 +354,7 @@ func main() {
 		return
 	}
 
-	err = jwt.NewRefreshTokenStore(os.Getenv("JWT_SECRET"))
+	err = jwt.NewRefreshTokenStore(os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -355,6 +383,7 @@ func main() {
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetHandler)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(CreateBudgetHandler)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(DeleteBudgetHandler)))
+	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(profileHandler)))
 
 	handler := middleware.AuthMiddleware(mux)
 	handler = middleware.CORSMiddleware(handler)

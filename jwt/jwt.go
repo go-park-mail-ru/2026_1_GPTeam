@@ -23,13 +23,25 @@ func CheckToken(tokenStr string) (bool, string) {
 		return false, ""
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		userID, ok := claims["user_id"].(string)
-		if ok {
-			return true, userID
-		}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return false, ""
 	}
-	return false, ""
+
+	version, ok := claims["version"].(string)
+	if !ok {
+		return false, ""
+	}
+	curVersion := getVersion()
+	if version != curVersion {
+		return false, ""
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		return false, ""
+	}
+	return true, userID
 }
 
 func CheckRefreshToken(tokenStr string) (bool, string) {
@@ -46,6 +58,14 @@ func CheckRefreshToken(tokenStr string) (bool, string) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
+		return false, ""
+	}
+	version, ok := claims["version"].(string)
+	if !ok {
+		return false, ""
+	}
+	curVersion := getVersion()
+	if version != curVersion {
 		return false, ""
 	}
 	tokenID, ok := claims["id"].(string)
@@ -72,6 +92,7 @@ func GenerateToken(userID string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": userID,
 		"exp":     expirationTime.Unix(),
+		"version": getVersion(),
 	})
 
 	tokenString, err := token.SignedString(getJWTSecret())
@@ -91,6 +112,7 @@ func GenerateRefreshToken(userID string, deviceID string) (string, error) {
 		"id":      tokenID,
 		"exp":     expirationTime.Unix(),
 		"user_id": userID,
+		"version": getVersion(),
 	})
 	refreshString, err := token.SignedString(getJWTSecret())
 	if err != nil {
