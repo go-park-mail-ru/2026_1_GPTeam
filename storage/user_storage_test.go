@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"main/base"
-	"main/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 )
 
 func setupUserStoreTest(t *testing.T) {
@@ -36,7 +36,7 @@ func TestAddUserAndGetUserByID(t *testing.T) {
 	assert.Equal(t, createdAt, user.CreatedAt)
 }
 
-func TestFindUserByCredentials_ReturnsUser(t *testing.T) {
+func TestFindUserByCredentialsReturnsUser(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
@@ -58,7 +58,7 @@ func TestFindUserByCredentials_ReturnsUser(t *testing.T) {
 	assert.Equal(t, "cred_user_storage_test@gmail.com", user.Email)
 }
 
-func TestFindUserByCredentials_WrongPassword(t *testing.T) {
+func TestFindUserByCredentialsWrongPassword(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
@@ -76,7 +76,7 @@ func TestFindUserByCredentials_WrongPassword(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestUserExists_ReturnsTrueForExistingUser(t *testing.T) {
+func TestUserExistsReturnsTrueForExistingUser(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
@@ -91,7 +91,7 @@ func TestUserExists_ReturnsTrueForExistingUser(t *testing.T) {
 	assert.False(t, storage.UserExists("DefinitelyMissingUser_user_storage_test"))
 }
 
-func TestEmailExists_ReturnsTrueForExistingEmail(t *testing.T) {
+func TestEmailExistsReturnsTrueForExistingEmail(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
@@ -106,7 +106,7 @@ func TestEmailExists_ReturnsTrueForExistingEmail(t *testing.T) {
 	assert.False(t, storage.EmailExists("missing_email_user_storage_test@gmail.com"))
 }
 
-func TestIsAuthUserInDatabase_ReturnsTrueForExistingID(t *testing.T) {
+func TestIsAuthUserInDatabaseReturnsTrueForExistingID(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
@@ -132,7 +132,7 @@ func TestIsAuthUserInDatabase_ReturnsTrueForExistingID(t *testing.T) {
 	assert.Equal(t, 150.5, user.Balance)
 }
 
-func TestIsAuthUserInDatabase_ReturnsFalseForInvalidAuthData(t *testing.T) {
+func TestIsAuthUserInDatabaseReturnsFalseForInvalidAuthData(t *testing.T) {
 	setupUserStoreTest(t)
 
 	_, ok := storage.IsAuthUserInDatabase(false, "1")

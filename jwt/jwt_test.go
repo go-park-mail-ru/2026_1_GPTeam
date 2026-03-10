@@ -6,21 +6,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"main/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 )
 
 func setupJWTTest(t *testing.T) {
 	t.Helper()
-	err := jwt.NewRefreshTokenStore("testsecret123")
+	err := jwt.NewRefreshTokenStore("testsecret123", "0")
 	require.NoError(t, err)
 }
 
 func TestNewRefreshTokenStore(t *testing.T) {
-	err := jwt.NewRefreshTokenStore("testsecret123")
+	err := jwt.NewRefreshTokenStore("testsecret123", "0")
 	require.NoError(t, err)
 }
 
-func TestGenerateToken_ReturnsNonEmptyToken(t *testing.T) {
+func TestGenerateTokenReturnsNonEmptyToken(t *testing.T) {
 	setupJWTTest(t)
 
 	token, err := jwt.GenerateToken("42")
@@ -28,14 +28,14 @@ func TestGenerateToken_ReturnsNonEmptyToken(t *testing.T) {
 	assert.NotEmpty(t, token)
 }
 
-func TestCheckToken_InvalidToken(t *testing.T) {
+func TestCheckTokenInvalidToken(t *testing.T) {
 	ok, userID := jwt.CheckToken("invalid-token")
 
 	assert.False(t, ok)
 	assert.Empty(t, userID)
 }
 
-func TestGenerateToken_ThenCheckToken_ReturnsSameUserID(t *testing.T) {
+func TestGenerateTokenThenCheckTokenReturnsSameUserID(t *testing.T) {
 	setupJWTTest(t)
 
 	token, err := jwt.GenerateToken("42")
@@ -46,7 +46,7 @@ func TestGenerateToken_ThenCheckToken_ReturnsSameUserID(t *testing.T) {
 	assert.Equal(t, "42", userID)
 }
 
-func TestGenerateRefreshToken_ThenCheckRefreshToken_ReturnsSameUserID(t *testing.T) {
+func TestGenerateRefreshTokenThenCheckRefreshTokenReturnsSameUserID(t *testing.T) {
 	setupJWTTest(t)
 
 	token, err := jwt.GenerateRefreshToken("42", "test-device")
@@ -58,7 +58,7 @@ func TestGenerateRefreshToken_ThenCheckRefreshToken_ReturnsSameUserID(t *testing
 	assert.Equal(t, "42", userID)
 }
 
-func TestCheckRefreshToken_InvalidToken(t *testing.T) {
+func TestCheckRefreshTokenInvalidToken(t *testing.T) {
 	setupJWTTest(t)
 
 	ok, userID := jwt.CheckRefreshToken("invalid-refresh-token")
@@ -67,7 +67,7 @@ func TestCheckRefreshToken_InvalidToken(t *testing.T) {
 	assert.Empty(t, userID)
 }
 
-func TestDeleteRefreshToken_InvalidatesToken(t *testing.T) {
+func TestDeleteRefreshTokenInvalidatesToken(t *testing.T) {
 	setupJWTTest(t)
 
 	token, err := jwt.GenerateRefreshToken("42", "test-device")

@@ -27,7 +27,7 @@ var once sync.Once
 
 func setupStorage() {
 	once.Do(func() {
-		_ = jwt.NewRefreshTokenStore("secret123")
+		_ = jwt.NewRefreshTokenStore("secret123", "0")
 		storage.NewUserStore()
 		storage.AddUser(storage.UserInfo{
 			Id:        0,
@@ -60,7 +60,7 @@ func makeAccessCookie(t *testing.T, userID string) *http.Cookie {
 	}
 }
 
-func TestCORSMiddleware_SetsHeaders(t *testing.T) {
+func TestCORSMiddlewareSetsHeaders(t *testing.T) {
 	t.Parallel()
 
 	methods := []string{
@@ -97,7 +97,7 @@ func TestCORSMiddleware_SetsHeaders(t *testing.T) {
 	}
 }
 
-func TestCORSMiddleware_OptionsDoesNotCallNext(t *testing.T) {
+func TestCORSMiddlewareOptionsDoesNotCallNext(t *testing.T) {
 	t.Parallel()
 
 	called := false
@@ -116,7 +116,7 @@ func TestCORSMiddleware_OptionsDoesNotCallNext(t *testing.T) {
 	require.NotEqual(t, http.StatusTeapot, w.Code)
 }
 
-func TestMethodValidationMiddleware_MultipleAllowedMethods(t *testing.T) {
+func TestMethodValidationMiddlewareMultipleAllowedMethods(t *testing.T) {
 	t.Parallel()
 
 	handler := MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(okHandler))
@@ -151,7 +151,7 @@ func TestMethodValidationMiddleware_MultipleAllowedMethods(t *testing.T) {
 	})
 }
 
-func TestMethodValidationMiddleware_DisallowedMethod_Returns405(t *testing.T) {
+func TestMethodValidationMiddlewareDisallowedMethodReturns405(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -397,7 +397,7 @@ func TestAuthMiddleware(t *testing.T) {
 	}
 }
 
-func TestAuthMiddleware_PreservesExistingContextValues(t *testing.T) {
+func TestAuthMiddlewarePreservesExistingContextValues(t *testing.T) {
 	t.Parallel()
 	setupStorage()
 

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"main/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 )
 
 func setupBudgetStoreTest(t *testing.T) {
@@ -49,7 +49,7 @@ func TestAddBudgetAndGetBudgetByID(t *testing.T) {
 	assert.Equal(t, 101, budget.Author)
 }
 
-func TestGetBudgetIDsByUserID_ReturnsOnlyUserBudgetIDs(t *testing.T) {
+func TestGetBudgetIDsByUserIDReturnsOnlyUserBudgetIDs(t *testing.T) {
 	setupBudgetStoreTest(t)
 
 	id1 := storage.AddBudget(storage.BudgetInfo{
@@ -92,7 +92,7 @@ func TestGetBudgetIDsByUserID_ReturnsOnlyUserBudgetIDs(t *testing.T) {
 	assert.Contains(t, ids, id2)
 }
 
-func TestGetBudgetByIDAndUserID_ReturnsOwnedBudget(t *testing.T) {
+func TestGetBudgetByIDAndUserIDReturnsOwnedBudget(t *testing.T) {
 	setupBudgetStoreTest(t)
 
 	id := storage.AddBudget(storage.BudgetInfo{
@@ -113,7 +113,7 @@ func TestGetBudgetByIDAndUserID_ReturnsOwnedBudget(t *testing.T) {
 	assert.Equal(t, 77, budget.Author)
 }
 
-func TestDeleteBudgetByIDAndUserID_DeletesOwnedBudget(t *testing.T) {
+func TestDeleteBudgetByIDAndUserIDDeletesOwnedBudget(t *testing.T) {
 	setupBudgetStoreTest(t)
 
 	id := storage.AddBudget(storage.BudgetInfo{
@@ -135,7 +135,7 @@ func TestDeleteBudgetByIDAndUserID_DeletesOwnedBudget(t *testing.T) {
 	assert.False(t, exists)
 }
 
-func TestDeleteBudgetByIDAndUserID_RejectsWrongUser(t *testing.T) {
+func TestDeleteBudgetByIDAndUserIDRejectsWrongUser(t *testing.T) {
 	setupBudgetStoreTest(t)
 
 	id := storage.AddBudget(storage.BudgetInfo{
@@ -157,7 +157,7 @@ func TestDeleteBudgetByIDAndUserID_RejectsWrongUser(t *testing.T) {
 	assert.True(t, exists)
 }
 
-func TestGetBudgetByID_ReturnsFalseForMissingBudget(t *testing.T) {
+func TestGetBudgetByIDReturnsFalseForMissingBudget(t *testing.T) {
 	setupBudgetStoreTest(t)
 
 	_, ok := storage.GetBudgetByID(999999)

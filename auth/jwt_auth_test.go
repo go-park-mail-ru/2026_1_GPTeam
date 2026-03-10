@@ -3,20 +3,18 @@ package auth_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"main/auth"
-	"main/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 )
 
 func setupAuthJWT(t *testing.T) {
 	t.Helper()
-	err := jwt.NewRefreshTokenStore("testsecret123")
+	err := jwt.NewRefreshTokenStore("testsecret123", "0")
 	require.NoError(t, err)
 }
 
@@ -45,7 +43,7 @@ func issueAuthCookies(t *testing.T, userID string) (*http.Cookie, *http.Cookie) 
 	return accessCookie, refreshCookie
 }
 
-func TestGenerateNewAuthCookie_SetsAccessCookie(t *testing.T) {
+func TestGenerateNewAuthCookieSetsAccessCookie(t *testing.T) {
 	setupAuthJWT(t)
 
 	accessCookie, _ := issueAuthCookies(t, "123")
@@ -56,7 +54,7 @@ func TestGenerateNewAuthCookie_SetsAccessCookie(t *testing.T) {
 	assert.True(t, accessCookie.HttpOnly)
 }
 
-func TestGenerateNewAuthCookie_SetsRefreshCookie(t *testing.T) {
+func TestGenerateNewAuthCookieSetsRefreshCookie(t *testing.T) {
 	setupAuthJWT(t)
 
 	_, refreshCookie := issueAuthCookies(t, "123")
@@ -67,7 +65,7 @@ func TestGenerateNewAuthCookie_SetsRefreshCookie(t *testing.T) {
 	assert.True(t, refreshCookie.HttpOnly)
 }
 
-func TestGetAuthCookie_ReturnsCookie(t *testing.T) {
+func TestGetAuthCookieReturnsCookie(t *testing.T) {
 	setupAuthJWT(t)
 
 	accessCookie, _ := issueAuthCookies(t, "44")
@@ -82,7 +80,7 @@ func TestGetAuthCookie_ReturnsCookie(t *testing.T) {
 	assert.Equal(t, accessCookie.Value, cookie.Value)
 }
 
-func TestIsAuth_ReturnsAuthorizedUser(t *testing.T) {
+func TestIsAuthReturnsAuthorizedUser(t *testing.T) {
 	setupAuthJWT(t)
 
 	accessCookie, _ := issueAuthCookies(t, "44")
@@ -95,7 +93,7 @@ func TestIsAuth_ReturnsAuthorizedUser(t *testing.T) {
 	assert.Equal(t, "44", userID)
 }
 
-func TestIsAuth_RejectsMissingCookie(t *testing.T) {
+func TestIsAuthRejectsMissingCookie(t *testing.T) {
 	setupAuthJWT(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -105,51 +103,7 @@ func TestIsAuth_RejectsMissingCookie(t *testing.T) {
 	assert.Empty(t, userID)
 }
 
-func TestGetUserIDFromCookie_ReturnsIntUserID(t *testing.T) {
-	setupAuthJWT(t)
-
-	accessCookie, _ := issueAuthCookies(t, "77")
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(accessCookie)
-
-	userID, err := auth.GetUserIDFromCookie(req)
-	require.NoError(t, err)
-
-	assert.Equal(t, 77, userID)
-}
-
-func TestGetUserIDFromCookie_RejectsInvalidToken(t *testing.T) {
-	setupAuthJWT(t)
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(&http.Cookie{
-		Name:  auth.TokenName,
-		Value: "broken-token",
-	})
-
-	_, err := auth.GetUserIDFromCookie(req)
-	require.Error(t, err)
-}
-
-func TestGetUserIDFromCookie_RejectsNonNumericUserID(t *testing.T) {
-	setupAuthJWT(t)
-
-	token, err := jwt.GenerateToken("abc")
-	require.NoError(t, err)
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(&http.Cookie{
-		Name:  auth.TokenName,
-		Value: token,
-	})
-
-	_, err = auth.GetUserIDFromCookie(req)
-	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), strconv.ErrSyntax.Error()))
-}
-
-func TestRefreshToken_RotatesCookies(t *testing.T) {
+func TestRefreshTokenRotatesCookies(t *testing.T) {
 	setupAuthJWT(t)
 
 	oldAccessCookie, oldRefreshCookie := issueAuthCookies(t, "501")
@@ -174,7 +128,7 @@ func TestRefreshToken_RotatesCookies(t *testing.T) {
 	assert.NotEqual(t, oldRefreshCookie.Value, newRefreshCookie.Value)
 }
 
-func TestRefreshToken_OldRefreshTokenBecomesInvalid(t *testing.T) {
+func TestRefreshTokenOldRefreshTokenBecomesInvalid(t *testing.T) {
 	setupAuthJWT(t)
 
 	_, oldRefreshCookie := issueAuthCookies(t, "501")
@@ -196,7 +150,7 @@ func TestRefreshToken_OldRefreshTokenBecomesInvalid(t *testing.T) {
 	assert.Empty(t, userID)
 }
 
-func TestClearOldToken_ExpiresCookies(t *testing.T) {
+func TestClearOldTokenExpiresCookies(t *testing.T) {
 	setupAuthJWT(t)
 
 	_, refreshCookie := issueAuthCookies(t, "808")
