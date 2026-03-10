@@ -36,7 +36,7 @@ func SetupStorage() {
 			Id:              0,
 			Username:        testUsername,
 			Password:        testPassword,
-			Email:           "email",
+			Email:           "email@example.com",
 			CreatedAt:       time.Now(),
 			LastLogin:       time.Now(),
 			AvatarUrl:       "img/123.png",
@@ -214,7 +214,7 @@ func TestSignup(t *testing.T) {
 		{
 			name:         "email уже занят",
 			method:       http.MethodPost,
-			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email", "confirm_password": testPassword}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email@example.com", "confirm_password": testPassword}),
 			expectedCode: http.StatusConflict,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
 				var resp base.SignupErrorResponse
@@ -229,13 +229,13 @@ func TestSignup(t *testing.T) {
 		{
 			name:         "пароли не совпадают",
 			method:       http.MethodPost,
-			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email2", "confirm_password": "Adm1n123456"}),
+			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email2@example.com", "confirm_password": "Adm1n123456"}),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
 				var resp base.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusBadRequest, resp.Code)
-				require.Equal(t, "Пароли не совпадают", resp.Message)
+				require.Equal(t, "Ошибка валидации", resp.Message)
 				require.Equal(t, []base.FieldError{
 					{Field: "password", Message: "Пароли не совпадают"},
 					{Field: "confirm_password", Message: "Пароли не совпадают"},
@@ -505,7 +505,7 @@ func TestGetBudget(t *testing.T) {
 
 	cookies := loginAndGetCookies(t, handler)
 
-	budgetBody := testhelper.MustJSON(t, map[string]any{"title": "Тестовый бюджет", "target": 5000, "currency": "RUB"})
+	budgetBody := testhelper.MustJSON(t, map[string]any{"title": "Тестовый бюджет", "description": "text", "target": 5000, "currency": "RUB", "start_at": time.Now()})
 	reqCreate := httptest.NewRequest(http.MethodPost, "/budget", bytes.NewBuffer(budgetBody))
 	for _, c := range cookies {
 		reqCreate.AddCookie(c)
@@ -591,7 +591,7 @@ func TestCreateBudget(t *testing.T) {
 		{
 			name:         "пустые обязательные поля",
 			method:       http.MethodPost,
-			body:         testhelper.MustJSON(t, map[string]any{"title": "", "target": 0, "currency": ""}),
+			body:         testhelper.MustJSON(t, map[string]any{"title": "", "description": "", "target": 0, "currency": "", "start_at": time.Time{}}),
 			withAuth:     true,
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
@@ -602,13 +602,13 @@ func TestCreateBudget(t *testing.T) {
 				for _, e := range resp.Errors {
 					fieldNames = append(fieldNames, e.Field)
 				}
-				require.ElementsMatch(t, []string{"title", "target", "currency"}, fieldNames)
+				require.ElementsMatch(t, []string{"title", "description", "target", "currency", "currency", "start_at"}, fieldNames)
 			},
 		},
 		{
 			name:         "успешное создание",
 			method:       http.MethodPost,
-			body:         testhelper.MustJSON(t, map[string]any{"title": "Отпуск", "target": 10000, "currency": "RUB"}),
+			body:         testhelper.MustJSON(t, map[string]any{"title": "Отпуск", "description": "text", "target": 10000, "currency": "RUB", "start_at": time.Now()}),
 			withAuth:     true,
 			expectedCode: http.StatusOK,
 		},
@@ -647,7 +647,7 @@ func TestDeleteBudget(t *testing.T) {
 
 	cookies := loginAndGetCookies(t, handler)
 
-	budgetBody := testhelper.MustJSON(t, map[string]any{"title": "Бюджет для удаления", "target": 1000, "currency": "RUB"})
+	budgetBody := testhelper.MustJSON(t, map[string]any{"title": "Бюджет для удаления", "description": "text", "target": 1000, "currency": "RUB", "start_at": time.Now()})
 	reqCreate := httptest.NewRequest(http.MethodPost, "/budget", bytes.NewBuffer(budgetBody))
 	for _, c := range cookies {
 		reqCreate.AddCookie(c)

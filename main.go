@@ -13,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
 
 	"github.com/joho/godotenv"
 )
@@ -93,6 +94,30 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
+	errors := make([]base.FieldError, 0)
+	err := validators.ValidateUsername(body.Username)
+	if err != nil {
+		errors = append(errors, base.NewFieldError("username", err.Error()))
+	}
+	err = validators.ValidatePassword(body.Password)
+	if err != nil {
+		errors = append(errors, base.NewFieldError("password", err.Error()))
+	}
+	err = validators.ValidateEmail(body.Email)
+	if err != nil {
+		errors = append(errors, base.NewFieldError("email", err.Error()))
+	}
+	if body.Password != body.ConfirmPassword {
+		errors = append(errors, base.NewFieldError("password", "Пароли не совпадают"))
+		errors = append(errors, base.NewFieldError("confirm_password", "Пароли не совпадают"))
+	}
+	if len(errors) > 0 {
+		response := base.NewValidationErrorResponse(errors)
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
 	user := storage.UserInfo{
 		Username:  body.Username,
 		Password:  body.Password,
@@ -110,14 +135,6 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	if storage.EmailExists(body.Email) {
 		response := base.NewSignupErrorResponse(http.StatusConflict, "Пользователь с таким email уже существует", []base.FieldError{
 			base.NewFieldError("email", "Пользователь с таким email уже существует"),
-		})
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	if body.Password != body.ConfirmPassword {
-		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Пароли не совпадают", []base.FieldError{
-			base.NewFieldError("password", "Пароли не совпадают"),
-			base.NewFieldError("confirm_password", "Пароли не совпадают"),
 		})
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -216,11 +233,30 @@ func createBudgetHandler(w http.ResponseWriter, r *http.Request) {
 	if body.Title == "" {
 		fieldErrors = append(fieldErrors, base.NewFieldError("title", "Поле обязательно для заполнения"))
 	}
+	if body.Description == "" {
+		fieldErrors = append(fieldErrors, base.NewFieldError("description", "Поле обязательно для заполнения"))
+	}
 	if body.Target == 0 {
 		fieldErrors = append(fieldErrors, base.NewFieldError("target", "Поле обязательно для заполнения"))
 	}
 	if body.Currency == "" {
 		fieldErrors = append(fieldErrors, base.NewFieldError("currency", "Поле обязательно для заполнения"))
+	}
+	err := validators.ValidateCurrency(body.Currency)
+	if err != nil {
+		fieldErrors = append(fieldErrors, base.NewFieldError("currency", err.Error()))
+	}
+	err = validators.ValidateTargetBudget(body.Target)
+	if err != nil {
+		fieldErrors = append(fieldErrors, base.NewFieldError("target", err.Error()))
+	}
+	err = validators.ValidateStartDate(body.StartAt)
+	if err != nil {
+		fieldErrors = append(fieldErrors, base.NewFieldError("start_at", err.Error()))
+	}
+	err = validators.ValidateEndDate(body.StartAt, body.EndAt)
+	if err != nil {
+		fieldErrors = append(fieldErrors, base.NewFieldError("end_at", err.Error()))
 	}
 	if len(fieldErrors) > 0 {
 		response := base.NewBudgetErrorResponse(http.StatusBadRequest, "Ошибка валидации", fieldErrors)
