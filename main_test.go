@@ -608,7 +608,7 @@ func TestCreateBudget(t *testing.T) {
 		{
 			name:         "успешное создание",
 			method:       http.MethodPost,
-			body:         testhelper.MustJSON(t, map[string]any{"title": "Отпуск", "description": "text", "target": 10000, "currency": "RUB", "start_at": time.Now()}),
+			body:         testhelper.MustJSON(t, map[string]any{"title": "Отпуск", "description": "text", "target": 10000, "currency": "RUB", "start_at": time.Now().AddDate(0, 0, 1)}),
 			withAuth:     true,
 			expectedCode: http.StatusOK,
 		},

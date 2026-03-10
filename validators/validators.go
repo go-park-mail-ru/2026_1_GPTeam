@@ -8,17 +8,40 @@ import (
 	"time"
 )
 
+var (
+	ServerError = fmt.Errorf("ошибка сервера")
+
+	UsernameShortError        = fmt.Errorf("логин должен быть минимум 3 символа")
+	UsernameWrongSymbolsError = fmt.Errorf("логин должен содержать только буквы латинского алфавита или цифры")
+
+	PasswordShortError          = fmt.Errorf("пароль должен быть минимум 8 символов")
+	PasswordsHasNoUpper         = fmt.Errorf("в пароле нет заглавной буквы")
+	PasswordHasNoLower          = fmt.Errorf("в пароле нет строчной буквы")
+	PasswordHasNoDigit          = fmt.Errorf("в пароле нет цифры")
+	PasswordHasIncorrectSymbols = fmt.Errorf("пароль должен содержать только буквы латинского алфавита и цифры")
+
+	EmailError = fmt.Errorf("некорректный адрес электронной почты")
+
+	CurrencyNotAllowed = fmt.Errorf("валюта не поддерживается")
+
+	TargetIsNegativeError = fmt.Errorf("планируемый бюджет не может быть меньше 0")
+	TargetIsBigError      = fmt.Errorf("значение не может быть больше 1e18")
+
+	StartDateInPastError = fmt.Errorf("дата начала не может быть в прошлом")
+	EndDateInPastError   = fmt.Errorf("дата окончания должна быть позже даты начала")
+)
+
 func ValidateUsername(username string) error {
 	if len(username) < 3 {
-		return fmt.Errorf("логин должен быть минимум 3 символа")
+		return UsernameShortError
 	}
 	matched, err := regexp.MatchString("^[a-zA-Z0-9]+$", username)
 	if err != nil {
 		fmt.Println(err)
-		return fmt.Errorf("ошибка сервера")
+		return ServerError
 	}
 	if !matched {
-		return fmt.Errorf("логин должен содержать только буквы латинского алфавита или цифры")
+		return UsernameWrongSymbolsError
 	}
 	return nil
 }
@@ -26,7 +49,7 @@ func ValidateUsername(username string) error {
 func ValidatePassword(passwordStr string) error {
 	password := []rune(passwordStr)
 	if len(password) < 8 {
-		return fmt.Errorf("пароль должен быть минимум 8 символов")
+		return PasswordShortError
 	}
 	hasLower := false
 	hasUpper := false
@@ -44,31 +67,31 @@ func ValidatePassword(passwordStr string) error {
 		}
 	}
 	if !hasUpper {
-		return fmt.Errorf("в пароле нет заглавной буквы")
+		return PasswordsHasNoUpper
 	}
 	if !hasLower {
-		return fmt.Errorf("в пароле нет строчной буквы")
+		return PasswordHasNoLower
 	}
 	if !hasDigit {
-		return fmt.Errorf("в пароле нет цифры")
+		return PasswordHasNoDigit
 	}
 	if hasInvalid {
-		return fmt.Errorf("пароль должен содержать только буквы латинского алфавита и цифры")
+		return PasswordHasIncorrectSymbols
 	}
 	return nil
 }
 
 func ValidateEmail(email string) error {
 	if len(email) == 0 || len(email) >= 255 {
-		return fmt.Errorf("некорректный адрес электронной почты")
+		return EmailError
 	}
 	matched, err := regexp.MatchString("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$", email)
 	if err != nil {
 		fmt.Println(err)
-		return fmt.Errorf("ошибка сервера")
+		return ServerError
 	}
 	if !matched {
-		return fmt.Errorf("некорректный адрес электронной почты")
+		return EmailError
 	}
 	return nil
 }
@@ -81,17 +104,17 @@ func ValidateCurrency(currency string) error {
 		"EUR",
 	}
 	if !slices.Contains(allowedCurrencies, currency) {
-		return fmt.Errorf("валюта не поддерживается")
+		return CurrencyNotAllowed
 	}
 	return nil
 }
 
 func ValidateTargetBudget(target int) error {
 	if target < 0 {
-		return fmt.Errorf("планируемый бюджет не может быть меньше 0")
+		return TargetIsNegativeError
 	}
 	if target > 1e18 {
-		return fmt.Errorf("значение не может быть больше 1e18")
+		return TargetIsBigError
 	}
 	return nil
 }
@@ -99,7 +122,7 @@ func ValidateTargetBudget(target int) error {
 func ValidateStartDate(startDate time.Time) error {
 	nowDate := time.Now()
 	if startDate.Before(nowDate) {
-		return fmt.Errorf("дата начала не может быть в прошлом")
+		return StartDateInPastError
 	}
 	return nil
 }
@@ -109,7 +132,7 @@ func ValidateEndDate(startDate time.Time, endDate time.Time) error {
 		return nil
 	}
 	if endDate.Before(startDate) {
-		return fmt.Errorf("дата окончания должна быть позже даты начала")
+		return EndDateInPastError
 	}
 	return nil
 }
