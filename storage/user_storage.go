@@ -57,6 +57,8 @@ func AddUser(user UserInfo) int {
 }
 
 func FindUserByCredentials(user base.LoginBodyRequest) (UserInfo, bool) {
+	userStore.mu.RLock()
+	defer userStore.mu.RUnlock()
 	for _, value := range userStore.users {
 		if value.Username == user.Username && value.Password == user.Password {
 			return value, true
