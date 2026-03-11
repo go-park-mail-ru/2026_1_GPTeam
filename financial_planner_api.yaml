@@ -1,0 +1,868 @@
+openapi: 3.0.4
+info:
+  title: GPTeam Financial Planner API
+  version: 2.0.0
+  description: REST API для управления финансами и банковскими счетами.
+servers:
+  - url: https://petstore3.swagger.io/api/v3
+tags:
+  - name: registration and authorization
+    description: Регистрация, логин, логаут пользователей
+  - name: profile
+    description: Работа с профилем пользователя
+  - name: category
+    description: Категории транзакций
+  - name: transaction
+    description: Транзакции
+  - name: bank_account
+    description: Счёт
+paths:
+  /auth/login:
+    post:
+      tags:
+        - registration and authorization
+      summary: User login
+      description: Авторизация пользователя по логину и паролю. В ответе возвращается JWT токен в cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginBody'
+      responses:
+        '200':
+          description: Успешная авторизация
+          headers:
+            Set-Cookie:
+              description: JWT токен и id сессии в cookie
+              schema:
+                type: string
+                example: "jwt=token; sessionId=123; Path=/; Secure; HttpOnly; SameSite=Lax;"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccess'
+        '401':
+          description: Ошибка авторизации - неверный логин или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - registration and authorization
+      summary: Refresh tokens
+      description:
+        Endpoint для обновления access токена.
+      responses:
+        '200':
+          description: Обновление токенов
+          headers:
+            Set-Cookie:
+              description: JWT токен и id сессии в cookie
+              schema:
+                type: string
+                example: "jwt=token; sessionId=123; Path=/; Secure; HttpOnly; SameSite=Lax;"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccess'
+        '401':
+          description: Ошибка авторизации - неверный логин или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /auth/signup:
+    post:
+      tags:
+        - registration and authorization
+      summary: User registration
+      description: Регистрация нового пользователя. После успешной регистрации автоматически устанавливается JWT токен в cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupBody'
+      responses:
+        '200':
+          description: Успешная регистрация
+          headers:
+            Set-Cookie:
+              description: JWT токен и id сессии в cookie
+              schema:
+                type: string
+                example: "jwt=token; sessionId=123; Path=/; Secure; HttpOnly; SameSite=Strict;"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupSuccess'
+        '400':
+          description: Ошибка валидации - некорректные данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '409':
+          description: Конфликт - пользователь с таким логином или email уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /auth/logout:
+    post:
+      tags:
+        - registration and authorization
+      summary: User logout
+      description: Выход пользователя из системы. Инвалидирует текущий JWT токен и завершает сессию.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешный выход из системы
+          headers:
+            Set-Cookie:
+              description: Кука с истёкшим временем жизни для удаления токена на клиенте
+              schema:
+                type: string
+                example: "jwt=; sessionId=; Path=/; Secure; HttpOnly; SameSite=Strict; Expires=Thu, 01 Jan 1970 00:00:00 GMT;"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+        '401':
+          description: Не авторизован - невалидный или отсутствующий токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /profile:
+    get:
+      tags:
+        - profile
+      summary: Get user profile
+      description: Возвращает информацию о профиле пользователя. Требует авторизации.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя успешно получен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Не авторизован - невалидный или отсутствующий токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /profile/balance:
+    get:
+      tags:
+        - profile
+      summary: Get user balance
+      description: Возвращает текущий баланс пользователя и валюту. Требует авторизации.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Баланс успешно получен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Ok'
+                  balance:
+                    type: number
+                    example: 1250.75
+                  currency:
+                    type: string
+                    example: 'USD'
+                  income:
+                    type: number
+                    example: 99
+                  expenses:
+                    type: number
+                    example: 32.6
+                required:
+                  - code
+                  - balance
+                  - currency
+        '401':
+          description: Пользователь неавторизирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /get_budgets:
+    get:
+      tags:
+        - profile
+      summary: Get user's budgets ids
+      description: Возвращает значения id бюджетов пользователя. Требует авторизацию.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Ok'
+                  len:
+                    type: integer
+                    example: 3
+                  ids:
+                    type: array
+                    items:
+                      type: integer
+                    example: [1, 3, 4, 7]
+        '401':
+          description: Пользователь неавторизирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /get_budget/{id}:
+    get:
+      tags:
+        - profile
+      summary: Get budget by id
+      description: Получение детальной информации о бюджете
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Id бюджета
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Ok'
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  created_at:
+                    type: string
+                  start_at:
+                    type: string
+                  end_at:
+                    type: string
+                  actual:
+                    type: number
+                  target:
+                    type: number
+                  currency:
+                    type: string
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: Бюджет не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /budget/{id}:
+    delete:
+      tags:
+        - profile
+      summary: Delete budget
+      description: Удаляет бюджет по ID. Требует авторизацию.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID бюджета
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Бюджет успешно удалён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetDeleteSuccess'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: Бюджет не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /budget:
+    post:
+      tags:
+        - profile
+      summary: Create budget
+      description: Создаёт новый бюджет. Требует авторизацию.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BudgetBody'
+      responses:
+        '200':
+          description: Бюджет успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetCreateSuccess'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    OK:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'ok'
+      required:
+        - code
+        - message
+
+    LoginSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Вход в систему прошел успешно'
+        user:
+          type: object
+          properties:
+            username:
+              type: string
+              example: 'johndoe'
+            email:
+              type: string
+              format: email
+              example: 'john@example.com'
+            last_login:
+              type: string
+              format: date-time
+              example: '2024-02-22T10:30:00Z'
+            created_at:
+              type: string
+              format: date-time
+              example: '2024-02-22T10:30:00Z'
+            avatar_url:
+              type: string
+              example: 'img/123.png'
+            balance:
+              type: number
+              example: 100.5
+            balance_currency:
+              type: string
+              example: 'RUB'
+      required:
+        - code
+        - message
+        - user
+
+    SignupSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Регистрация прошла успешно'
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 12345
+            username:
+              type: string
+              example: 'johndoe'
+            email:
+              type: string
+              format: email
+              example: 'john@example.com'
+            last_login:
+              type: string
+              format: date-time
+              example: '2024-02-22T10:30:00Z'
+      required:
+        - code
+        - message
+        - user
+
+    LogoutSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Успешный выход из системы'
+        logged_out_at:
+          type: string
+          format: date-time
+          example: '2024-02-22T11:45:00Z'
+      required:
+        - code
+        - message
+
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+          example: 'johndoe'
+        email:
+          type: string
+          format: email
+          example: 'john@example.com'
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-01-15T08:00:00Z'
+        last_login:
+          type: string
+          format: date-time
+          example: '2024-01-15T08:00:00Z'
+        avatar_url:
+          type: string
+          format: uri
+          example: 'https://example.com/avatars/user123.jpg'
+        balance:
+          type: number
+          example: 100.5
+        balance_currency:
+          type: string
+          example: 'RUB'
+      required:
+        - username
+        - email
+
+    Budget:
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'Бюджет на январь'
+        description:
+          type: string
+          example: 'Расходы за январь 2024'
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-02-22T10:30:00Z'
+        start_at:
+          type: string
+          format: date-time
+          example: '2024-01-01T00:00:00Z'
+        end_at:
+          type: string
+          format: date-time
+          example: '2024-02-01T00:00:00Z'
+        actual:
+          type: integer
+          example: 10000
+        target:
+          type: integer
+          example: 500000
+        currency:
+          type: string
+          example: 'USD'
+      required:
+        - title
+        - created_at
+        - actual
+        - target
+        - currency
+
+    BudgetGetSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Бюджет успешно получен'
+        budget:
+          $ref: '#/components/schemas/Budget'
+      required:
+        - code
+        - message
+        - budget
+
+    BudgetCreateSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Бюджет успешно создан'
+        budget_id:
+          type: integer
+          example: 5
+      required:
+        - code
+        - message
+        - budget_id
+
+    BudgetBody:
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'Бюджет на январь'
+        description:
+          type: string
+          example: 'Расходы за январь'
+        start_at:
+          type: string
+          format: date-time
+          example: '2024-01-01T00:00:00Z'
+        end_at:
+          type: string
+          format: date-time
+          example: '2024-02-01T00:00:00Z'
+        target:
+          type: integer
+          example: 500000
+        currency:
+          type: string
+          example: 'USD'
+      required:
+        - title
+        - target
+        - currency
+
+    BudgetDeleteSuccess:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 'Бюджет успешно удалён'
+      required:
+        - code
+        - message
+
+    SignupBody:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_-]+$'
+          example: 'johndoe'
+        password:
+          type: string
+          minLength: 8
+          format: password
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$'
+          example: 'SecurePass123!'
+        email:
+          type: string
+          format: email
+          example: 'john@example.com'
+        confirm_password:
+          type: string
+          minLength: 8
+          format: password
+          example: 'SecurePass123!'
+      required:
+        - username
+        - password
+        - email
+        - confirm_password
+
+    LoginBody:
+      type: object
+      properties:
+        username:
+          type: string
+          example: 'johndoe'
+        password:
+          type: string
+          format: password
+          example: 'SecurePass123!'
+      required:
+        - username
+        - password
+
+    SignupError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 409
+        message:
+          type: string
+          example: 'Пользователь с таким именем уже существует'
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: 'username'
+              message:
+                type: string
+                example: 'Пользователь с таким именем уже существует'
+            required:
+              - field
+              - message
+      required:
+        - code
+        - message
+
+    LoginError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: 'Неверный логин или пароль'
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: 'username'
+              message:
+                type: string
+                example: 'Неверный логин или пароль'
+            required:
+              - field
+              - message
+      required:
+        - code
+        - message
+
+    ValidationError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: 'Ошибка валидации'
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: 'password'
+              message:
+                type: string
+                example: 'Поле обязательно для заполнения'
+            required:
+              - field
+              - message
+      required:
+        - code
+        - message
+        - errors
+
+    UnauthorizedError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: 'Не авторизован — невалидный или отсутствующий токен'
+      required:
+        - code
+        - message
+
+    ForbiddenError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 403
+        message:
+          type: string
+          example: 'Доступ запрещён'
+      required:
+        - code
+        - message
+
+    NotFoundError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 404
+        message:
+          type: string
+          example: 'Не найдено'
+      required:
+        - code
+        - message
+
+    ServerError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 500
+        message:
+          type: string
+          example: 'Внутренняя ошибка сервера'
+        request_id:
+          type: string
+          example: 'req_abc123xyz'
+      required:
+        - code
+        - message
