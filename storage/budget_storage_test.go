@@ -15,151 +15,227 @@ func setupBudgetStoreTest(t *testing.T) {
 	storage.NewBudgetStore()
 }
 
-func TestAddBudgetAndGetBudgetByID(t *testing.T) {
-	setupBudgetStoreTest(t)
-
-	createdAt := time.Now().UTC().Truncate(time.Second)
-	startAt := createdAt.Add(time.Hour)
-	endAt := createdAt.Add(2 * time.Hour)
-
-	id := storage.AddBudget(storage.BudgetInfo{
+func makeBudget(author int) storage.BudgetInfo {
+	now := time.Now().UTC().Truncate(time.Second)
+	return storage.BudgetInfo{
 		Title:       "Test budget",
 		Description: "test description",
-		CreatedAt:   createdAt,
-		StartAt:     startAt,
-		EndAt:       endAt,
+		CreatedAt:   now,
+		StartAt:     now.Add(time.Hour),
+		EndAt:       now.Add(2 * time.Hour),
 		Actual:      1500,
 		Target:      3000,
 		Currency:    "RUB",
-		Author:      101,
-	})
+		Author:      author,
+	}
+}
 
-	budget, ok := storage.GetBudgetByID(id)
+func TestAddBudgetAndGetBudgetByID(t *testing.T) {
+	t.Parallel()
+	setupBudgetStoreTest(t)
+
+	budget := makeBudget(101)
+	id := storage.AddBudget(budget)
+
+	got, ok := storage.GetBudgetByID(id)
 	require.True(t, ok)
 
-	assert.Equal(t, id, budget.Id)
-	assert.Equal(t, "Test budget", budget.Title)
-	assert.Equal(t, "test description", budget.Description)
-	assert.Equal(t, createdAt, budget.CreatedAt)
-	assert.Equal(t, startAt, budget.StartAt)
-	assert.Equal(t, endAt, budget.EndAt)
-	assert.Equal(t, 1500, budget.Actual)
-	assert.Equal(t, 3000, budget.Target)
-	assert.Equal(t, "RUB", budget.Currency)
-	assert.Equal(t, 101, budget.Author)
+	assert.Equal(t, id, got.Id)
+	assert.Equal(t, budget.Title, got.Title)
+	assert.Equal(t, budget.Description, got.Description)
+	assert.Equal(t, budget.CreatedAt, got.CreatedAt)
+	assert.Equal(t, budget.StartAt, got.StartAt)
+	assert.Equal(t, budget.EndAt, got.EndAt)
+	assert.Equal(t, budget.Actual, got.Actual)
+	assert.Equal(t, budget.Target, got.Target)
+	assert.Equal(t, budget.Currency, got.Currency)
+	assert.Equal(t, budget.Author, got.Author)
 }
 
-func TestGetBudgetIDsByUserIDReturnsOnlyUserBudgetIDs(t *testing.T) {
+func TestGetBudgetByID(t *testing.T) {
+	t.Parallel()
 	setupBudgetStoreTest(t)
 
-	id1 := storage.AddBudget(storage.BudgetInfo{
-		Title:       "Budget 1",
-		Description: "first",
-		CreatedAt:   time.Now().UTC(),
-		StartAt:     time.Now().UTC(),
-		EndAt:       time.Now().UTC().Add(time.Hour),
-		Actual:      100,
-		Target:      200,
-		Currency:    "RUB",
-		Author:      1,
-	})
-	id2 := storage.AddBudget(storage.BudgetInfo{
-		Title:       "Budget 2",
-		Description: "second",
-		CreatedAt:   time.Now().UTC(),
-		StartAt:     time.Now().UTC(),
-		EndAt:       time.Now().UTC().Add(time.Hour),
-		Actual:      300,
-		Target:      500,
-		Currency:    "RUB",
-		Author:      1,
-	})
-	storage.AddBudget(storage.BudgetInfo{
-		Title:       "Foreign budget",
-		Description: "third",
-		CreatedAt:   time.Now().UTC(),
-		StartAt:     time.Now().UTC(),
-		EndAt:       time.Now().UTC().Add(time.Hour),
-		Actual:      999,
-		Target:      1000,
-		Currency:    "RUB",
-		Author:      2,
-	})
+	id := storage.AddBudget(makeBudget(10))
 
-	ids := storage.GetBudgetIDsByUserID(1)
-	require.Len(t, ids, 2)
-	assert.Contains(t, ids, id1)
-	assert.Contains(t, ids, id2)
+	cases := []struct {
+		name   string
+		id     int
+		wantOK bool
+	}{
+		{
+			name:   "существующий бюджет",
+			id:     id,
+			wantOK: true,
+		},
+		{
+			name:   "несуществующий ID",
+			id:     999999,
+			wantOK: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			_, ok := storage.GetBudgetByID(c.id)
+			assert.Equal(t, c.wantOK, ok)
+		})
+	}
 }
 
-func TestGetBudgetByIDAndUserIDReturnsOwnedBudget(t *testing.T) {
+func TestGetBudgetIDsByUserID(t *testing.T) {
+	t.Parallel()
 	setupBudgetStoreTest(t)
 
-	id := storage.AddBudget(storage.BudgetInfo{
-		Title:       "Owned budget",
-		Description: "owned",
-		CreatedAt:   time.Now().UTC(),
-		StartAt:     time.Now().UTC(),
-		EndAt:       time.Now().UTC().Add(time.Hour),
-		Actual:      10,
-		Target:      20,
-		Currency:    "RUB",
-		Author:      77,
-	})
+	id1 := storage.AddBudget(makeBudget(1))
+	id2 := storage.AddBudget(makeBudget(1))
+	storage.AddBudget(makeBudget(2))
 
-	budget, ok := storage.GetBudgetByIDAndUserID(id, 77)
-	require.True(t, ok)
-	assert.Equal(t, id, budget.Id)
-	assert.Equal(t, 77, budget.Author)
+	cases := []struct {
+		name    string
+		userID  int
+		wantIDs []int
+		wantLen int
+	}{
+		{
+			name:    "пользователь с двумя бюджетами",
+			userID:  1,
+			wantIDs: []int{id1, id2},
+			wantLen: 2,
+		},
+		{
+			name:    "пользователь с одним бюджетом",
+			userID:  2,
+			wantLen: 1,
+		},
+		{
+			name:    "пользователь без бюджетов",
+			userID:  999,
+			wantLen: 0,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ids := storage.GetBudgetIDsByUserID(c.userID)
+			assert.Len(t, ids, c.wantLen)
+			for _, wantID := range c.wantIDs {
+				assert.Contains(t, ids, wantID)
+			}
+		})
+	}
 }
 
-func TestDeleteBudgetByIDAndUserIDDeletesOwnedBudget(t *testing.T) {
+func TestGetBudgetByIDAndUserID(t *testing.T) {
+	t.Parallel()
 	setupBudgetStoreTest(t)
 
-	id := storage.AddBudget(storage.BudgetInfo{
-		Title:       "Owned budget",
-		Description: "owned",
-		CreatedAt:   time.Now().UTC(),
-		StartAt:     time.Now().UTC(),
-		EndAt:       time.Now().UTC().Add(time.Hour),
-		Actual:      10,
-		Target:      20,
-		Currency:    "RUB",
-		Author:      77,
-	})
+	id := storage.AddBudget(makeBudget(77))
 
-	ok := storage.DeleteBudgetByIDAndUserID(id, 77)
-	assert.True(t, ok)
+	cases := []struct {
+		name     string
+		budgetID int
+		userID   int
+		wantOK   bool
+	}{
+		{
+			name:     "владелец получает свой бюджет",
+			budgetID: id,
+			userID:   77,
+			wantOK:   true,
+		},
+		{
+			name:     "чужой userID → false",
+			budgetID: id,
+			userID:   88,
+			wantOK:   false,
+		},
+		{
+			name:     "несуществующий budgetID → false",
+			budgetID: 999999,
+			userID:   77,
+			wantOK:   false,
+		},
+	}
 
-	_, exists := storage.GetBudgetByID(id)
-	assert.False(t, exists)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			got, ok := storage.GetBudgetByIDAndUserID(c.budgetID, c.userID)
+			assert.Equal(t, c.wantOK, ok)
+			if c.wantOK {
+				assert.Equal(t, c.budgetID, got.Id)
+				assert.Equal(t, c.userID, got.Author)
+			} else {
+				assert.Equal(t, storage.BudgetInfo{}, got)
+			}
+		})
+	}
 }
 
-func TestDeleteBudgetByIDAndUserIDRejectsWrongUser(t *testing.T) {
+func TestDeleteBudgetByIDAndUserID(t *testing.T) {
+	t.Parallel()
 	setupBudgetStoreTest(t)
 
-	id := storage.AddBudget(storage.BudgetInfo{
-		Title:       "Protected budget",
-		Description: "protected",
-		CreatedAt:   time.Now().UTC(),
-		StartAt:     time.Now().UTC(),
-		EndAt:       time.Now().UTC().Add(time.Hour),
-		Actual:      10,
-		Target:      20,
-		Currency:    "RUB",
-		Author:      77,
-	})
+	cases := []struct {
+		name         string
+		authorID     int
+		deleteUserID int
+		budgetID     int
+		useRealID    bool
+		wantOK       bool
+		wantExists   bool
+	}{
+		{
+			name:         "владелец удаляет свой бюджет",
+			authorID:     77,
+			deleteUserID: 77,
+			useRealID:    true,
+			wantOK:       true,
+			wantExists:   false,
+		},
+		{
+			name:         "чужой userID → false, бюджет остаётся",
+			authorID:     77,
+			deleteUserID: 88,
+			useRealID:    true,
+			wantOK:       false,
+			wantExists:   true,
+		},
+		{
+			name:         "несуществующий budgetID → false",
+			authorID:     77,
+			deleteUserID: 77,
+			budgetID:     999999,
+			useRealID:    false,
+			wantOK:       false,
+			wantExists:   false,
+		},
+	}
 
-	ok := storage.DeleteBudgetByIDAndUserID(id, 88)
-	assert.False(t, ok)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 
-	_, exists := storage.GetBudgetByID(id)
-	assert.True(t, exists)
-}
+			id := storage.AddBudget(makeBudget(c.authorID))
+			targetID := id
+			if !c.useRealID {
+				targetID = c.budgetID
+			}
 
-func TestGetBudgetByIDReturnsFalseForMissingBudget(t *testing.T) {
-	setupBudgetStoreTest(t)
+			ok := storage.DeleteBudgetByIDAndUserID(targetID, c.deleteUserID)
+			assert.Equal(t, c.wantOK, ok)
 
-	_, ok := storage.GetBudgetByID(999999)
-	assert.False(t, ok)
+			if c.useRealID {
+				_, exists := storage.GetBudgetByID(id)
+				assert.Equal(t, c.wantExists, exists)
+			}
+		})
+	}
 }

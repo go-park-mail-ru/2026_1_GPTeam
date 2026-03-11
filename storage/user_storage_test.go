@@ -7,8 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
 )
 
 func setupUserStoreTest(t *testing.T) {
