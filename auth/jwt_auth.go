@@ -67,10 +67,10 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	cookie, err := GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
-		return
+	} else {
+		refreshToken := cookie.Value
+		jwt.DeleteRefreshToken(refreshToken)
 	}
-	refreshToken := cookie.Value
-	jwt.DeleteRefreshToken(refreshToken)
 
 	cookie = &http.Cookie{
 		Name:     TokenName,
