@@ -120,7 +120,8 @@ func ValidateTargetBudget(target int) error {
 }
 
 func ValidateStartDate(startDate time.Time) error {
-	nowDate := time.Now()
+	nowTime := time.Now()
+	nowDate := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(), 0, 0, 0, 0, startDate.Location())
 	if startDate.Before(nowDate) {
 		return StartDateInPastError
 	}
