@@ -13,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
 
 	"github.com/joho/godotenv"
 )
@@ -22,16 +23,9 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&userRequest)
 	if err != nil {
 		fmt.Println(err)
-		errors := []base.FieldError{
-			{
-				Field:   "username",
-				Message: "Не удалось прочитать json",
-			},
-			{
-				Field:   "password",
-				Message: "Не удалось прочитать json",
-			},
-		}
+		errors := make([]base.FieldError, 0)
+		errors = append(errors, base.NewFieldError("username", "Не удалось прочитать json"))
+		errors = append(errors, base.NewFieldError("password", "Не удалось прочитать json"))
 		response := base.NewLoginErrorResponse(errors)
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -40,14 +34,8 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	storedUser, exists := storage.FindUserByCredentials(userRequest)
 	if !exists {
 		errors := make([]base.FieldError, 0)
-		errors = append(errors, base.FieldError{
-			Field:   "username",
-			Message: "Неверный логин или пароль",
-		})
-		errors = append(errors, base.FieldError{
-			Field:   "password",
-			Message: "Неверный логин или пароль",
-		})
+		errors = append(errors, base.NewFieldError("username", "Неверный логин или пароль"))
+		errors = append(errors, base.NewFieldError("password", "Неверный логин или пароль"))
 		response := base.NewLoginErrorResponse(errors)
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -83,7 +71,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		fmt.Println(err)
 		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []base.FieldError{
-			{Field: "", Message: "Не удалось прочитать тело запроса"},
+			base.NewFieldError("", "Не удалось прочитать тело запроса"),
 		})
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -91,21 +79,45 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	if body.Username == "" || body.Password == "" || body.Email == "" || body.ConfirmPassword == "" {
 		var fieldErrors []base.FieldError
 		if body.Username == "" {
-			fieldErrors = append(fieldErrors, base.FieldError{Field: "username", Message: "Поле обязательно для заполнения"})
+			fieldErrors = append(fieldErrors, base.NewFieldError("username", "Поле обязательно для заполнения"))
 		}
 		if body.Password == "" {
-			fieldErrors = append(fieldErrors, base.FieldError{Field: "password", Message: "Поле обязательно для заполнения"})
+			fieldErrors = append(fieldErrors, base.NewFieldError("password", "Поле обязательно для заполнения"))
 		}
 		if body.Email == "" {
-			fieldErrors = append(fieldErrors, base.FieldError{Field: "email", Message: "Поле обязательно для заполнения"})
+			fieldErrors = append(fieldErrors, base.NewFieldError("email", "Поле обязательно для заполнения"))
 		}
 		if body.ConfirmPassword == "" {
-			fieldErrors = append(fieldErrors, base.FieldError{Field: "confirm_password", Message: "Поле обязательно для заполнения"})
+			fieldErrors = append(fieldErrors, base.NewFieldError("confirm_password", "Поле обязательно для заполнения"))
 		}
 		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
+	errors := make([]base.FieldError, 0)
+	err := validators.ValidateUsername(body.Username)
+	if err != nil {
+		errors = append(errors, base.NewFieldError("username", err.Error()))
+	}
+	err = validators.ValidatePassword(body.Password)
+	if err != nil {
+		errors = append(errors, base.NewFieldError("password", err.Error()))
+	}
+	err = validators.ValidateEmail(body.Email)
+	if err != nil {
+		errors = append(errors, base.NewFieldError("email", err.Error()))
+	}
+	if body.Password != body.ConfirmPassword {
+		errors = append(errors, base.NewFieldError("password", "Пароли не совпадают"))
+		errors = append(errors, base.NewFieldError("confirm_password", "Пароли не совпадают"))
+	}
+	if len(errors) > 0 {
+		response := base.NewValidationErrorResponse(errors)
+		base.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
 	user := storage.UserInfo{
 		Username:  body.Username,
 		Password:  body.Password,
@@ -114,35 +126,15 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		LastLogin: time.Time{},
 	}
 	if storage.UserExists(body.Username) {
-		response := base.NewSignupErrorResponse(http.StatusConflict, "Пользователь с таким именем уже существует", []base.FieldError{
-			{
-				Field:   "username",
-				Message: "Пользователь с таким именем уже существует",
-			},
+		response := base.NewSignupErrorResponse(http.StatusConflict, "Пользователь с таким логином уже существует", []base.FieldError{
+			base.NewFieldError("username", "Пользователь с таким логином уже существует"),
 		})
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	if storage.EmailExists(body.Email) {
 		response := base.NewSignupErrorResponse(http.StatusConflict, "Пользователь с таким email уже существует", []base.FieldError{
-			{
-				Field:   "email",
-				Message: "Пользователь с таким email уже существует",
-			},
-		})
-		base.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	if body.Password != body.ConfirmPassword {
-		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Пароли не совпадают", []base.FieldError{
-			{
-				Field:   "password",
-				Message: "Пароли не совпадают",
-			},
-			{
-				Field:   "confirm_password",
-				Message: "Пароли не совпадают",
-			},
+			base.NewFieldError("email", "Пользователь с таким email уже существует"),
 		})
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -159,7 +151,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
-func GetBudgetsHandler(w http.ResponseWriter, r *http.Request) {
+func getBudgetsHandler(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user")
 	authUser, ok := user.(storage.UserInfo)
 	if !ok {
@@ -174,7 +166,7 @@ func GetBudgetsHandler(w http.ResponseWriter, r *http.Request) {
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
-func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
+func getBudgetHandler(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user")
 	authUser, ok := user.(storage.UserInfo)
 	if !ok {
@@ -218,7 +210,7 @@ func GetBudgetHandler(w http.ResponseWriter, r *http.Request) {
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
-func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
+func createBudgetHandler(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user")
 	authUser, ok := user.(storage.UserInfo)
 	if !ok {
@@ -231,7 +223,7 @@ func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
 	var body base.BudgetRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		response := base.NewBudgetErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []base.FieldError{
-			{Field: "", Message: "Не удалось прочитать тело запроса"},
+			base.NewFieldError("", "Не удалось прочитать тело запроса"),
 		})
 		base.WriteResponseJSON(w, response.Code, response)
 		return
@@ -239,13 +231,32 @@ func CreateBudgetHandler(w http.ResponseWriter, r *http.Request) {
 
 	var fieldErrors []base.FieldError
 	if body.Title == "" {
-		fieldErrors = append(fieldErrors, base.FieldError{Field: "title", Message: "Поле обязательно для заполнения"})
+		fieldErrors = append(fieldErrors, base.NewFieldError("title", "Поле обязательно для заполнения"))
+	}
+	if body.Description == "" {
+		fieldErrors = append(fieldErrors, base.NewFieldError("description", "Поле обязательно для заполнения"))
 	}
 	if body.Target == 0 {
-		fieldErrors = append(fieldErrors, base.FieldError{Field: "target", Message: "Поле обязательно для заполнения"})
+		fieldErrors = append(fieldErrors, base.NewFieldError("target", "Поле обязательно для заполнения"))
 	}
 	if body.Currency == "" {
-		fieldErrors = append(fieldErrors, base.FieldError{Field: "currency", Message: "Поле обязательно для заполнения"})
+		fieldErrors = append(fieldErrors, base.NewFieldError("currency", "Поле обязательно для заполнения"))
+	}
+	err := validators.ValidateCurrency(body.Currency)
+	if err != nil {
+		fieldErrors = append(fieldErrors, base.NewFieldError("currency", err.Error()))
+	}
+	err = validators.ValidateTargetBudget(body.Target)
+	if err != nil {
+		fieldErrors = append(fieldErrors, base.NewFieldError("target", err.Error()))
+	}
+	err = validators.ValidateStartDate(body.StartAt)
+	if err != nil {
+		fieldErrors = append(fieldErrors, base.NewFieldError("start_at", err.Error()))
+	}
+	err = validators.ValidateEndDate(body.StartAt, body.EndAt)
+	if err != nil {
+		fieldErrors = append(fieldErrors, base.NewFieldError("end_at", err.Error()))
 	}
 	if len(fieldErrors) > 0 {
 		response := base.NewBudgetErrorResponse(http.StatusBadRequest, "Ошибка валидации", fieldErrors)
@@ -306,7 +317,6 @@ func DeleteBudgetHandler(w http.ResponseWriter, r *http.Request) {
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	auth.ClearOldToken(w, r)
 	response := base.NewLogoutSuccessResponse()
-	fmt.Println(response)
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -321,7 +331,7 @@ func balanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	balance := authUser.Balance
 	currency := authUser.BalanceCurrency
-	response := base.NewBalanceResponse(balance, currency, 100, 46)
+	response := base.NewBalanceResponse(balance, currency, 0, 0)
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -375,13 +385,13 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(loginHandler)))
-	mux.Handle("/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(signupHandler)))
+	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(signupHandler)))
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(logoutHandler)))
 	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(refreshTokenHandler)))
 	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(balanceHandler)))
-	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetsHandler)))
-	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(GetBudgetHandler)))
-	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(CreateBudgetHandler)))
+	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(getBudgetsHandler)))
+	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(getBudgetHandler)))
+	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(createBudgetHandler)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(DeleteBudgetHandler)))
 	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(profileHandler)))
 

@@ -3,7 +3,6 @@ package auth
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
@@ -68,10 +67,10 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	cookie, err := GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
-		return
+	} else {
+		refreshToken := cookie.Value
+		jwt.DeleteRefreshToken(refreshToken)
 	}
-	refreshToken := cookie.Value
-	jwt.DeleteRefreshToken(refreshToken)
 
 	cookie = &http.Cookie{
 		Name:     TokenName,
@@ -109,22 +108,4 @@ func RefreshToken(w http.ResponseWriter, r *http.Request) (bool, string) {
 	ClearOldToken(w, r)
 	GenerateNewAuthCookie(w, userID)
 	return isValid, userID
-}
-
-func GetUserIDFromCookie(r *http.Request) (int, error) {
-	cookie, err := GetAuthCookie(r)
-	if err != nil {
-		return 0, err
-	}
-
-	isValid, userIDStr := jwt.CheckToken(cookie.Value)
-	if !isValid || userIDStr == "" {
-		return 0, fmt.Errorf("invalid token")
-	}
-
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
-		return 0, err
-	}
-	return userID, nil
 }
