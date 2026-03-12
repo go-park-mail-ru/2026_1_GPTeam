@@ -12,9 +12,14 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 )
 
+const (
+	testSecret  = "testsecret123"
+	testVersion = "v1"
+)
+
 func setupAuthJWT(t *testing.T) {
 	t.Helper()
-	err := jwt.NewRefreshTokenStore("testsecret123", "0")
+	err := jwt.NewRefreshTokenStore(testSecret, testVersion)
 	require.NoError(t, err)
 }
 
@@ -43,133 +48,364 @@ func issueAuthCookies(t *testing.T, userID string) (*http.Cookie, *http.Cookie) 
 	return accessCookie, refreshCookie
 }
 
-func TestGenerateNewAuthCookieSetsAccessCookie(t *testing.T) {
+func TestGenerateNewAuthCookie(t *testing.T) {
+	t.Parallel()
 	setupAuthJWT(t)
 
-	accessCookie, _ := issueAuthCookies(t, "123")
+	cases := []struct {
+		name          string
+		userID        string
+		assertAccess  func(t *testing.T, c *http.Cookie)
+		assertRefresh func(t *testing.T, c *http.Cookie)
+	}{
+		{
+			name:   "устанавливает access-куку",
+			userID: "123",
+			assertAccess: func(t *testing.T, c *http.Cookie) {
+				require.NotNil(t, c)
+				assert.Equal(t, auth.TokenName, c.Name)
+				assert.NotEmpty(t, c.Value)
+				assert.Equal(t, "/", c.Path)
+				assert.True(t, c.HttpOnly)
+				assert.True(t, c.Secure)
+			},
+			assertRefresh: nil,
+		},
+		{
+			name:         "устанавливает refresh-куку",
+			userID:       "123",
+			assertAccess: nil,
+			assertRefresh: func(t *testing.T, c *http.Cookie) {
+				require.NotNil(t, c)
+				assert.Equal(t, auth.RefreshTokenName, c.Name)
+				assert.NotEmpty(t, c.Value)
+				assert.Equal(t, "/auth/", c.Path)
+				assert.True(t, c.HttpOnly)
+				assert.True(t, c.Secure)
+			},
+		},
+		{
+			name:   "разные userID дают разные токены",
+			userID: "999",
+			assertAccess: func(t *testing.T, c *http.Cookie) {
+				require.NotNil(t, c)
+				assert.NotEmpty(t, c.Value)
+			},
+			assertRefresh: func(t *testing.T, c *http.Cookie) {
+				require.NotNil(t, c)
+				assert.NotEmpty(t, c.Value)
+			},
+		},
+	}
 
-	assert.Equal(t, auth.TokenName, accessCookie.Name)
-	assert.NotEmpty(t, accessCookie.Value)
-	assert.Equal(t, "/", accessCookie.Path)
-	assert.True(t, accessCookie.HttpOnly)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			rec := httptest.NewRecorder()
+			auth.GenerateNewAuthCookie(rec, c.userID)
+			cookies := rec.Result().Cookies()
+
+			if c.assertAccess != nil {
+				c.assertAccess(t, findCookie(cookies, auth.TokenName))
+			}
+			if c.assertRefresh != nil {
+				c.assertRefresh(t, findCookie(cookies, auth.RefreshTokenName))
+			}
+		})
+	}
 }
 
-func TestGenerateNewAuthCookieSetsRefreshCookie(t *testing.T) {
+func TestGetAuthCookie(t *testing.T) {
+	t.Parallel()
 	setupAuthJWT(t)
 
-	_, refreshCookie := issueAuthCookies(t, "123")
+	validAccess, _ := issueAuthCookies(t, "44")
 
-	assert.Equal(t, auth.RefreshTokenName, refreshCookie.Name)
-	assert.NotEmpty(t, refreshCookie.Value)
-	assert.Equal(t, "/auth/", refreshCookie.Path)
-	assert.True(t, refreshCookie.HttpOnly)
+	cases := []struct {
+		name    string
+		cookie  *http.Cookie
+		wantErr bool
+		wantVal string
+	}{
+		{
+			name:    "валидная кука возвращается без ошибки",
+			cookie:  validAccess,
+			wantErr: false,
+			wantVal: validAccess.Value,
+		},
+		{
+			name:    "без куки → ошибка",
+			cookie:  nil,
+			wantErr: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if c.cookie != nil {
+				req.AddCookie(c.cookie)
+			}
+
+			got, err := auth.GetAuthCookie(req)
+			if c.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, got)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, got)
+				assert.Equal(t, c.wantVal, got.Value)
+			}
+		})
+	}
 }
 
-func TestGetAuthCookieReturnsCookie(t *testing.T) {
+func TestIsAuth(t *testing.T) {
+	t.Parallel()
 	setupAuthJWT(t)
 
-	accessCookie, _ := issueAuthCookies(t, "44")
+	validAccess, _ := issueAuthCookies(t, "44")
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(accessCookie)
+	cases := []struct {
+		name       string
+		cookie     *http.Cookie
+		wantOK     bool
+		wantUserID string
+	}{
+		{
+			name:       "валидный токен → авторизован",
+			cookie:     validAccess,
+			wantOK:     true,
+			wantUserID: "44",
+		},
+		{
+			name:       "нет куки → не авторизован",
+			cookie:     nil,
+			wantOK:     false,
+			wantUserID: "",
+		},
+		{
+			name: "сломанный токен → не авторизован",
+			cookie: &http.Cookie{
+				Name:  auth.TokenName,
+				Value: "broken-token",
+			},
+			wantOK:     false,
+			wantUserID: "",
+		},
+	}
 
-	cookie, err := auth.GetAuthCookie(req)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if c.cookie != nil {
+				req.AddCookie(c.cookie)
+			}
+
+			ok, userID := auth.IsAuth(req)
+			assert.Equal(t, c.wantOK, ok)
+			assert.Equal(t, c.wantUserID, userID)
+		})
+	}
+}
+
+func TestGetUserIDFromCookie(t *testing.T) {
+	t.Parallel()
+	setupAuthJWT(t)
+
+	validAccess, _ := issueAuthCookies(t, "77")
+
+	nonNumericToken, err := jwt.GenerateToken("abc")
 	require.NoError(t, err)
-	require.NotNil(t, cookie)
 
-	assert.Equal(t, accessCookie.Value, cookie.Value)
+	cases := []struct {
+		name       string
+		cookie     *http.Cookie
+		wantUserID int
+		wantErr    bool
+	}{
+		{
+			name:       "валидный токен с числовым userID",
+			cookie:     validAccess,
+			wantUserID: 77,
+			wantErr:    false,
+		},
+		{
+			name: "сломанный токен → ошибка",
+			cookie: &http.Cookie{
+				Name:  auth.TokenName,
+				Value: "broken-token",
+			},
+			wantErr: true,
+		},
+		{
+			name: "нечисловой userID в токене → ошибка",
+			cookie: &http.Cookie{
+				Name:  auth.TokenName,
+				Value: nonNumericToken,
+			},
+			wantErr: true,
+		},
+		{
+			name:    "нет куки → ошибка",
+			cookie:  nil,
+			wantErr: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if c.cookie != nil {
+				req.AddCookie(c.cookie)
+			}
+
+			userID, err := auth.GetUserIDFromCookie(req)
+			if c.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, c.wantUserID, userID)
+			}
+		})
+	}
 }
 
-func TestIsAuthReturnsAuthorizedUser(t *testing.T) {
+func TestRefreshToken(t *testing.T) {
+	t.Parallel()
 	setupAuthJWT(t)
 
-	accessCookie, _ := issueAuthCookies(t, "44")
+	t.Run("ротирует куки и возвращает userID", func(t *testing.T) {
+		t.Parallel()
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(accessCookie)
+		oldAccess, oldRefresh := issueAuthCookies(t, "501")
 
-	ok, userID := auth.IsAuth(req)
-	assert.True(t, ok)
-	assert.Equal(t, "44", userID)
+		req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+		req.AddCookie(oldRefresh)
+
+		rec := httptest.NewRecorder()
+		ok, userID := auth.RefreshToken(rec, req)
+
+		assert.True(t, ok)
+		assert.Equal(t, "501", userID)
+
+		newCookies := rec.Result().Cookies()
+		newAccess := findCookie(newCookies, auth.TokenName)
+		newRefresh := findCookie(newCookies, auth.RefreshTokenName)
+
+		require.NotNil(t, newAccess)
+		require.NotNil(t, newRefresh)
+		assert.NotEqual(t, oldAccess.Value, newAccess.Value)
+		assert.NotEqual(t, oldRefresh.Value, newRefresh.Value)
+	})
+
+	t.Run("старый refresh-токен становится невалидным", func(t *testing.T) {
+		t.Parallel()
+
+		_, oldRefresh := issueAuthCookies(t, "502")
+
+		req1 := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+		req1.AddCookie(oldRefresh)
+		rec1 := httptest.NewRecorder()
+		ok, _ := auth.RefreshToken(rec1, req1)
+		require.True(t, ok)
+
+		req2 := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+		req2.AddCookie(oldRefresh)
+		rec2 := httptest.NewRecorder()
+		ok, userID := auth.RefreshToken(rec2, req2)
+		assert.False(t, ok)
+		assert.Empty(t, userID)
+	})
+
+	t.Run("нет refresh-куки → false", func(t *testing.T) {
+		t.Parallel()
+
+		req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+		rec := httptest.NewRecorder()
+		ok, userID := auth.RefreshToken(rec, req)
+		assert.False(t, ok)
+		assert.Empty(t, userID)
+	})
+
+	t.Run("сломанный refresh-токен → false", func(t *testing.T) {
+		t.Parallel()
+
+		req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+		req.AddCookie(&http.Cookie{
+			Name:  auth.RefreshTokenName,
+			Value: "broken-refresh-token",
+		})
+		rec := httptest.NewRecorder()
+		ok, userID := auth.RefreshToken(rec, req)
+		assert.False(t, ok)
+		assert.Empty(t, userID)
+	})
 }
 
-func TestIsAuthRejectsMissingCookie(t *testing.T) {
+func TestClearOldToken(t *testing.T) {
+	t.Parallel()
 	setupAuthJWT(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	t.Run("экспайрит обе куки", func(t *testing.T) {
+		t.Parallel()
 
-	ok, userID := auth.IsAuth(req)
-	assert.False(t, ok)
-	assert.Empty(t, userID)
-}
+		_, refreshCookie := issueAuthCookies(t, "808")
 
-func TestRefreshTokenRotatesCookies(t *testing.T) {
-	setupAuthJWT(t)
+		req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+		req.AddCookie(refreshCookie)
 
-	oldAccessCookie, oldRefreshCookie := issueAuthCookies(t, "501")
+		rec := httptest.NewRecorder()
+		auth.ClearOldToken(rec, req)
 
-	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
-	req.AddCookie(oldRefreshCookie)
+		cookies := rec.Result().Cookies()
+		clearedAccess := findCookie(cookies, auth.TokenName)
+		clearedRefresh := findCookie(cookies, auth.RefreshTokenName)
 
-	rec := httptest.NewRecorder()
-	ok, userID := auth.RefreshToken(rec, req)
+		require.NotNil(t, clearedAccess)
+		require.NotNil(t, clearedRefresh)
+		assert.Empty(t, clearedAccess.Value)
+		assert.Empty(t, clearedRefresh.Value)
+		assert.Equal(t, "/", clearedAccess.Path)
+		assert.Equal(t, "/auth/", clearedRefresh.Path)
+	})
 
-	assert.True(t, ok)
-	assert.Equal(t, "501", userID)
+	t.Run("нет refresh-куки → не паникует", func(t *testing.T) {
+		t.Parallel()
 
-	newCookies := rec.Result().Cookies()
-	newAccessCookie := findCookie(newCookies, auth.TokenName)
-	newRefreshCookie := findCookie(newCookies, auth.RefreshTokenName)
+		req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+		rec := httptest.NewRecorder()
+		assert.NotPanics(t, func() {
+			auth.ClearOldToken(rec, req)
+		})
+	})
 
-	require.NotNil(t, newAccessCookie)
-	require.NotNil(t, newRefreshCookie)
+	t.Run("после ClearOldToken refresh-токен становится невалидным", func(t *testing.T) {
+		t.Parallel()
 
-	assert.NotEqual(t, oldAccessCookie.Value, newAccessCookie.Value)
-	assert.NotEqual(t, oldRefreshCookie.Value, newRefreshCookie.Value)
-}
+		_, refreshCookie := issueAuthCookies(t, "909")
 
-func TestRefreshTokenOldRefreshTokenBecomesInvalid(t *testing.T) {
-	setupAuthJWT(t)
+		req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+		req.AddCookie(refreshCookie)
+		rec := httptest.NewRecorder()
+		auth.ClearOldToken(rec, req)
 
-	_, oldRefreshCookie := issueAuthCookies(t, "501")
-
-	req1 := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
-	req1.AddCookie(oldRefreshCookie)
-
-	rec1 := httptest.NewRecorder()
-	ok, userID := auth.RefreshToken(rec1, req1)
-	assert.True(t, ok)
-	assert.Equal(t, "501", userID)
-
-	req2 := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
-	req2.AddCookie(oldRefreshCookie)
-
-	rec2 := httptest.NewRecorder()
-	ok, userID = auth.RefreshToken(rec2, req2)
-	assert.False(t, ok)
-	assert.Empty(t, userID)
-}
-
-func TestClearOldTokenExpiresCookies(t *testing.T) {
-	setupAuthJWT(t)
-
-	_, refreshCookie := issueAuthCookies(t, "808")
-
-	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
-	req.AddCookie(refreshCookie)
-
-	rec := httptest.NewRecorder()
-	auth.ClearOldToken(rec, req)
-
-	cookies := rec.Result().Cookies()
-	clearedAccessCookie := findCookie(cookies, auth.TokenName)
-	clearedRefreshCookie := findCookie(cookies, auth.RefreshTokenName)
-
-	require.NotNil(t, clearedAccessCookie)
-	require.NotNil(t, clearedRefreshCookie)
-
-	assert.Empty(t, clearedAccessCookie.Value)
-	assert.Empty(t, clearedRefreshCookie.Value)
-	assert.Equal(t, "/", clearedAccessCookie.Path)
-	assert.Equal(t, "/auth/", clearedRefreshCookie.Path)
+		req2 := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+		req2.AddCookie(refreshCookie)
+		rec2 := httptest.NewRecorder()
+		ok, userID := auth.RefreshToken(rec2, req2)
+		assert.False(t, ok)
+		assert.Empty(t, userID)
+	})
 }
