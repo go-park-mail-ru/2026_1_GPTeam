@@ -181,3 +181,4 @@ $RECYCLE.BIN/
 /.env
 *.pem
 *coverage
+*.log
