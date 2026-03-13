@@ -81,12 +81,10 @@ func ValidateEmail(email string) error {
 	if len(email) == 0 || len(email) >= 255 {
 		return EmailError
 	}
-	matched, err := regexp.MatchString("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$", email)
-	if err != nil {
-		fmt.Println(err)
-		return ServerError
-	}
-	if !matched {
+	latin := regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`)
+	cyrillic := regexp.MustCompile(`^[а-яёА-ЯЁ0-9._%+-]+@[а-яёА-ЯЁ0-9.-]+\.[а-яёА-ЯЁ]{2,}$`)
+
+	if !latin.MatchString(email) && !cyrillic.MatchString(email) {
 		return EmailError
 	}
 	return nil
