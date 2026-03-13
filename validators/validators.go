@@ -14,11 +14,7 @@ var (
 	UsernameShortError        = fmt.Errorf("логин должен быть минимум 3 символа")
 	UsernameWrongSymbolsError = fmt.Errorf("логин должен содержать только буквы латинского алфавита или цифры")
 
-	PasswordShortError          = fmt.Errorf("пароль должен быть минимум 8 символов")
-	PasswordsHasNoUpper         = fmt.Errorf("в пароле нет заглавной буквы")
-	PasswordHasNoLower          = fmt.Errorf("в пароле нет строчной буквы")
-	PasswordHasNoDigit          = fmt.Errorf("в пароле нет цифры")
-	PasswordHasIncorrectSymbols = fmt.Errorf("пароль должен содержать только буквы латинского алфавита и цифры")
+	IncorrectPasswordError = fmt.Errorf("пароль должен содержать заглавные, строчные буквы латинского алфавита и цифры (не менее 8 символов)")
 
 	EmailError = fmt.Errorf("некорректный адрес электронной почты")
 
@@ -49,7 +45,7 @@ func ValidateUsername(username string) error {
 func ValidatePassword(passwordStr string) error {
 	password := []rune(passwordStr)
 	if len(password) < 8 {
-		return PasswordShortError
+		return IncorrectPasswordError
 	}
 	hasLower := false
 	hasUpper := false
@@ -67,16 +63,16 @@ func ValidatePassword(passwordStr string) error {
 		}
 	}
 	if !hasUpper {
-		return PasswordsHasNoUpper
+		return IncorrectPasswordError
 	}
 	if !hasLower {
-		return PasswordHasNoLower
+		return IncorrectPasswordError
 	}
 	if !hasDigit {
-		return PasswordHasNoDigit
+		return IncorrectPasswordError
 	}
 	if hasInvalid {
-		return PasswordHasIncorrectSymbols
+		return IncorrectPasswordError
 	}
 	return nil
 }
