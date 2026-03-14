@@ -34,11 +34,11 @@ func TestValidatePassword(t *testing.T) {
 		Password string
 		err      error
 	}{
-		{"Short length", "ab", validators.PasswordShortError},
-		{"Has no upper", "admin123", validators.PasswordsHasNoUpper},
-		{"Has no lower", "ADMIN123", validators.PasswordHasNoLower},
-		{"Has no digit", "AdminAdmin", validators.PasswordHasNoDigit},
-		{"Has invalid symbols", "Admin123!", validators.PasswordHasIncorrectSymbols},
+		{"Short length", "ab", validators.IncorrectPasswordError},
+		{"Has no upper", "admin123", validators.IncorrectPasswordError},
+		{"Has no lower", "ADMIN123", validators.IncorrectPasswordError},
+		{"Has no digit", "AdminAdmin", validators.IncorrectPasswordError},
+		{"Has invalid symbols", "Admin123!", validators.IncorrectPasswordError},
 		{"Correct", "Admin123", nil},
 	}
 
