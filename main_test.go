@@ -602,7 +602,7 @@ func TestCreateBudget(t *testing.T) {
 				for _, e := range resp.Errors {
 					fieldNames = append(fieldNames, e.Field)
 				}
-				require.ElementsMatch(t, []string{"title", "description", "target", "currency", "currency", "start_at"}, fieldNames)
+				require.ElementsMatch(t, []string{"title", "description", "target", "target", "currency", "currency", "start_at"}, fieldNames)
 			},
 		},
 		{
