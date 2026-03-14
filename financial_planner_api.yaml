@@ -17,7 +17,7 @@ tags:
   - name: bank_account
     description: Счёт
 paths:
-  /login:
+  /auth/login:
     post:
       tags:
         - registration and authorization
@@ -37,7 +37,7 @@ paths:
               description: JWT токен и id сессии в cookie
               schema:
                 type: string
-                example: "jwt=token; sessionId=123; Path=/; Secure; HttpOnly; SameSite=Strict;"
+                example: "jwt=token; sessionId=123; Path=/; Secure; HttpOnly; SameSite=Lax;"
           content:
             application/json:
               schema:
@@ -55,7 +55,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/ServerError'
 
-  /signup:
+  /auth/refresh:
+    post:
+      tags:
+        - registration and authorization
+      summary: Refresh tokens
+      description:
+        Endpoint для обновления access токена.
+      responses:
+        '200':
+          description: Обновление токенов
+          headers:
+            Set-Cookie:
+              description: JWT токен и id сессии в cookie
+              schema:
+                type: string
+                example: "jwt=token; sessionId=123; Path=/; Secure; HttpOnly; SameSite=Lax;"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccess'
+        '401':
+          description: Ошибка авторизации - неверный логин или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /auth/signup:
     post:
       tags:
         - registration and authorization
@@ -99,7 +132,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ServerError'
 
-  /logout:
+  /auth/logout:
     post:
       tags:
         - registration and authorization
@@ -107,7 +140,6 @@ paths:
       description: Выход пользователя из системы. Инвалидирует текущий JWT токен и завершает сессию.
       security:
         - bearerAuth: []
-        - cookieAuth: []
       responses:
         '200':
           description: Успешный выход из системы
@@ -181,12 +213,21 @@ paths:
                   code:
                     type: integer
                     example: 200
+                  message:
+                    type: string
+                    example: 'Ok'
                   balance:
                     type: number
                     example: 1250.75
                   currency:
                     type: string
                     example: 'USD'
+                  income:
+                    type: number
+                    example: 99
+                  expenses:
+                    type: number
+                    example: 32.6
                 required:
                   - code
                   - balance
@@ -223,6 +264,9 @@ paths:
                   code:
                     type: integer
                     example: 200
+                  message:
+                    type: string
+                    example: 'Ok'
                   len:
                     type: integer
                     example: 3
@@ -237,6 +281,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+  /get_budget/{id}:
+    get:
+      tags:
+        - profile
+      summary: Get budget by id
+      description: Получение детальной информации о бюджете
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Id бюджета
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Ok'
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  created_at:
+                    type: string
+                  start_at:
+                    type: string
+                  end_at:
+                    type: string
+                  actual:
+                    type: number
+                  target:
+                    type: number
+                  currency:
+                    type: string
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: Бюджет не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
         '500':
           description: server error
           content:
@@ -278,6 +386,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
   /budget:
     post:
       tags:
@@ -351,9 +466,6 @@ components:
         user:
           type: object
           properties:
-            id:
-              type: integer
-              example: 12345
             username:
               type: string
               example: 'johndoe'
@@ -365,6 +477,19 @@ components:
               type: string
               format: date-time
               example: '2024-02-22T10:30:00Z'
+            created_at:
+              type: string
+              format: date-time
+              example: '2024-02-22T10:30:00Z'
+            avatar_url:
+              type: string
+              example: 'img/123.png'
+            balance:
+              type: number
+              example: 100.5
+            balance_currency:
+              type: string
+              example: 'RUB'
       required:
         - code
         - message
@@ -392,7 +517,7 @@ components:
               type: string
               format: email
               example: 'john@example.com'
-            created_at:
+            last_login:
               type: string
               format: date-time
               example: '2024-02-22T10:30:00Z'
@@ -432,10 +557,20 @@ components:
           type: string
           format: date-time
           example: '2024-01-15T08:00:00Z'
+        last_login:
+          type: string
+          format: date-time
+          example: '2024-01-15T08:00:00Z'
         avatar_url:
           type: string
           format: uri
           example: 'https://example.com/avatars/user123.jpg'
+        balance:
+          type: number
+          example: 100.5
+        balance_currency:
+          type: string
+          example: 'RUB'
       required:
         - username
         - email
@@ -537,7 +672,7 @@ components:
         - title
         - target
         - currency
-      
+
     BudgetDeleteSuccess:
       type: object
       properties:

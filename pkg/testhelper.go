@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func MustJSON(t *testing.T, v any) []byte {
+func MustJSON(t *testing.T, value any) []byte {
 	t.Helper()
-	b, err := json.Marshal(v)
+	bytes, err := json.Marshal(value)
 	require.NoError(t, err)
-	return b
+	return bytes
 }

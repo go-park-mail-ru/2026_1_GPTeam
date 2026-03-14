@@ -182,3 +182,4 @@ $RECYCLE.BIN/
 *.pem
 /db/migrations/run-tern.ps1
 *coverage
+*.log
