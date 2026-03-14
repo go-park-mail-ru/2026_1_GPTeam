@@ -11,13 +11,14 @@ import (
 
 type UserUseCaseInterface interface {
 	Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error)
+	GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (base.User, error)
 }
 
 type UserUseCase struct {
-	repo repository.UserRepository
+	repo *repository.UserRepository
 }
 
-func NewUserUseCase(repo repository.UserRepository) *UserUseCase {
+func NewUserUseCases(repo *repository.UserRepository) *UserUseCase {
 	return &UserUseCase{repo: repo}
 }
 
@@ -46,4 +47,12 @@ func (obj *UserUseCase) Create(ctx context.Context, user base.SignupBodyRequest)
 		CreatedAt: newUser.CreatedAt,
 	}
 	return resultUser, nil
+}
+
+func (obj *UserUseCase) GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (storage.UserInfo, error) {
+	storedUser, err := obj.repo.GetByCredentials(ctx, user.Username, user.Password)
+	if err != nil {
+		return storage.UserInfo{}, err
+	}
+	return storedUser, nil
 }

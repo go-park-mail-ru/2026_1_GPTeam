@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,12 +9,16 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/web"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/joho/godotenv"
 )
@@ -364,6 +369,25 @@ func main() {
 		return
 	}
 
+	user := os.Getenv("POSTGRES_USER")
+	password := os.Getenv("POSTGRES_PASSWORD")
+	host := os.Getenv("POSTGRES_HOST")
+	port := os.Getenv("POSTGRES_PORT")
+	name := os.Getenv("POSTGRES_DB")
+	dbUrl := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, name)
+
+	conn, err := pgx.Connect(context.Background(), dbUrl)
+	if err != nil {
+		fmt.Printf("Unable to connect to database: %v\n", err)
+		return
+	}
+	defer func() {
+		err = conn.Close(context.Background())
+		if err != nil {
+			fmt.Printf("Unable to close connection: %v\n", err)
+		}
+	}()
+
 	err = jwt.NewRefreshTokenStore(os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
 		fmt.Println(err)
@@ -384,16 +408,20 @@ func main() {
 	storage.NewBudgetStore()
 
 	mux := http.NewServeMux()
-	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(loginHandler)))
-	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(signupHandler)))
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(logoutHandler)))
 	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(refreshTokenHandler)))
-	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(balanceHandler)))
 	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(getBudgetsHandler)))
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(getBudgetHandler)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(createBudgetHandler)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(DeleteBudgetHandler)))
-	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(profileHandler)))
+
+	userRepo := repository.NewUserRepository(conn)
+	userUseCases := application.NewUserUseCases(userRepo)
+	userHandlers := web.NewUserHandler(userUseCases)
+	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandlers.SignUp)))
+	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandlers.Login)))
+	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandlers.Profile)))
+	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandlers.Balance)))
 
 	handler := middleware.AuthMiddleware(mux)
 	handler = middleware.CORSMiddleware(handler)
