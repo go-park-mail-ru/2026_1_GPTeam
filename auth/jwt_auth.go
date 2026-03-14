@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
 )
 
 const TokenName = "token"
 const RefreshTokenName = "refresh_token"
 
-func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
-	token, err := jwt.GenerateToken(userID)
+func GenerateNewAuthCookie(repo repository.JWTRepositoryInterface, w http.ResponseWriter, userID string) {
+	token, err := jwt.GenerateToken(repo, userID)
 	if err != nil {
 		return
 	}
@@ -26,7 +27,7 @@ func GenerateNewAuthCookie(w http.ResponseWriter, userID string) {
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
-	token, err = jwt.GenerateRefreshToken(userID, "pass")
+	token, err = jwt.GenerateRefreshToken(repo, userID, "pass")
 	if err != nil {
 		return
 	}
@@ -52,24 +53,27 @@ func GetRefreshToken(r *http.Request) (*http.Cookie, error) {
 	return cookie, err
 }
 
-func IsAuth(r *http.Request) (bool, string) {
+func IsAuth(repo repository.JWTRepositoryInterface, r *http.Request) (bool, string) {
 	cookie, err := GetAuthCookie(r)
 	if err != nil {
 		fmt.Println(err)
 		return false, ""
 	}
 	token := cookie.Value
-	isValid, userID := jwt.CheckToken(token)
+	isValid, userID := jwt.CheckToken(repo, token)
 	return isValid, userID
 }
 
-func ClearOldToken(w http.ResponseWriter, r *http.Request) {
+func ClearOldToken(repo repository.JWTRepositoryInterface, w http.ResponseWriter, r *http.Request) {
 	cookie, err := GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		refreshToken := cookie.Value
-		jwt.DeleteRefreshToken(refreshToken)
+		err = jwt.DeleteRefreshToken(repo, refreshToken)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	cookie = &http.Cookie{
@@ -94,18 +98,18 @@ func ClearOldToken(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 }
 
-func RefreshToken(w http.ResponseWriter, r *http.Request) (bool, string) {
+func RefreshToken(repo repository.JWTRepositoryInterface, w http.ResponseWriter, r *http.Request) (bool, string) {
 	cookie, err := GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
 		return false, ""
 	}
 	token := cookie.Value
-	isValid, userID := jwt.CheckRefreshToken(token)
+	isValid, userID := jwt.CheckRefreshToken(repo, token)
 	if !isValid {
 		return false, ""
 	}
-	ClearOldToken(w, r)
-	GenerateNewAuthCookie(w, userID)
+	ClearOldToken(repo, w, r)
+	GenerateNewAuthCookie(repo, w, userID)
 	return isValid, userID
 }

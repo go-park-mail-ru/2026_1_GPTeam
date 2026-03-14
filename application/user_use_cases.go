@@ -11,14 +11,14 @@ import (
 
 type UserUseCaseInterface interface {
 	Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error)
-	GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (base.User, error)
+	GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (storage.UserInfo, error)
 }
 
 type UserUseCase struct {
-	repo *repository.UserRepository
+	repo repository.UserRepositoryInterface
 }
 
-func NewUserUseCases(repo *repository.UserRepository) *UserUseCase {
+func NewUserUseCases(repo repository.UserRepositoryInterface) *UserUseCase {
 	return &UserUseCase{repo: repo}
 }
 

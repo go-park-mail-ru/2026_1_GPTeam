@@ -4,27 +4,37 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type JWTRepositoryInterface interface {
-	Create(ctx context.Context, uuid string, token jwt.RefreshTokenInfo) error
+	Create(ctx context.Context, uuid string, token storage.RefreshTokenInfo) error
 	Delete(ctx context.Context, uuid string) error
-	Get(ctx context.Context, uuid string) (jwt.RefreshTokenInfo, error)
+	Get(ctx context.Context, uuid string) (storage.RefreshTokenInfo, error)
+	GetJWTSecret() []byte
+	GetVersion() string
 }
 
 type JWTPostgresqlRepository struct {
-	db *pgx.Conn
+	db      *pgx.Conn
+	mu      sync.RWMutex
+	secret  []byte
+	version string // ToDo: move to auth packet
 }
 
-func NewJWTPostgresqlRepository(db *pgx.Conn) *JWTPostgresqlRepository {
-	return &JWTPostgresqlRepository{db: db}
+func NewJWTPostgresqlRepository(db *pgx.Conn, secret string, version string) *JWTPostgresqlRepository {
+	return &JWTPostgresqlRepository{
+		db:      db,
+		secret:  []byte(secret),
+		version: version,
+	}
 }
 
-func (obj *JWTPostgresqlRepository) Create(ctx context.Context, uuid string, token jwt.RefreshTokenInfo) error {
+func (obj *JWTPostgresqlRepository) Create(ctx context.Context, uuid string, token storage.RefreshTokenInfo) error {
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
 	pk := pgtype.Text{
 		String: uuid,
@@ -61,19 +71,31 @@ func (obj *JWTPostgresqlRepository) Delete(ctx context.Context, uuid string) err
 	return nil
 }
 
-func (obj *JWTPostgresqlRepository) Get(ctx context.Context, uuid string) (jwt.RefreshTokenInfo, error) {
+func (obj *JWTPostgresqlRepository) Get(ctx context.Context, uuid string) (storage.RefreshTokenInfo, error) {
 	query := `select user_id, expired_at from jwt where uuid = $1;`
 	var userId pgtype.Int4
 	var expiredAt pgtype.Timestamp
 	err := obj.db.QueryRow(ctx, query, uuid).Scan(&userId, &expiredAt)
 	if err != nil {
 		fmt.Printf("Unable to get token: %v\n", err)
-		return jwt.RefreshTokenInfo{}, err
+		return storage.RefreshTokenInfo{}, err
 	}
-	token := jwt.RefreshTokenInfo{
+	token := storage.RefreshTokenInfo{
 		UserID:    strconv.Itoa(int(userId.Int32)),
 		ExpiredAt: expiredAt.Time,
 		DeviceID:  "",
 	}
 	return token, nil
+}
+
+func (obj *JWTPostgresqlRepository) GetJWTSecret() []byte {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
+	return obj.secret
+}
+
+func (obj *JWTPostgresqlRepository) GetVersion() string {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
+	return obj.version
 }

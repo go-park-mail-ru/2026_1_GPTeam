@@ -134,7 +134,7 @@ func (obj *UserRepository) GetByEmail(ctx context.Context, email string) (storag
 	var updatedAt pgtype.Timestamp
 	err := obj.db.QueryRow(ctx, query, email).Scan(&id, &username, &password, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
-		fmt.Printf("Unable to get user: %v\n", err)
+		fmt.Printf("Unable to get user: %v\n", err) // ToDo: add errors to global constants
 		return storage.UserInfo{}, err
 	}
 	user := storage.UserInfo{
