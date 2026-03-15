@@ -18,15 +18,15 @@ type UserUseCaseInterface interface {
 	IsAuthUserExists(ctx context.Context, isAuth bool, userID string) (base.User, bool)
 }
 
-type UserUseCase struct {
+type User struct {
 	repo repository.UserRepositoryInterface
 }
 
-func NewUserUseCases(repo repository.UserRepositoryInterface) *UserUseCase {
-	return &UserUseCase{repo: repo}
+func NewUser(repo repository.UserRepositoryInterface) *User {
+	return &User{repo: repo}
 }
 
-func (obj *UserUseCase) Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error) {
+func (obj *User) Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error) {
 	avatarUrl := "img/123.png" // ToDo: set default
 	newUser := storage.UserInfo{
 		Id:              0,
@@ -53,7 +53,7 @@ func (obj *UserUseCase) Create(ctx context.Context, user base.SignupBodyRequest)
 	return resultUser, nil
 }
 
-func (obj *UserUseCase) GetById(ctx context.Context, id int) (storage.UserInfo, error) {
+func (obj *User) GetById(ctx context.Context, id int) (storage.UserInfo, error) {
 	user, err := obj.repo.GetById(ctx, id)
 	if err != nil {
 		return storage.UserInfo{}, err
@@ -61,7 +61,7 @@ func (obj *UserUseCase) GetById(ctx context.Context, id int) (storage.UserInfo, 
 	return user, nil
 }
 
-func (obj *UserUseCase) GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (storage.UserInfo, error) {
+func (obj *User) GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (storage.UserInfo, error) {
 	storedUser, err := obj.repo.GetByCredentials(ctx, user.Username, user.Password)
 	if err != nil {
 		return storage.UserInfo{}, err
@@ -69,7 +69,7 @@ func (obj *UserUseCase) GetByCredentials(ctx context.Context, user base.LoginBod
 	return storedUser, nil
 }
 
-func (obj *UserUseCase) IsAuthUserExists(ctx context.Context, isAuth bool, userID string) (base.User, bool) {
+func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userID string) (base.User, bool) {
 	if !isAuth {
 		return base.User{}, false
 	}

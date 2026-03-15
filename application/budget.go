@@ -16,20 +16,20 @@ type BudgetUseCaseInterface interface {
 	IsUserAuthor(ctx context.Context, budget storage.BudgetInfo, user storage.UserInfo) bool
 }
 
-type BudgetUseCase struct {
+type Budget struct {
 	repo repository.BudgetRepositoryInterface
 }
 
-func NewBudgetUseCase(repo repository.BudgetRepositoryInterface) *BudgetUseCase {
-	return &BudgetUseCase{repo: repo}
+func NewBudget(repo repository.BudgetRepositoryInterface) *Budget {
+	return &Budget{repo: repo}
 }
 
-func (obj *BudgetUseCase) Create(ctx context.Context, budget storage.BudgetInfo) (int, error) {
+func (obj *Budget) Create(ctx context.Context, budget storage.BudgetInfo) (int, error) {
 	id, err := obj.repo.Create(ctx, budget)
 	return id, err
 }
 
-func (obj *BudgetUseCase) Delete(ctx context.Context, budgetID int, user storage.UserInfo) error {
+func (obj *Budget) Delete(ctx context.Context, budgetID int, user storage.UserInfo) error {
 	budget, err := obj.GetById(ctx, budgetID)
 	if err != nil {
 		return err
@@ -41,16 +41,16 @@ func (obj *BudgetUseCase) Delete(ctx context.Context, budgetID int, user storage
 	return err
 }
 
-func (obj *BudgetUseCase) GetById(ctx context.Context, id int) (storage.BudgetInfo, error) {
+func (obj *Budget) GetById(ctx context.Context, id int) (storage.BudgetInfo, error) {
 	budget, err := obj.repo.GetById(ctx, id)
 	return budget, err
 }
 
-func (obj *BudgetUseCase) GetBudgetsOfUser(ctx context.Context, user storage.UserInfo) ([]int, error) {
+func (obj *Budget) GetBudgetsOfUser(ctx context.Context, user storage.UserInfo) ([]int, error) {
 	ids, err := obj.repo.GetIDsByUserId(ctx, user.Id)
 	return ids, err
 }
 
-func (obj *BudgetUseCase) IsUserAuthor(ctx context.Context, budget storage.BudgetInfo, user storage.UserInfo) bool {
+func (obj *Budget) IsUserAuthor(ctx context.Context, budget storage.BudgetInfo, user storage.UserInfo) bool {
 	return user.Id == budget.Author
 }

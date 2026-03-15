@@ -23,17 +23,17 @@ type JWTUseCaseInterface interface {
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
-type JWTUseCase struct {
+type Jwt struct {
 	repo repository.JWTRepositoryInterface
 }
 
-func NewJWTUseCase(repo repository.JWTRepositoryInterface) *JWTUseCase {
-	return &JWTUseCase{
+func NewJWT(repo repository.JWTRepositoryInterface) *Jwt {
+	return &Jwt{
 		repo: repo,
 	}
 }
 
-func (obj *JWTUseCase) parseToken(tokenStr string) (*jwt.Token, error) {
+func (obj *Jwt) parseToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
@@ -46,7 +46,7 @@ func (obj *JWTUseCase) parseToken(tokenStr string) (*jwt.Token, error) {
 	return token, nil
 }
 
-func (obj *JWTUseCase) CheckToken(tokenStr string) (bool, string) {
+func (obj *Jwt) CheckToken(tokenStr string) (bool, string) {
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		fmt.Println(err)
@@ -74,7 +74,7 @@ func (obj *JWTUseCase) CheckToken(tokenStr string) (bool, string) {
 	return true, userID
 }
 
-func (obj *JWTUseCase) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, string) {
+func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, string) {
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		fmt.Println(err)
@@ -115,7 +115,7 @@ func (obj *JWTUseCase) CheckRefreshToken(ctx context.Context, tokenStr string) (
 	return true, userID
 }
 
-func (obj *JWTUseCase) GenerateToken(userID string) (string, error) {
+func (obj *Jwt) GenerateToken(userID string) (string, error) {
 	expirationTime := time.Now().Add(AccessTokenExpirationTime)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": userID,
@@ -132,7 +132,7 @@ func (obj *JWTUseCase) GenerateToken(userID string) (string, error) {
 	return tokenString, nil
 }
 
-func (obj *JWTUseCase) GenerateRefreshToken(ctx context.Context, userID string, deviceID string) (string, error) {
+func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userID string, deviceID string) (string, error) {
 	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
 
 	tokenID := uuid.New().String()
@@ -160,7 +160,7 @@ func (obj *JWTUseCase) GenerateRefreshToken(ctx context.Context, userID string, 
 	return refreshString, nil
 }
 
-func (obj *JWTUseCase) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
+func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		return err
