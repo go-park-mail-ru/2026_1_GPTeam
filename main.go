@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/web"
@@ -52,9 +53,9 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	jwtUseCases := application.NewJWT(jwtRepo)
-	authUseCases := auth.NewJWTAuth(jwtRepo)
-	authHandlers := web.NewJWTHandler(jwtUseCases, authUseCases, userUseCases)
+	jwtUseCases := jwt.NewJWT(jwtRepo)
+	authUseCases := auth.NewJWTAuth(jwtUseCases)
+	authHandlers := web.NewJWTHandler(authUseCases, userUseCases)
 
 	budgetRepo := repository.NewPostgresBudget(conn)
 	budgetUseCases := application.NewBudget(budgetRepo)

@@ -13,6 +13,7 @@ import (
 type JWTRepositoryInterface interface {
 	Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error
 	Delete(ctx context.Context, uuid string) error
+	DeleteByUserID(ctx context.Context, userID int) error
 	Get(ctx context.Context, uuid string) (models.RefreshTokenInfo, error)
 	GetJWTSecret() []byte
 	GetVersion() string
@@ -73,6 +74,16 @@ func (obj *PostgresJWT) Create(ctx context.Context, uuid string, token models.Re
 func (obj *PostgresJWT) Delete(ctx context.Context, uuid string) error {
 	query := `delete from jwt where uuid = $1;`
 	_, err := obj.db.Exec(ctx, query, uuid)
+	if err != nil {
+		fmt.Printf("Unable to delete token: %v\n", err)
+		return err
+	}
+	return nil
+}
+
+func (obj *PostgresJWT) DeleteByUserID(ctx context.Context, userID int) error {
+	query := `delete from jwt where user_id = $1;`
+	_, err := obj.db.Exec(ctx, query, userID)
 	if err != nil {
 		fmt.Printf("Unable to delete token: %v\n", err)
 		return err

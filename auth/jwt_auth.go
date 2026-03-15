@@ -1,12 +1,12 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
 )
 
 type AuthenticationServiceInterface interface {
@@ -17,18 +17,19 @@ type AuthenticationServiceInterface interface {
 }
 
 type JWTAuthService struct {
-	repo repository.JWTRepositoryInterface
+	jwtUseCase jwt.JWTUseCaseInterface
 }
 
 const TokenName = "token"
 const RefreshTokenName = "refresh_token"
 
-func NewJWTAuth(repo repository.JWTRepositoryInterface) *JWTAuthService {
-	return &JWTAuthService{repo: repo}
+func NewJWTAuth(useCase jwt.JWTUseCaseInterface) *JWTAuthService {
+	return &JWTAuthService{jwtUseCase: useCase}
 }
 
 func (obj *JWTAuthService) GenerateNewAuth(w http.ResponseWriter, userID int) {
-	token, err := jwt.GenerateToken(obj.repo, userID)
+	fmt.Printf("set cookie to user id %v\n", userID)
+	token, err := obj.jwtUseCase.GenerateToken(userID)
 	if err != nil {
 		return
 	}
@@ -42,7 +43,7 @@ func (obj *JWTAuthService) GenerateNewAuth(w http.ResponseWriter, userID int) {
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
-	token, err = jwt.GenerateRefreshToken(obj.repo, userID, "pass")
+	token, err = obj.jwtUseCase.GenerateRefreshToken(context.Background(), userID, "pass") // ToDo: general context
 	if err != nil {
 		return
 	}
@@ -75,7 +76,8 @@ func (obj *JWTAuthService) IsAuth(r *http.Request) (bool, int) {
 		return false, -1
 	}
 	token := cookie.Value
-	isValid, userID := jwt.CheckToken(obj.repo, token)
+	isValid, userID := obj.jwtUseCase.CheckToken(token)
+	fmt.Println("---", isValid, userID)
 	return isValid, userID
 }
 
@@ -85,7 +87,7 @@ func (obj *JWTAuthService) ClearOld(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	} else {
 		refreshToken := cookie.Value
-		err = jwt.DeleteRefreshToken(obj.repo, refreshToken)
+		err = obj.jwtUseCase.DeleteRefreshToken(context.Background(), refreshToken) // ToDo: general context
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -120,7 +122,7 @@ func (obj *JWTAuthService) Refresh(w http.ResponseWriter, r *http.Request) (bool
 		return false, -1
 	}
 	token := cookie.Value
-	isValid, userID := jwt.CheckRefreshToken(obj.repo, token)
+	isValid, userID := obj.jwtUseCase.CheckRefreshToken(context.Background(), token) // ToDo: general context
 	if !isValid {
 		return false, -1
 	}

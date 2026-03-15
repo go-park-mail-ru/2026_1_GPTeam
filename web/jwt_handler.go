@@ -10,18 +10,18 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
 )
 
 type JWTHandlers struct {
-	useCase     application.JWTUseCaseInterface
+	useCase     jwt.JWTUseCaseInterface
 	auth        auth.AuthenticationServiceInterface
 	userUseCase application.UserUseCaseInterface
 }
 
-func NewJWTHandler(useCase application.JWTUseCaseInterface, auth auth.AuthenticationServiceInterface, userUseCase application.UserUseCaseInterface) *JWTHandlers {
+func NewJWTHandler(auth auth.AuthenticationServiceInterface, userUseCase application.UserUseCaseInterface) *JWTHandlers {
 	return &JWTHandlers{
-		useCase:     useCase,
 		auth:        auth,
 		userUseCase: userUseCase,
 	} // ToDo: get auth packet; auth packet creates in main
@@ -35,6 +35,7 @@ func (obj *JWTHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 
 func (obj *JWTHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
+	fmt.Println("start refresh token")
 	isAuth, userID := obj.auth.Refresh(w, r)
 	authUser, ok := obj.userUseCase.IsAuthUserExists(ctx, isAuth, userID)
 	if !ok {
