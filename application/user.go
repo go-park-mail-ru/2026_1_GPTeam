@@ -29,10 +29,15 @@ func NewUser(repo repository.UserRepositoryInterface) *User {
 
 func (obj *User) Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error) {
 	avatarUrl := "img/123.png" // ToDo: set default
+	bytes, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		fmt.Printf("unable to hash password: %v\n", err)
+		return base.AuthUser{}, err
+	}
 	newUser := models.UserInfo{
 		Id:              0,
 		Username:        user.Username,
-		Password:        user.Password, // ToDO: hash
+		Password:        string(bytes),
 		Email:           user.Email,
 		CreatedAt:       time.Now(),
 		LastLogin:       time.Time{},

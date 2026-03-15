@@ -8,7 +8,6 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type UserRepositoryInterface interface {
@@ -33,13 +32,8 @@ func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserInfo) (
 		String: userInfo.Username,
 		Valid:  true,
 	}
-	bytes, err := bcrypt.GenerateFromPassword([]byte(userInfo.Password), bcrypt.DefaultCost)
-	if err != nil {
-		fmt.Printf("Unable to hash password: %v\n", err)
-		return -1, err
-	}
 	password := pgtype.Text{
-		String: string(bytes),
+		String: userInfo.Password,
 		Valid:  true,
 	}
 	email := pgtype.Text{
@@ -54,7 +48,7 @@ func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserInfo) (
 		String: userInfo.AvatarUrl,
 		Valid:  true,
 	}
-	err = obj.db.QueryRow(ctx, query, username, password, email, lastLogin, avatarUrl).Scan(&id)
+	err := obj.db.QueryRow(ctx, query, username, password, email, lastLogin, avatarUrl).Scan(&id)
 	if err != nil {
 		fmt.Printf("Unable to create user: %v\n", err)
 		return -1, err // ToDo: add err check
