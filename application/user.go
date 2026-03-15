@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserUseCaseInterface interface {
@@ -31,7 +32,7 @@ func (obj *User) Create(ctx context.Context, user base.SignupBodyRequest) (base.
 	newUser := models.UserInfo{
 		Id:              0,
 		Username:        user.Username,
-		Password:        user.Password,
+		Password:        user.Password, // ToDO: hash
 		Email:           user.Email,
 		CreatedAt:       time.Now(),
 		LastLogin:       time.Time{},
@@ -62,7 +63,11 @@ func (obj *User) GetById(ctx context.Context, id int) (models.UserInfo, error) {
 }
 
 func (obj *User) GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (models.UserInfo, error) {
-	storedUser, err := obj.repo.GetByCredentials(ctx, user.Username, user.Password)
+	storedUser, err := obj.repo.GetByUsername(ctx, user.Username)
+	if err != nil {
+		return models.UserInfo{}, err
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password))
 	if err != nil {
 		return models.UserInfo{}, err
 	}

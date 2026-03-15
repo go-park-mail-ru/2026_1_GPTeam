@@ -23,15 +23,6 @@ type JWTUseCaseInterface interface {
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
-type ErrorFunc func(args ...interface{}) error
-
-var WrongSigningMethodError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("unexpected signing method: %v\n", args)
-}
-var InvalidTokenID ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("invalid token id %v\n", args)
-}
-
 type Jwt struct {
 	repo repository.JWTRepositoryInterface
 }

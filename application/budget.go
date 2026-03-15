@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
@@ -14,10 +13,6 @@ type BudgetUseCaseInterface interface {
 	GetById(ctx context.Context, id int) (models.BudgetInfo, error)
 	GetBudgetsOfUser(ctx context.Context, user models.UserInfo) ([]int, error)
 	IsUserAuthor(budget models.BudgetInfo, user models.UserInfo) bool
-}
-
-var UserNotAuthorOfBudgetError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("user %v not author of budget %v\n", args[0], args[1])
 }
 
 type Budget struct {

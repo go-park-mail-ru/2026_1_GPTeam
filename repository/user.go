@@ -16,7 +16,6 @@ type UserRepositoryInterface interface {
 	GetById(ctx context.Context, id int) (models.UserInfo, error)
 	GetByUsername(ctx context.Context, username string) (models.UserInfo, error)
 	GetByEmail(ctx context.Context, email string) (models.UserInfo, error)
-	GetByCredentials(ctx context.Context, username string, password string) (models.UserInfo, error)
 }
 
 type PostgresUser struct {
@@ -142,35 +141,6 @@ func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.U
 		Username:  username.String,
 		Password:  password.String,
 		Email:     email,
-		CreatedAt: createdAt.Time,
-		LastLogin: lastLogin.Time,
-		AvatarUrl: avatarUrl.String,
-		// ToDo: updated_at
-	}
-	if !lastLogin.Valid {
-		user.LastLogin = time.Time{}
-	}
-	return user, nil
-}
-
-func (obj *PostgresUser) GetByCredentials(ctx context.Context, username string, password string) (models.UserInfo, error) {
-	query := `select id, email, created_at, last_login, avatar_url, updated_at from "user" where username = $1 and password = $2;`
-	var id pgtype.Int4
-	var email pgtype.Text
-	var createdAt pgtype.Timestamp
-	var lastLogin pgtype.Timestamp
-	var avatarUrl pgtype.Text
-	var updatedAt pgtype.Timestamp
-	err := obj.db.QueryRow(ctx, query, username, password).Scan(&id, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
-	if err != nil {
-		fmt.Printf("Unable to get user: %v\n", err)
-		return models.UserInfo{}, err
-	}
-	user := models.UserInfo{
-		Id:        int(id.Int32),
-		Username:  username,
-		Password:  password,
-		Email:     email.String,
 		CreatedAt: createdAt.Time,
 		LastLogin: lastLogin.Time,
 		AvatarUrl: avatarUrl.String,
