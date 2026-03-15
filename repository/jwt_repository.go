@@ -26,12 +26,18 @@ type JWTPostgresqlRepository struct {
 	version string // ToDo: move to auth packet
 }
 
-func NewJWTPostgresqlRepository(db *pgx.Conn, secret string, version string) *JWTPostgresqlRepository {
+func NewJWTPostgresqlRepository(db *pgx.Conn, secret string, version string) (*JWTPostgresqlRepository, error) {
+	if len(secret) < 8 {
+		return &JWTPostgresqlRepository{}, fmt.Errorf("secret must be at least 8 bytes")
+	}
+	if version == "" {
+		return &JWTPostgresqlRepository{}, fmt.Errorf("JWT_VERSION env variable not set")
+	}
 	return &JWTPostgresqlRepository{
 		db:      db,
 		secret:  []byte(secret),
 		version: version,
-	}
+	}, nil
 }
 
 func (obj *JWTPostgresqlRepository) Create(ctx context.Context, uuid string, token storage.RefreshTokenInfo) error {

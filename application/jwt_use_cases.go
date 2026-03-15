@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
@@ -14,8 +13,6 @@ import (
 
 type JWTUseCaseInterface interface {
 	parseToken(tokenStr string) (*jwt.Token, error)
-	getJWTSecret() []byte
-	getVersion() string
 	CheckToken(tokenStr string) (bool, string)
 	CheckRefreshToken(ctx context.Context, tokenStr string) (bool, string)
 	GenerateToken(userID string) (string, error)
@@ -27,17 +24,12 @@ const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
 type JWTUseCase struct {
-	repo    repository.JWTRepositoryInterface
-	secret  []byte
-	version string
-	mu      sync.RWMutex
+	repo repository.JWTRepositoryInterface
 }
 
-func NewJWTUseCase(repo repository.JWTRepositoryInterface, secret string, version string) *JWTUseCase {
+func NewJWTUseCase(repo repository.JWTRepositoryInterface) *JWTUseCase {
 	return &JWTUseCase{
-		repo:    repo,
-		secret:  []byte(secret),
-		version: version,
+		repo: repo,
 	}
 }
 
@@ -46,24 +38,12 @@ func (obj *JWTUseCase) parseToken(tokenStr string) (*jwt.Token, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
 		}
-		return obj.getJWTSecret(), nil
+		return obj.repo.GetJWTSecret(), nil
 	})
 	if err != nil {
 		return &jwt.Token{}, err
 	}
 	return token, nil
-}
-
-func (obj *JWTUseCase) getJWTSecret() []byte {
-	obj.mu.RLock()
-	defer obj.mu.RUnlock()
-	return obj.secret
-}
-
-func (obj *JWTUseCase) getVersion() string {
-	obj.mu.RLock()
-	defer obj.mu.RUnlock()
-	return obj.version
 }
 
 func (obj *JWTUseCase) CheckToken(tokenStr string) (bool, string) {
@@ -82,7 +62,7 @@ func (obj *JWTUseCase) CheckToken(tokenStr string) (bool, string) {
 	if !ok {
 		return false, ""
 	}
-	curVersion := obj.getVersion()
+	curVersion := obj.repo.GetVersion()
 	if version != curVersion {
 		return false, ""
 	}
@@ -110,7 +90,7 @@ func (obj *JWTUseCase) CheckRefreshToken(ctx context.Context, tokenStr string) (
 	if !ok {
 		return false, ""
 	}
-	curVersion := obj.getVersion()
+	curVersion := obj.repo.GetVersion()
 	if version != curVersion {
 		return false, ""
 	}
@@ -140,10 +120,10 @@ func (obj *JWTUseCase) GenerateToken(userID string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": userID,
 		"exp":     expirationTime.Unix(),
-		"version": obj.getVersion(),
+		"version": obj.repo.GetVersion(),
 	})
 
-	tokenString, err := token.SignedString(obj.getJWTSecret())
+	tokenString, err := token.SignedString(obj.repo.GetJWTSecret())
 	if err != nil {
 		fmt.Println(err)
 		return "", err
@@ -160,9 +140,9 @@ func (obj *JWTUseCase) GenerateRefreshToken(ctx context.Context, userID string, 
 		"id":      tokenID,
 		"exp":     expirationTime.Unix(),
 		"user_id": userID,
-		"version": obj.getVersion(),
+		"version": obj.repo.GetVersion(),
 	})
-	refreshString, err := token.SignedString(obj.getJWTSecret())
+	refreshString, err := token.SignedString(obj.repo.GetJWTSecret())
 	if err != nil {
 		fmt.Println(err)
 		return "", err

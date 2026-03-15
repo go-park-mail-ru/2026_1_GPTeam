@@ -388,28 +388,7 @@ func main() {
 		}
 	}()
 
-	err = jwt.NewRefreshTokenStore(os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	storage.NewUserStore()
-	storage.AddUser(storage.UserInfo{
-		Id:              0,
-		Username:        "admin",
-		Password:        "Adm1n123",
-		Email:           "email",
-		CreatedAt:       time.Now(),
-		LastLogin:       time.Now(),
-		AvatarUrl:       "img/123.png",
-		Balance:         100.5,
-		BalanceCurrency: "RUB",
-	})
-	storage.NewBudgetStore()
-
 	mux := http.NewServeMux()
-	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(logoutHandler)))
-	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(refreshTokenHandler)))
 	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(getBudgetsHandler)))
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(getBudgetHandler)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(createBudgetHandler)))
@@ -418,8 +397,19 @@ func main() {
 	userRepo := repository.NewUserRepository(conn)
 	userUseCases := application.NewUserUseCases(userRepo)
 	userHandlers := web.NewUserHandler(userUseCases)
-	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandlers.SignUp)))
-	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandlers.Login)))
+
+	jwtRepo, err := repository.NewJWTPostgresqlRepository(conn, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	jwtUseCases := application.NewJWTUseCase(jwtRepo)
+	authUseCases := auth.NewJWTAuth(jwtRepo)
+	authHandlers := web.NewJWTHandler(jwtUseCases, authUseCases, userUseCases)
+	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.Logout)))
+	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.RefreshToken)))
+	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.SignUp)))
+	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.Login)))
 	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandlers.Profile)))
 	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandlers.Balance)))
 
