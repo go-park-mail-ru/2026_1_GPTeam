@@ -12,8 +12,23 @@ import (
 const TokenName = "token"
 const RefreshTokenName = "refresh_token"
 
-func GenerateNewAuthCookie(repo repository.JWTRepositoryInterface, w http.ResponseWriter, userID string) {
-	token, err := jwt.GenerateToken(repo, userID)
+type AuthInterface interface {
+	GenerateNewAuth(w http.ResponseWriter, userID string)
+	IsAuth(r *http.Request) (bool, string)
+	ClearOld(w http.ResponseWriter, r *http.Request)
+	Refresh(w http.ResponseWriter, r *http.Request) (bool, string)
+}
+
+type JWTAuth struct {
+	repo repository.JWTRepositoryInterface
+}
+
+func NewJWTAuth(repo repository.JWTRepositoryInterface) *JWTAuth {
+	return &JWTAuth{repo: repo}
+}
+
+func (obj *JWTAuth) GenerateNewAuth(w http.ResponseWriter, userID string) {
+	token, err := jwt.GenerateToken(obj.repo, userID)
 	if err != nil {
 		return
 	}
@@ -27,7 +42,7 @@ func GenerateNewAuthCookie(repo repository.JWTRepositoryInterface, w http.Respon
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
-	token, err = jwt.GenerateRefreshToken(repo, userID, "pass")
+	token, err = jwt.GenerateRefreshToken(obj.repo, userID, "pass")
 	if err != nil {
 		return
 	}
@@ -53,24 +68,24 @@ func GetRefreshToken(r *http.Request) (*http.Cookie, error) {
 	return cookie, err
 }
 
-func IsAuth(repo repository.JWTRepositoryInterface, r *http.Request) (bool, string) {
+func (obj *JWTAuth) IsAuth(r *http.Request) (bool, string) {
 	cookie, err := GetAuthCookie(r)
 	if err != nil {
 		fmt.Println(err)
 		return false, ""
 	}
 	token := cookie.Value
-	isValid, userID := jwt.CheckToken(repo, token)
+	isValid, userID := jwt.CheckToken(obj.repo, token)
 	return isValid, userID
 }
 
-func ClearOldToken(repo repository.JWTRepositoryInterface, w http.ResponseWriter, r *http.Request) {
+func (obj *JWTAuth) ClearOld(w http.ResponseWriter, r *http.Request) {
 	cookie, err := GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		refreshToken := cookie.Value
-		err = jwt.DeleteRefreshToken(repo, refreshToken)
+		err = jwt.DeleteRefreshToken(obj.repo, refreshToken)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -98,18 +113,18 @@ func ClearOldToken(repo repository.JWTRepositoryInterface, w http.ResponseWriter
 	http.SetCookie(w, cookie)
 }
 
-func RefreshToken(repo repository.JWTRepositoryInterface, w http.ResponseWriter, r *http.Request) (bool, string) {
+func (obj *JWTAuth) Refresh(w http.ResponseWriter, r *http.Request) (bool, string) {
 	cookie, err := GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
 		return false, ""
 	}
 	token := cookie.Value
-	isValid, userID := jwt.CheckRefreshToken(repo, token)
+	isValid, userID := jwt.CheckRefreshToken(obj.repo, token)
 	if !isValid {
 		return false, ""
 	}
-	ClearOldToken(repo, w, r)
-	GenerateNewAuthCookie(repo, w, userID)
+	obj.ClearOld(w, r)
+	obj.GenerateNewAuth(w, userID)
 	return isValid, userID
 }

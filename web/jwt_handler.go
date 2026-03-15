@@ -11,20 +11,24 @@ import (
 
 type JWTHandlers struct {
 	useCase application.JWTUseCaseInterface
+	auth    auth.AuthInterface
 }
 
-func NewJWTHandler(useCase application.JWTUseCaseInterface) *JWTHandlers {
-	return &JWTHandlers{useCase: useCase} // ToDo: get auth packet; auth packet creates in main
+func NewJWTHandler(useCase application.JWTUseCaseInterface, auth auth.AuthInterface) *JWTHandlers {
+	return &JWTHandlers{
+		useCase: useCase,
+		auth:    auth,
+	} // ToDo: get auth packet; auth packet creates in main
 }
 
 func (obj *JWTHandlers) Logout(w http.ResponseWriter, r *http.Request) {
-	auth.ClearOldToken(w, r)
+	obj.auth.ClearOld(w, r)
 	response := base.NewLogoutSuccessResponse()
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *JWTHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	isAuth, userID := auth.RefreshToken(w, r)
+	isAuth, userID := obj.auth.Refresh(w, r)
 	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
 	if !ok {
 		response := base.NewUnauthorizedErrorResponse()
