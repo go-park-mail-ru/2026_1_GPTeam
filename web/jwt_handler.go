@@ -11,7 +11,6 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
 )
 
@@ -36,8 +35,9 @@ func (obj *JWTHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *JWTHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
 	isAuth, userID := obj.auth.Refresh(w, r)
-	authUser, ok := storage.IsAuthUserInDatabase(isAuth, userID)
+	authUser, ok := obj.userUseCase.IsAuthUserExists(ctx, isAuth, userID)
 	if !ok {
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)

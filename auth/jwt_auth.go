@@ -126,5 +126,6 @@ func (obj *JWTAuth) Refresh(w http.ResponseWriter, r *http.Request) (bool, strin
 	}
 	obj.ClearOld(w, r)
 	obj.GenerateNewAuth(w, userID)
+	fmt.Println("---", isValid, userID)
 	return isValid, userID
 }

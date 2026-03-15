@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 )
 
 func CORSMiddleware(next http.Handler) http.Handler {
@@ -23,7 +23,7 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func AuthMiddleware(next http.Handler) http.Handler {
+func AuthMiddleware(next http.Handler, authUseCase auth.AuthInterface, userUseCase application.UserUseCaseInterface) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
@@ -37,7 +37,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		isAuth, userID := auth.IsAuth(r)
+		isAuth, userID := authUseCase.IsAuth(r)
 		if !isAuth {
 			fmt.Printf("[Auth] 401 для пути: %s\n", path)
 			response := base.NewUnauthorizedErrorResponse()
@@ -52,8 +52,8 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		authUser, exists := storage.GetUserByID(id)
-		if !exists {
+		authUser, err := userUseCase.GetById(context.Background(), id)
+		if err != nil {
 			response := base.NewUnauthorizedErrorResponse()
 			base.WriteResponseJSON(w, response.Code, response)
 			return
