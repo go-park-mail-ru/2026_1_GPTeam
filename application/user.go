@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
@@ -16,7 +15,7 @@ type UserUseCaseInterface interface {
 	Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error)
 	GetById(ctx context.Context, id int) (models.UserInfo, error)
 	GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (models.UserInfo, error)
-	IsAuthUserExists(ctx context.Context, isAuth bool, userID string) (base.User, bool)
+	IsAuthUserExists(ctx context.Context, isAuth bool, userID int) (base.User, bool)
 }
 
 type User struct {
@@ -35,15 +34,14 @@ func (obj *User) Create(ctx context.Context, user base.SignupBodyRequest) (base.
 		return base.AuthUser{}, err
 	}
 	newUser := models.UserInfo{
-		Id:              0,
-		Username:        user.Username,
-		Password:        string(bytes),
-		Email:           user.Email,
-		CreatedAt:       time.Now(),
-		LastLogin:       time.Time{},
-		AvatarUrl:       avatarUrl,
-		Balance:         0,
-		BalanceCurrency: "RUB", // ToDo: delete
+		Id:        0,
+		Username:  user.Username,
+		Password:  string(bytes),
+		Email:     user.Email,
+		CreatedAt: time.Now(),
+		LastLogin: time.Time{},
+		AvatarUrl: avatarUrl,
+		UpdatedAt: time.Now(),
 	}
 	id, err := obj.repo.Create(ctx, newUser)
 	if err != nil {
@@ -79,15 +77,11 @@ func (obj *User) GetByCredentials(ctx context.Context, user base.LoginBodyReques
 	return storedUser, nil
 }
 
-func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userID string) (base.User, bool) {
+func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userID int) (base.User, bool) {
 	if !isAuth {
 		return base.User{}, false
 	}
-	id, err := strconv.Atoi(userID)
-	if err != nil {
-		return base.User{}, false
-	}
-	storedUser, err := obj.repo.GetById(ctx, id)
+	storedUser, err := obj.repo.GetById(ctx, userID)
 	if err != nil {
 		fmt.Printf("Error while getting user by id: %v\n", err)
 		return base.User{}, false
@@ -98,8 +92,8 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userID strin
 		LastLogin:       storedUser.LastLogin,
 		CreatedAt:       storedUser.CreatedAt,
 		AvatarUrl:       storedUser.AvatarUrl,
-		Balance:         storedUser.Balance,
-		BalanceCurrency: storedUser.BalanceCurrency,
+		Balance:         0,
+		BalanceCurrency: "RUB",
 	}
 	return authUser, true
 }

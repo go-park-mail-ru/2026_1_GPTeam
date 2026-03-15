@@ -5,13 +5,12 @@ import (
 )
 
 type UserInfo struct {
-	Id              int
-	Username        string
-	Password        string
-	Email           string
-	CreatedAt       time.Time
-	LastLogin       time.Time
-	AvatarUrl       string
-	Balance         float64
-	BalanceCurrency string
+	Id        int
+	Username  string
+	Password  string
+	Email     string
+	CreatedAt time.Time
+	LastLogin time.Time
+	AvatarUrl string
+	UpdatedAt time.Time
 }

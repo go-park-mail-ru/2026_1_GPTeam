@@ -10,10 +10,10 @@ import (
 )
 
 type AuthenticationServiceInterface interface {
-	GenerateNewAuth(w http.ResponseWriter, userID string)
-	IsAuth(r *http.Request) (bool, string)
+	GenerateNewAuth(w http.ResponseWriter, userID int)
+	IsAuth(r *http.Request) (bool, int)
 	ClearOld(w http.ResponseWriter, r *http.Request)
-	Refresh(w http.ResponseWriter, r *http.Request) (bool, string)
+	Refresh(w http.ResponseWriter, r *http.Request) (bool, int)
 }
 
 type JWTAuthService struct {
@@ -27,7 +27,7 @@ func NewJWTAuth(repo repository.JWTRepositoryInterface) *JWTAuthService {
 	return &JWTAuthService{repo: repo}
 }
 
-func (obj *JWTAuthService) GenerateNewAuth(w http.ResponseWriter, userID string) {
+func (obj *JWTAuthService) GenerateNewAuth(w http.ResponseWriter, userID int) {
 	token, err := jwt.GenerateToken(obj.repo, userID)
 	if err != nil {
 		return
@@ -68,11 +68,11 @@ func (obj *JWTAuthService) GetRefreshToken(r *http.Request) (*http.Cookie, error
 	return cookie, err
 }
 
-func (obj *JWTAuthService) IsAuth(r *http.Request) (bool, string) {
+func (obj *JWTAuthService) IsAuth(r *http.Request) (bool, int) {
 	cookie, err := obj.GetAuthCookie(r)
 	if err != nil {
 		fmt.Println(err)
-		return false, ""
+		return false, -1
 	}
 	token := cookie.Value
 	isValid, userID := jwt.CheckToken(obj.repo, token)
@@ -113,19 +113,18 @@ func (obj *JWTAuthService) ClearOld(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 }
 
-func (obj *JWTAuthService) Refresh(w http.ResponseWriter, r *http.Request) (bool, string) {
+func (obj *JWTAuthService) Refresh(w http.ResponseWriter, r *http.Request) (bool, int) {
 	cookie, err := obj.GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
-		return false, ""
+		return false, -1
 	}
 	token := cookie.Value
 	isValid, userID := jwt.CheckRefreshToken(obj.repo, token)
 	if !isValid {
-		return false, ""
+		return false, -1
 	}
 	obj.ClearOld(w, r)
 	obj.GenerateNewAuth(w, userID)
-	fmt.Println("---", isValid, userID)
 	return isValid, userID
 }

@@ -27,76 +27,76 @@ func parseToken(repo repository.JWTRepositoryInterface, tokenStr string) (*jwt.T
 	return token, nil
 }
 
-func CheckToken(repo repository.JWTRepositoryInterface, tokenStr string) (bool, string) {
+func CheckToken(repo repository.JWTRepositoryInterface, tokenStr string) (bool, int) {
 	token, err := parseToken(repo, tokenStr)
 	if err != nil {
 		fmt.Println(err)
-		return false, ""
+		return false, -1
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return false, ""
+		return false, -1
 	}
 
 	version, ok := claims["version"].(string)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 	curVersion := repo.GetVersion()
 	if version != curVersion {
-		return false, ""
+		return false, -1
 	}
 
-	userID, ok := claims["user_id"].(string)
+	userID, ok := claims["user_id"].(int)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 	return true, userID
 }
 
-func CheckRefreshToken(repo repository.JWTRepositoryInterface, tokenStr string) (bool, string) {
+func CheckRefreshToken(repo repository.JWTRepositoryInterface, tokenStr string) (bool, int) {
 	token, err := parseToken(repo, tokenStr)
 	if err != nil {
 		fmt.Println(err)
-		return false, ""
+		return false, -1
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return false, ""
+		return false, -1
 	}
 
 	version, ok := claims["version"].(string)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 	curVersion := repo.GetVersion()
 	if version != curVersion {
-		return false, ""
+		return false, -1
 	}
 
 	tokenID, ok := claims["id"].(string)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 
-	userID, ok := claims["user_id"].(string)
+	userID, ok := claims["user_id"].(int)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 
 	storedToken, err := repo.Get(context.Background(), tokenID)
 	if err != nil {
-		return false, ""
+		return false, -1
 	}
 	if storedToken.UserID != userID {
-		return false, ""
+		return false, -1
 	}
 	return true, userID
 }
 
-func GenerateToken(repo repository.JWTRepositoryInterface, userID string) (string, error) {
+func GenerateToken(repo repository.JWTRepositoryInterface, userID int) (string, error) {
 	expirationTime := time.Now().Add(AccessTokenExpirationTime)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": userID,
@@ -113,7 +113,7 @@ func GenerateToken(repo repository.JWTRepositoryInterface, userID string) (strin
 	return tokenString, nil
 }
 
-func GenerateRefreshToken(repo repository.JWTRepositoryInterface, userID string, deviceID string) (string, error) {
+func GenerateRefreshToken(repo repository.JWTRepositoryInterface, userID int, deviceID string) (string, error) {
 	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
 
 	tokenID := uuid.New().String()

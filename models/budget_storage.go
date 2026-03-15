@@ -11,8 +11,9 @@ type BudgetInfo struct {
 	CreatedAt   time.Time
 	StartAt     time.Time
 	EndAt       time.Time
-	Actual      int
-	Target      int
+	UpdatedAt   time.Time
+	Actual      float64
+	Target      float64
 	Currency    string
 	Author      int
 }

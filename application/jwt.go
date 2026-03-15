@@ -13,10 +13,10 @@ import (
 
 type JWTUseCaseInterface interface {
 	parseToken(tokenStr string) (*jwt.Token, error)
-	CheckToken(tokenStr string) (bool, string)
-	CheckRefreshToken(ctx context.Context, tokenStr string) (bool, string)
-	GenerateToken(userID string) (string, error)
-	GenerateRefreshToken(ctx context.Context, userID string, deviceID string) (string, error)
+	CheckToken(tokenStr string) (bool, int)
+	CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int)
+	GenerateToken(userID int) (string, error)
+	GenerateRefreshToken(ctx context.Context, userID int, deviceID string) (string, error)
 	DeleteRefreshToken(ctx context.Context, tokenStr string) error
 }
 
@@ -46,76 +46,76 @@ func (obj *Jwt) parseToken(tokenStr string) (*jwt.Token, error) {
 	return token, nil
 }
 
-func (obj *Jwt) CheckToken(tokenStr string) (bool, string) {
+func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		fmt.Println(err)
-		return false, ""
+		return false, -1
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return false, ""
+		return false, -1
 	}
 
 	version, ok := claims["version"].(string)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 	curVersion := obj.repo.GetVersion()
 	if version != curVersion {
-		return false, ""
+		return false, -1
 	}
 
-	userID, ok := claims["user_id"].(string)
+	userID, ok := claims["user_id"].(int)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 	return true, userID
 }
 
-func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, string) {
+func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int) {
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		fmt.Println(err)
-		return false, ""
+		return false, -1
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return false, ""
+		return false, -1
 	}
 
 	version, ok := claims["version"].(string)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 	curVersion := obj.repo.GetVersion()
 	if version != curVersion {
-		return false, ""
+		return false, -1
 	}
 
 	tokenID, ok := claims["id"].(string)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 
-	userID, ok := claims["user_id"].(string)
+	userID, ok := claims["user_id"].(int)
 	if !ok {
-		return false, ""
+		return false, -1
 	}
 
 	storedToken, err := obj.repo.Get(ctx, tokenID)
 	if err != nil {
-		return false, ""
+		return false, -1
 	}
 	if storedToken.UserID != userID {
-		return false, ""
+		return false, -1
 	}
 	return true, userID
 }
 
-func (obj *Jwt) GenerateToken(userID string) (string, error) {
+func (obj *Jwt) GenerateToken(userID int) (string, error) {
 	expirationTime := time.Now().Add(AccessTokenExpirationTime)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": userID,
@@ -132,7 +132,7 @@ func (obj *Jwt) GenerateToken(userID string) (string, error) {
 	return tokenString, nil
 }
 
-func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userID string, deviceID string) (string, error) {
+func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userID int, deviceID string) (string, error) {
 	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
 
 	tokenID := uuid.New().String()

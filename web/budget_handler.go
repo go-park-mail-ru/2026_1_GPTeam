@@ -91,8 +91,8 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:   budget.CreatedAt,
 		StartAt:     budget.StartAt,
 		EndAt:       budget.EndAt,
-		Actual:      budget.Actual,
-		Target:      budget.Target,
+		Actual:      int(budget.Actual),
+		Target:      int(budget.Target),
 		Currency:    budget.Currency,
 	}
 	response := base.NewBudgetGetSuccessResponse(result)
@@ -161,7 +161,7 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		StartAt:     body.StartAt,
 		EndAt:       body.EndAt,
 		Actual:      0,
-		Target:      body.Target,
+		Target:      float64(body.Target),
 		Currency:    body.Currency,
 		Author:      authUser.Id,
 	}

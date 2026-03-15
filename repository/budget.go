@@ -91,8 +91,8 @@ func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetIn
 		CreatedAt:   createdAt.Time,
 		StartAt:     startAt.Time,
 		EndAt:       endAt.Time,
-		Actual:      int(actual.Float64),
-		Target:      int(target.Float64),
+		Actual:      actual.Float64,
+		Target:      target.Float64,
 		Currency:    currency.String,
 		Author:      int(author.Int32),
 	}

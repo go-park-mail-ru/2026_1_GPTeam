@@ -20,14 +20,15 @@ func NewUserHandler(useCase application.UserUseCaseInterface) *UserHandler {
 func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user")
 	authUser, ok := user.(models.UserInfo)
+	_ = authUser
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	balance := authUser.Balance
-	currency := authUser.BalanceCurrency
+	balance := 0.0
+	currency := "RUB"
 	response := base.NewBalanceResponse(balance, currency, 0, 0)
 	base.WriteResponseJSON(w, response.Code, response)
 }
@@ -47,8 +48,8 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       authUser.CreatedAt,
 		LastLogin:       authUser.LastLogin,
 		AvatarUrl:       authUser.AvatarUrl,
-		Balance:         authUser.Balance,
-		BalanceCurrency: authUser.BalanceCurrency,
+		Balance:         0,
+		BalanceCurrency: "RUB",
 	}
 	response := base.NewLoginSuccessResponse(userResponse)
 	base.WriteResponseJSON(w, response.Code, response)

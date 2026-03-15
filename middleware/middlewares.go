@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
@@ -40,14 +39,7 @@ func AuthMiddleware(next http.Handler, authUseCase auth.AuthenticationServiceInt
 			return
 		}
 
-		id, err := strconv.Atoi(userID)
-		if err != nil {
-			response := base.NewUnauthorizedErrorResponse()
-			base.WriteResponseJSON(w, response.Code, response)
-			return
-		}
-
-		authUser, err := userUseCase.GetById(context.Background(), id)
+		authUser, err := userUseCase.GetById(context.Background(), userID)
 		if err != nil {
 			response := base.NewUnauthorizedErrorResponse()
 			base.WriteResponseJSON(w, response.Code, response)

@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
@@ -55,20 +54,15 @@ func (obj *PostgresJWT) Create(ctx context.Context, uuid string, token models.Re
 		String: uuid,
 		Valid:  true,
 	}
-	intUserID, err := strconv.Atoi(token.UserID)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
 	userID := pgtype.Int4{
-		Int32: int32(intUserID), // ToDo: change to int
+		Int32: int32(token.UserID),
 		Valid: true,
 	}
 	expiredAt := pgtype.Timestamp{
 		Time:  token.ExpiredAt,
 		Valid: true,
 	}
-	_, err = obj.db.Exec(ctx, query, pk, userID, expiredAt)
+	_, err := obj.db.Exec(ctx, query, pk, userID, expiredAt)
 	if err != nil {
 		fmt.Printf("Unable to create token: %v\n", err)
 		return err
@@ -96,7 +90,7 @@ func (obj *PostgresJWT) Get(ctx context.Context, uuid string) (models.RefreshTok
 		return models.RefreshTokenInfo{}, err
 	}
 	token := models.RefreshTokenInfo{
-		UserID:    strconv.Itoa(int(userId.Int32)),
+		UserID:    int(userId.Int32),
 		ExpiredAt: expiredAt.Time,
 		DeviceID:  "",
 	}

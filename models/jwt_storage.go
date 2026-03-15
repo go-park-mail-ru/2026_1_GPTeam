@@ -5,7 +5,8 @@ import (
 )
 
 type RefreshTokenInfo struct {
-	UserID    string
+	Uuid      string
+	UserID    int
 	ExpiredAt time.Time
 	DeviceID  string
 }

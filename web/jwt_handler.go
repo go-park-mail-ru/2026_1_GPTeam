@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
@@ -109,7 +108,7 @@ func (obj *JWTHandlers) SignUp(w http.ResponseWriter, r *http.Request) {
 		return // ToDo: add err check
 	}
 	response := base.NewSignupSuccessResponse(authUser)
-	obj.auth.GenerateNewAuth(w, strconv.Itoa(authUser.ID))
+	obj.auth.GenerateNewAuth(w, authUser.ID)
 	base.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -142,10 +141,10 @@ func (obj *JWTHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		LastLogin:       time.Now(),
 		CreatedAt:       storedUser.CreatedAt,
 		AvatarUrl:       storedUser.AvatarUrl,
-		Balance:         storedUser.Balance,
-		BalanceCurrency: storedUser.BalanceCurrency,
+		Balance:         0,
+		BalanceCurrency: "RUB",
 	}
 	response := base.NewLoginSuccessResponse(user)
-	obj.auth.GenerateNewAuth(w, strconv.Itoa(storedUser.Id))
+	obj.auth.GenerateNewAuth(w, storedUser.Id)
 	base.WriteResponseJSON(w, response.Code, response)
 }
