@@ -23,16 +23,11 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func AuthMiddleware(next http.Handler, authUseCase auth.AuthInterface, userUseCase application.UserUseCaseInterface) http.Handler {
+func AuthMiddleware(next http.Handler, authUseCase auth.AuthenticationServiceInterface, userUseCase application.UserUseCaseInterface) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
-		isPublicPath := path == "/" ||
-			path == "/login" ||
-			path == "/signup" ||
-			(strings.HasPrefix(path, "/auth/") && path != "/auth/logout")
-
-		if isPublicPath {
+		if strings.HasPrefix(path, "/auth/") && path != "/auth/logout" {
 			next.ServeHTTP(w, r)
 			return
 		}

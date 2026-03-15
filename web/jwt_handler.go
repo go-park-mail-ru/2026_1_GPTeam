@@ -16,11 +16,11 @@ import (
 
 type JWTHandlers struct {
 	useCase     application.JWTUseCaseInterface
-	auth        auth.AuthInterface
+	auth        auth.AuthenticationServiceInterface
 	userUseCase application.UserUseCaseInterface
 }
 
-func NewJWTHandler(useCase application.JWTUseCaseInterface, auth auth.AuthInterface, userUseCase application.UserUseCaseInterface) *JWTHandlers {
+func NewJWTHandler(useCase application.JWTUseCaseInterface, auth auth.AuthenticationServiceInterface, userUseCase application.UserUseCaseInterface) *JWTHandlers {
 	return &JWTHandlers{
 		useCase:     useCase,
 		auth:        auth,

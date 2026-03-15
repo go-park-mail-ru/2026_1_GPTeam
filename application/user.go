@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 )
 
 type UserUseCaseInterface interface {
 	Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error)
-	GetById(ctx context.Context, id int) (storage.UserInfo, error)
-	GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (storage.UserInfo, error)
+	GetById(ctx context.Context, id int) (models.UserInfo, error)
+	GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (models.UserInfo, error)
 	IsAuthUserExists(ctx context.Context, isAuth bool, userID string) (base.User, bool)
 }
 
@@ -28,7 +28,7 @@ func NewUser(repo repository.UserRepositoryInterface) *User {
 
 func (obj *User) Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error) {
 	avatarUrl := "img/123.png" // ToDo: set default
-	newUser := storage.UserInfo{
+	newUser := models.UserInfo{
 		Id:              0,
 		Username:        user.Username,
 		Password:        user.Password,
@@ -53,18 +53,18 @@ func (obj *User) Create(ctx context.Context, user base.SignupBodyRequest) (base.
 	return resultUser, nil
 }
 
-func (obj *User) GetById(ctx context.Context, id int) (storage.UserInfo, error) {
+func (obj *User) GetById(ctx context.Context, id int) (models.UserInfo, error) {
 	user, err := obj.repo.GetById(ctx, id)
 	if err != nil {
-		return storage.UserInfo{}, err
+		return models.UserInfo{}, err
 	}
 	return user, nil
 }
 
-func (obj *User) GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (storage.UserInfo, error) {
+func (obj *User) GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (models.UserInfo, error) {
 	storedUser, err := obj.repo.GetByCredentials(ctx, user.Username, user.Password)
 	if err != nil {
-		return storage.UserInfo{}, err
+		return models.UserInfo{}, err
 	}
 	return storedUser, nil
 }

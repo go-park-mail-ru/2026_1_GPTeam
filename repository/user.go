@@ -5,29 +5,29 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserRepositoryInterface interface {
-	Create(ctx context.Context, userInfo storage.UserInfo) (int, error)
-	GetById(ctx context.Context, id int) (storage.UserInfo, error)
-	GetByUsername(ctx context.Context, username string) (storage.UserInfo, error)
-	GetByEmail(ctx context.Context, email string) (storage.UserInfo, error)
-	GetByCredentials(ctx context.Context, username string, password string) (storage.UserInfo, error)
+	Create(ctx context.Context, userInfo models.UserInfo) (int, error)
+	GetById(ctx context.Context, id int) (models.UserInfo, error)
+	GetByUsername(ctx context.Context, username string) (models.UserInfo, error)
+	GetByEmail(ctx context.Context, email string) (models.UserInfo, error)
+	GetByCredentials(ctx context.Context, username string, password string) (models.UserInfo, error)
 }
 
-type UserRepository struct {
+type PostgresUser struct {
 	db *pgx.Conn
 }
 
-func NewUserRepository(db *pgx.Conn) *UserRepository {
-	return &UserRepository{db: db}
+func NewPostgresUser(db *pgx.Conn) *PostgresUser {
+	return &PostgresUser{db: db}
 }
 
-func (obj *UserRepository) Create(ctx context.Context, userInfo storage.UserInfo) (int, error) {
+func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserInfo) (int, error) {
 	query := `insert into "user" (username, password, email, last_login, avatar_url) VALUES ($1, $2, $3, $4, $5) returning id;`
 	var id int
 	username := pgtype.Text{
@@ -63,7 +63,7 @@ func (obj *UserRepository) Create(ctx context.Context, userInfo storage.UserInfo
 	return id, nil
 }
 
-func (obj *UserRepository) GetById(ctx context.Context, id int) (storage.UserInfo, error) {
+func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserInfo, error) {
 	query := `select username, password, email, created_at, last_login, avatar_url, updated_at from "user" where id = $1;`
 	var username pgtype.Text
 	var password pgtype.Text
@@ -75,9 +75,9 @@ func (obj *UserRepository) GetById(ctx context.Context, id int) (storage.UserInf
 	err := obj.db.QueryRow(ctx, query, id).Scan(&username, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		fmt.Printf("Unable to get user: %v\n", err)
-		return storage.UserInfo{}, err
+		return models.UserInfo{}, err
 	}
-	user := storage.UserInfo{
+	user := models.UserInfo{
 		Id:        id,
 		Username:  username.String,
 		Password:  password.String,
@@ -93,7 +93,7 @@ func (obj *UserRepository) GetById(ctx context.Context, id int) (storage.UserInf
 	return user, nil
 }
 
-func (obj *UserRepository) GetByUsername(ctx context.Context, username string) (storage.UserInfo, error) {
+func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (models.UserInfo, error) {
 	query := `select id, password, email, created_at, last_login, avatar_url, updated_at from "user" where username = $1;`
 	var id pgtype.Int4
 	var password pgtype.Text
@@ -105,9 +105,9 @@ func (obj *UserRepository) GetByUsername(ctx context.Context, username string) (
 	err := obj.db.QueryRow(ctx, query, username).Scan(&id, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		fmt.Printf("Unable to get user: %v\n", err)
-		return storage.UserInfo{}, err
+		return models.UserInfo{}, err
 	}
-	user := storage.UserInfo{
+	user := models.UserInfo{
 		Id:        int(id.Int32),
 		Username:  username,
 		Password:  password.String,
@@ -123,7 +123,7 @@ func (obj *UserRepository) GetByUsername(ctx context.Context, username string) (
 	return user, nil
 }
 
-func (obj *UserRepository) GetByEmail(ctx context.Context, email string) (storage.UserInfo, error) {
+func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.UserInfo, error) {
 	query := `select id, username, password, created_at, last_login, avatar_url, updated_at from "user" where email = $1;`
 	var id pgtype.Int4
 	var username pgtype.Text
@@ -135,9 +135,9 @@ func (obj *UserRepository) GetByEmail(ctx context.Context, email string) (storag
 	err := obj.db.QueryRow(ctx, query, email).Scan(&id, &username, &password, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		fmt.Printf("Unable to get user: %v\n", err) // ToDo: add errors to global constants + add pgx.ErrNoRows
-		return storage.UserInfo{}, err
+		return models.UserInfo{}, err
 	}
-	user := storage.UserInfo{
+	user := models.UserInfo{
 		Id:        int(id.Int32),
 		Username:  username.String,
 		Password:  password.String,
@@ -153,7 +153,7 @@ func (obj *UserRepository) GetByEmail(ctx context.Context, email string) (storag
 	return user, nil
 }
 
-func (obj *UserRepository) GetByCredentials(ctx context.Context, username string, password string) (storage.UserInfo, error) {
+func (obj *PostgresUser) GetByCredentials(ctx context.Context, username string, password string) (models.UserInfo, error) {
 	query := `select id, email, created_at, last_login, avatar_url, updated_at from "user" where username = $1 and password = $2;`
 	var id pgtype.Int4
 	var email pgtype.Text
@@ -164,9 +164,9 @@ func (obj *UserRepository) GetByCredentials(ctx context.Context, username string
 	err := obj.db.QueryRow(ctx, query, username, password).Scan(&id, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		fmt.Printf("Unable to get user: %v\n", err)
-		return storage.UserInfo{}, err
+		return models.UserInfo{}, err
 	}
-	user := storage.UserInfo{
+	user := models.UserInfo{
 		Id:        int(id.Int32),
 		Username:  username,
 		Password:  password,

@@ -6,41 +6,50 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type JWTRepositoryInterface interface {
-	Create(ctx context.Context, uuid string, token storage.RefreshTokenInfo) error
+	Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error
 	Delete(ctx context.Context, uuid string) error
-	Get(ctx context.Context, uuid string) (storage.RefreshTokenInfo, error)
+	Get(ctx context.Context, uuid string) (models.RefreshTokenInfo, error)
 	GetJWTSecret() []byte
 	GetVersion() string
 }
 
-type JWTPostgresqlRepository struct {
+type ErrorFunc func(args ...interface{}) error
+
+var JWTSecretError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("secret must be at least 8 bytes")
+}
+var JWTVersionError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("JWT_VERSION env variable not set")
+}
+
+type PostgresJWT struct {
 	db      *pgx.Conn
 	mu      sync.RWMutex
 	secret  []byte
 	version string // ToDo: move to auth packet
 }
 
-func NewJWTPostgresqlRepository(db *pgx.Conn, secret string, version string) (*JWTPostgresqlRepository, error) {
+func NewPostgresJWT(db *pgx.Conn, secret string, version string) (*PostgresJWT, error) {
 	if len(secret) < 8 {
-		return &JWTPostgresqlRepository{}, fmt.Errorf("secret must be at least 8 bytes")
+		return &PostgresJWT{}, JWTSecretError()
 	}
 	if version == "" {
-		return &JWTPostgresqlRepository{}, fmt.Errorf("JWT_VERSION env variable not set")
+		return &PostgresJWT{}, JWTVersionError()
 	}
-	return &JWTPostgresqlRepository{
+	return &PostgresJWT{
 		db:      db,
 		secret:  []byte(secret),
 		version: version,
 	}, nil
 }
 
-func (obj *JWTPostgresqlRepository) Create(ctx context.Context, uuid string, token storage.RefreshTokenInfo) error {
+func (obj *PostgresJWT) Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error {
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
 	pk := pgtype.Text{
 		String: uuid,
@@ -67,7 +76,7 @@ func (obj *JWTPostgresqlRepository) Create(ctx context.Context, uuid string, tok
 	return nil
 }
 
-func (obj *JWTPostgresqlRepository) Delete(ctx context.Context, uuid string) error {
+func (obj *PostgresJWT) Delete(ctx context.Context, uuid string) error {
 	query := `delete from jwt where uuid = $1;`
 	_, err := obj.db.Exec(ctx, query, uuid)
 	if err != nil {
@@ -77,16 +86,16 @@ func (obj *JWTPostgresqlRepository) Delete(ctx context.Context, uuid string) err
 	return nil
 }
 
-func (obj *JWTPostgresqlRepository) Get(ctx context.Context, uuid string) (storage.RefreshTokenInfo, error) {
+func (obj *PostgresJWT) Get(ctx context.Context, uuid string) (models.RefreshTokenInfo, error) {
 	query := `select user_id, expired_at from jwt where uuid = $1;`
 	var userId pgtype.Int4
 	var expiredAt pgtype.Timestamp
 	err := obj.db.QueryRow(ctx, query, uuid).Scan(&userId, &expiredAt)
 	if err != nil {
 		fmt.Printf("Unable to get token: %v\n", err)
-		return storage.RefreshTokenInfo{}, err
+		return models.RefreshTokenInfo{}, err
 	}
-	token := storage.RefreshTokenInfo{
+	token := models.RefreshTokenInfo{
 		UserID:    strconv.Itoa(int(userId.Int32)),
 		ExpiredAt: expiredAt.Time,
 		DeviceID:  "",
@@ -94,13 +103,13 @@ func (obj *JWTPostgresqlRepository) Get(ctx context.Context, uuid string) (stora
 	return token, nil
 }
 
-func (obj *JWTPostgresqlRepository) GetJWTSecret() []byte {
+func (obj *PostgresJWT) GetJWTSecret() []byte {
 	obj.mu.RLock()
 	defer obj.mu.RUnlock()
 	return obj.secret
 }
 
-func (obj *JWTPostgresqlRepository) GetVersion() string {
+func (obj *PostgresJWT) GetVersion() string {
 	obj.mu.RLock()
 	defer obj.mu.RUnlock()
 	return obj.version

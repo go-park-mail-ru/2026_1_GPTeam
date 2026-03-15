@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	jwtStore "github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
-	jwtStore "github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -23,6 +23,15 @@ type JWTUseCaseInterface interface {
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
+type ErrorFunc func(args ...interface{}) error
+
+var WrongSigningMethodError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("unexpected signing method: %v\n", args)
+}
+var InvalidTokenID ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("invalid token id %v\n", args)
+}
+
 type Jwt struct {
 	repo repository.JWTRepositoryInterface
 }
@@ -36,7 +45,7 @@ func NewJWT(repo repository.JWTRepositoryInterface) *Jwt {
 func (obj *Jwt) parseToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
+			return nil, WrongSigningMethodError(token.Header["alg"])
 		}
 		return obj.repo.GetJWTSecret(), nil
 	})
@@ -169,7 +178,7 @@ func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		id, ok := claims["id"].(string)
 		if !ok {
-			return fmt.Errorf("invalid token id %v", claims["id"])
+			return InvalidTokenID(claims["id"])
 		}
 		err = obj.repo.Delete(ctx, id)
 		if err != nil {

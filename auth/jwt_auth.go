@@ -9,25 +9,25 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
 )
 
-const TokenName = "token"
-const RefreshTokenName = "refresh_token"
-
-type AuthInterface interface {
+type AuthenticationServiceInterface interface {
 	GenerateNewAuth(w http.ResponseWriter, userID string)
 	IsAuth(r *http.Request) (bool, string)
 	ClearOld(w http.ResponseWriter, r *http.Request)
 	Refresh(w http.ResponseWriter, r *http.Request) (bool, string)
 }
 
-type JWTAuth struct {
+type JWTAuthService struct {
 	repo repository.JWTRepositoryInterface
 }
 
-func NewJWTAuth(repo repository.JWTRepositoryInterface) *JWTAuth {
-	return &JWTAuth{repo: repo}
+const TokenName = "token"
+const RefreshTokenName = "refresh_token"
+
+func NewJWTAuth(repo repository.JWTRepositoryInterface) *JWTAuthService {
+	return &JWTAuthService{repo: repo}
 }
 
-func (obj *JWTAuth) GenerateNewAuth(w http.ResponseWriter, userID string) {
+func (obj *JWTAuthService) GenerateNewAuth(w http.ResponseWriter, userID string) {
 	token, err := jwt.GenerateToken(obj.repo, userID)
 	if err != nil {
 		return
@@ -58,18 +58,18 @@ func (obj *JWTAuth) GenerateNewAuth(w http.ResponseWriter, userID string) {
 	http.SetCookie(w, cookie)
 }
 
-func GetAuthCookie(r *http.Request) (*http.Cookie, error) {
+func (obj *JWTAuthService) GetAuthCookie(r *http.Request) (*http.Cookie, error) {
 	cookie, err := r.Cookie(TokenName)
 	return cookie, err
 }
 
-func GetRefreshToken(r *http.Request) (*http.Cookie, error) {
+func (obj *JWTAuthService) GetRefreshToken(r *http.Request) (*http.Cookie, error) {
 	cookie, err := r.Cookie(RefreshTokenName)
 	return cookie, err
 }
 
-func (obj *JWTAuth) IsAuth(r *http.Request) (bool, string) {
-	cookie, err := GetAuthCookie(r)
+func (obj *JWTAuthService) IsAuth(r *http.Request) (bool, string) {
+	cookie, err := obj.GetAuthCookie(r)
 	if err != nil {
 		fmt.Println(err)
 		return false, ""
@@ -79,8 +79,8 @@ func (obj *JWTAuth) IsAuth(r *http.Request) (bool, string) {
 	return isValid, userID
 }
 
-func (obj *JWTAuth) ClearOld(w http.ResponseWriter, r *http.Request) {
-	cookie, err := GetRefreshToken(r)
+func (obj *JWTAuthService) ClearOld(w http.ResponseWriter, r *http.Request) {
+	cookie, err := obj.GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -113,8 +113,8 @@ func (obj *JWTAuth) ClearOld(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 }
 
-func (obj *JWTAuth) Refresh(w http.ResponseWriter, r *http.Request) (bool, string) {
-	cookie, err := GetRefreshToken(r)
+func (obj *JWTAuthService) Refresh(w http.ResponseWriter, r *http.Request) (bool, string) {
+	cookie, err := obj.GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
 		return false, ""

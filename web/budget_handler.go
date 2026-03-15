@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
 )
 
@@ -25,7 +25,7 @@ func NewBudgetHandler(useCase application.BudgetUseCaseInterface) *BudgetHandler
 func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	user := r.Context().Value("user")
-	authUser, ok := user.(storage.UserInfo)
+	authUser, ok := user.(models.UserInfo)
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
@@ -48,7 +48,7 @@ func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	user := r.Context().Value("user")
-	authUser, ok := user.(storage.UserInfo)
+	authUser, ok := user.(models.UserInfo)
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
@@ -78,7 +78,7 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	isAuthor := obj.useCase.IsUserAuthor(ctx, budget, authUser)
+	isAuthor := obj.useCase.IsUserAuthor(budget, authUser)
 	if !isAuthor {
 		response := base.NewNotFoundErrorResponse("Бюджет не найден")
 		base.WriteResponseJSON(w, response.Code, response)
@@ -102,7 +102,7 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	user := r.Context().Value("user")
-	authUser, ok := user.(storage.UserInfo)
+	authUser, ok := user.(models.UserInfo)
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
@@ -154,7 +154,7 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	budget := storage.BudgetInfo{
+	budget := models.BudgetInfo{
 		Title:       body.Title,
 		Description: body.Description,
 		CreatedAt:   time.Now(),
@@ -181,7 +181,7 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	user := r.Context().Value("user")
-	authUser, ok := user.(storage.UserInfo)
+	authUser, ok := user.(models.UserInfo)
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()

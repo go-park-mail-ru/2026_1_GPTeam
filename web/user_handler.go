@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 )
 
 type UserHandler struct {
@@ -19,7 +19,7 @@ func NewUserHandler(useCase application.UserUseCaseInterface) *UserHandler {
 
 func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user")
-	authUser, ok := user.(storage.UserInfo)
+	authUser, ok := user.(models.UserInfo)
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()
@@ -34,7 +34,7 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user")
-	authUser, ok := user.(storage.UserInfo)
+	authUser, ok := user.(models.UserInfo)
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
 		response := base.NewUnauthorizedErrorResponse()

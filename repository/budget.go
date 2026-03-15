@@ -5,29 +5,29 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type BudgetRepositoryInterface interface {
-	Create(ctx context.Context, budget storage.BudgetInfo) (int, error)
-	GetById(ctx context.Context, id int) (storage.BudgetInfo, error)
+	Create(ctx context.Context, budget models.BudgetInfo) (int, error)
+	GetById(ctx context.Context, id int) (models.BudgetInfo, error)
 	GetIDsByUserId(ctx context.Context, userID int) ([]int, error)
 	Delete(ctx context.Context, id int) error
 }
 
-type BudgetRepository struct {
+type PostgresBudget struct {
 	db *pgx.Conn
 }
 
-func NewBudgetRepository(db *pgx.Conn) *BudgetRepository {
-	return &BudgetRepository{
+func NewPostgresBudget(db *pgx.Conn) *PostgresBudget {
+	return &PostgresBudget{
 		db: db,
 	}
 }
 
-func (obj *BudgetRepository) Create(ctx context.Context, budget storage.BudgetInfo) (int, error) {
+func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetInfo) (int, error) {
 	query := `insert into budget (title, description, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7) returning id;`
 	var id int
 	title := pgtype.Text{
@@ -67,7 +67,7 @@ func (obj *BudgetRepository) Create(ctx context.Context, budget storage.BudgetIn
 	return id, nil
 }
 
-func (obj *BudgetRepository) GetById(ctx context.Context, id int) (storage.BudgetInfo, error) {
+func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetInfo, error) {
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author from budget where id = $1;`
 	var title pgtype.Text
 	var description pgtype.Text
@@ -82,9 +82,9 @@ func (obj *BudgetRepository) GetById(ctx context.Context, id int) (storage.Budge
 	err := obj.db.QueryRow(ctx, query, id).Scan(&title, &description, &createdAt, &startAt, &endAt, &updatedAt, &actual, &target, &currency, &author)
 	if err != nil {
 		fmt.Printf("Unable to get budget: %v\n", err)
-		return storage.BudgetInfo{}, err
+		return models.BudgetInfo{}, err
 	}
-	budget := storage.BudgetInfo{
+	budget := models.BudgetInfo{
 		Id:          id,
 		Title:       title.String,
 		Description: description.String,
@@ -102,7 +102,7 @@ func (obj *BudgetRepository) GetById(ctx context.Context, id int) (storage.Budge
 	return budget, nil
 }
 
-func (obj *BudgetRepository) GetIDsByUserId(ctx context.Context, userID int) ([]int, error) {
+func (obj *PostgresBudget) GetIDsByUserId(ctx context.Context, userID int) ([]int, error) {
 	query := `select id from budget where author = $1;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userID)
@@ -124,7 +124,7 @@ func (obj *BudgetRepository) GetIDsByUserId(ctx context.Context, userID int) ([]
 	return ids, nil
 }
 
-func (obj *BudgetRepository) Delete(ctx context.Context, id int) error {
+func (obj *PostgresBudget) Delete(ctx context.Context, id int) error {
 	// ToDo: weak delete
 	query := `delete from budget where id = $1;`
 	_, err := obj.db.Exec(ctx, query, id)

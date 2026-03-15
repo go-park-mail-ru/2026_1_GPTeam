@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 
 	"github.com/stretchr/testify/require"
 )
@@ -28,8 +28,8 @@ var once sync.Once
 func setupStorage() {
 	once.Do(func() {
 		_ = jwt.NewRefreshTokenStore("secret123", "v1")
-		storage.NewUserStore()
-		storage.AddUser(storage.UserInfo{
+		models.NewUserStore()
+		models.AddUser(models.UserInfo{
 			Id:        0,
 			Username:  testUsername,
 			Password:  testPassword,
@@ -365,7 +365,7 @@ func TestAuthMiddleware(t *testing.T) {
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
 				require.Equal(t, http.StatusOK, w.Code)
 				require.NotNil(t, gotCtxUser)
-				user, ok := gotCtxUser.(storage.UserInfo)
+				user, ok := gotCtxUser.(models.UserInfo)
 				require.True(t, ok)
 				require.Equal(t, testUsername, user.Username)
 			},

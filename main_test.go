@@ -15,8 +15,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 
 	"github.com/stretchr/testify/require"
 )
@@ -31,8 +31,8 @@ var once sync.Once
 func SetupStorage() {
 	once.Do(func() {
 		_ = jwt.NewRefreshTokenStore("secret123", "0")
-		storage.NewUserStore()
-		storage.AddUser(storage.UserInfo{
+		models.NewUserStore()
+		models.AddUser(models.UserInfo{
 			Id:              0,
 			Username:        testUsername,
 			Password:        testPassword,
@@ -43,7 +43,7 @@ func SetupStorage() {
 			Balance:         100.5,
 			BalanceCurrency: "RUB",
 		})
-		storage.NewBudgetStore()
+		models.NewBudgetStore()
 	})
 }
 
@@ -718,7 +718,7 @@ func TestHandlersNoUserInContext(t *testing.T) {
 func TestHandlersEmptyPathID(t *testing.T) {
 	SetupStorage()
 
-	user := storage.UserInfo{
+	user := models.UserInfo{
 		Id:       0,
 		Username: testUsername,
 	}

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -129,7 +129,7 @@ func GenerateRefreshToken(repo repository.JWTRepositoryInterface, userID string,
 		return "", err
 	}
 
-	err = repo.Create(context.Background(), tokenID, storage.RefreshTokenInfo{
+	err = repo.Create(context.Background(), tokenID, models.RefreshTokenInfo{
 		UserID:    userID,
 		DeviceID:  deviceID,
 		ExpiredAt: expirationTime,
