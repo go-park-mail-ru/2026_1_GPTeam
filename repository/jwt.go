@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/jackc/pgx/v5"
@@ -15,38 +14,16 @@ type JWTRepositoryInterface interface {
 	Delete(ctx context.Context, uuid string) error
 	DeleteByUserID(ctx context.Context, userID int) error
 	Get(ctx context.Context, uuid string) (models.RefreshTokenInfo, error)
-	GetJWTSecret() []byte
-	GetVersion() string
-}
-
-type ErrorFunc func(args ...interface{}) error
-
-var JWTSecretError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("secret must be at least 8 bytes")
-}
-var JWTVersionError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("JWT_VERSION env variable not set")
 }
 
 type PostgresJWT struct {
-	db      *pgx.Conn
-	mu      sync.RWMutex
-	secret  []byte
-	version string // ToDo: move to auth packet
+	db *pgx.Conn
 }
 
-func NewPostgresJWT(db *pgx.Conn, secret string, version string) (*PostgresJWT, error) {
-	if len(secret) < 8 {
-		return &PostgresJWT{}, JWTSecretError()
-	}
-	if version == "" {
-		return &PostgresJWT{}, JWTVersionError()
-	}
+func NewPostgresJWT(db *pgx.Conn) *PostgresJWT {
 	return &PostgresJWT{
-		db:      db,
-		secret:  []byte(secret),
-		version: version,
-	}, nil
+		db: db,
+	}
 }
 
 func (obj *PostgresJWT) Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error {
@@ -106,16 +83,4 @@ func (obj *PostgresJWT) Get(ctx context.Context, uuid string) (models.RefreshTok
 		DeviceID:  "",
 	}
 	return token, nil
-}
-
-func (obj *PostgresJWT) GetJWTSecret() []byte {
-	obj.mu.RLock()
-	defer obj.mu.RUnlock()
-	return obj.secret
-}
-
-func (obj *PostgresJWT) GetVersion() string {
-	obj.mu.RLock()
-	defer obj.mu.RUnlock()
-	return obj.version
 }
