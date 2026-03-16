@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"

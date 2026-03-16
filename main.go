@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/web"

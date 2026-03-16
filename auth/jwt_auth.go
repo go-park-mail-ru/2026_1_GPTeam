@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
 )
 
 type AuthenticationServiceInterface interface {

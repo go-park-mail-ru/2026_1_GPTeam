@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
+	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
 )
 
 type UserHandler struct {
@@ -23,14 +23,14 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	_ = authUser
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
+		response := base2.NewUnauthorizedErrorResponse()
+		base2.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	balance := 0.0
 	currency := "RUB"
-	response := base.NewBalanceResponse(balance, currency, 0, 0)
-	base.WriteResponseJSON(w, response.Code, response)
+	response := base2.NewBalanceResponse(balance, currency, 0, 0)
+	base2.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
@@ -38,11 +38,11 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	authUser, ok := user.(models.UserInfo)
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
+		response := base2.NewUnauthorizedErrorResponse()
+		base2.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	userResponse := base.User{
+	userResponse := base2.User{
 		Username:        authUser.Username,
 		Email:           authUser.Email,
 		CreatedAt:       authUser.CreatedAt,
@@ -51,6 +51,6 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		Balance:         0,
 		BalanceCurrency: "RUB",
 	}
-	response := base.NewLoginSuccessResponse(userResponse)
-	base.WriteResponseJSON(w, response.Code, response)
+	response := base2.NewLoginSuccessResponse(userResponse)
+	base2.WriteResponseJSON(w, response.Code, response)
 }

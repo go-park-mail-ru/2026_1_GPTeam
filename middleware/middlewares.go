@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
 )
 
 func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		base.SetCORS(w)
+		base2.SetCORS(w)
 		if r.Method == http.MethodOptions {
 			return
 		}
@@ -34,15 +34,15 @@ func AuthMiddleware(next http.Handler, authUseCase auth.AuthenticationServiceInt
 		isAuth, userID := authUseCase.IsAuth(r)
 		if !isAuth {
 			fmt.Printf("[Auth] 401 для пути: %s\n", path)
-			response := base.NewUnauthorizedErrorResponse()
-			base.WriteResponseJSON(w, response.Code, response)
+			response := base2.NewUnauthorizedErrorResponse()
+			base2.WriteResponseJSON(w, response.Code, response)
 			return
 		}
 
 		authUser, err := userUseCase.GetById(context.Background(), userID)
 		if err != nil {
-			response := base.NewUnauthorizedErrorResponse()
-			base.WriteResponseJSON(w, response.Code, response)
+			response := base2.NewUnauthorizedErrorResponse()
+			base2.WriteResponseJSON(w, response.Code, response)
 			return
 		}
 
@@ -58,8 +58,8 @@ func MethodValidationMiddleware(allowedMethods ...string) func(next http.Handler
 				next.ServeHTTP(w, r)
 				return
 			}
-			response := base.NewMethodError()
-			base.WriteResponseJSON(w, response.Code, response)
+			response := base2.NewMethodError()
+			base2.WriteResponseJSON(w, response.Code, response)
 		})
 	}
 }

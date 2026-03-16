@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
 	"golang.org/x/crypto/bcrypt"
 )
 

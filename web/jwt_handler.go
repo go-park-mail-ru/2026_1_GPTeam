@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/application/validators"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
+	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
 )
 
 type JWTHandlers struct {
@@ -29,8 +29,8 @@ func NewJWTHandler(auth auth.AuthenticationServiceInterface, userUseCase applica
 
 func (obj *JWTHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 	obj.auth.ClearOld(w, r)
-	response := base.NewLogoutSuccessResponse()
-	base.WriteResponseJSON(w, response.Code, response)
+	response := base2.NewLogoutSuccessResponse()
+	base2.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *JWTHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
@@ -38,104 +38,104 @@ func (obj *JWTHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	isAuth, userID := obj.auth.Refresh(w, r)
 	authUser, ok := obj.userUseCase.IsAuthUserExists(ctx, isAuth, userID)
 	if !ok {
-		response := base.NewUnauthorizedErrorResponse()
-		base.WriteResponseJSON(w, response.Code, response)
+		response := base2.NewUnauthorizedErrorResponse()
+		base2.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	response := base.NewLoginSuccessResponse(authUser)
-	base.WriteResponseJSON(w, response.Code, response)
+	response := base2.NewLoginSuccessResponse(authUser)
+	base2.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *JWTHandlers) SignUp(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	var body base.SignupBodyRequest
+	var body base2.SignupBodyRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		fmt.Println(err)
-		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []base.FieldError{
-			base.NewFieldError("", "Не удалось прочитать тело запроса"),
+		response := base2.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []base2.FieldError{
+			base2.NewFieldError("", "Не удалось прочитать тело запроса"),
 		})
-		base.WriteResponseJSON(w, response.Code, response)
+		base2.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	if body.Username == "" || body.Password == "" || body.Email == "" || body.ConfirmPassword == "" {
-		var fieldErrors []base.FieldError
+		var fieldErrors []base2.FieldError
 		if body.Username == "" {
-			fieldErrors = append(fieldErrors, base.NewFieldError("username", "Поле обязательно для заполнения"))
+			fieldErrors = append(fieldErrors, base2.NewFieldError("username", "Поле обязательно для заполнения"))
 		}
 		if body.Password == "" {
-			fieldErrors = append(fieldErrors, base.NewFieldError("password", "Поле обязательно для заполнения"))
+			fieldErrors = append(fieldErrors, base2.NewFieldError("password", "Поле обязательно для заполнения"))
 		}
 		if body.Email == "" {
-			fieldErrors = append(fieldErrors, base.NewFieldError("email", "Поле обязательно для заполнения"))
+			fieldErrors = append(fieldErrors, base2.NewFieldError("email", "Поле обязательно для заполнения"))
 		}
 		if body.ConfirmPassword == "" {
-			fieldErrors = append(fieldErrors, base.NewFieldError("confirm_password", "Поле обязательно для заполнения"))
+			fieldErrors = append(fieldErrors, base2.NewFieldError("confirm_password", "Поле обязательно для заполнения"))
 		}
-		response := base.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
-		base.WriteResponseJSON(w, response.Code, response)
+		response := base2.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
+		base2.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	errors := make([]base.FieldError, 0)
+	errors := make([]base2.FieldError, 0)
 	err := validators.ValidateUsername(body.Username)
 	if err != nil {
-		errors = append(errors, base.NewFieldError("username", err.Error()))
+		errors = append(errors, base2.NewFieldError("username", err.Error()))
 	}
 	err = validators.ValidatePassword(body.Password)
 	if err != nil {
-		errors = append(errors, base.NewFieldError("password", err.Error()))
+		errors = append(errors, base2.NewFieldError("password", err.Error()))
 	}
 	err = validators.ValidateEmail(body.Email)
 	if err != nil {
-		errors = append(errors, base.NewFieldError("email", err.Error()))
+		errors = append(errors, base2.NewFieldError("email", err.Error()))
 	}
 	if body.Password != body.ConfirmPassword {
-		errors = append(errors, base.NewFieldError("password", "Пароли не совпадают"))
-		errors = append(errors, base.NewFieldError("confirm_password", "Пароли не совпадают"))
+		errors = append(errors, base2.NewFieldError("password", "Пароли не совпадают"))
+		errors = append(errors, base2.NewFieldError("confirm_password", "Пароли не совпадают"))
 	}
 	if len(errors) > 0 {
-		response := base.NewValidationErrorResponse(errors)
-		base.WriteResponseJSON(w, response.Code, response)
+		response := base2.NewValidationErrorResponse(errors)
+		base2.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	authUser, err := obj.userUseCase.Create(ctx, body)
 	if err != nil {
-		response := base.NewValidationErrorResponse([]base.FieldError{
-			base.NewFieldError("field", err.Error()),
+		response := base2.NewValidationErrorResponse([]base2.FieldError{
+			base2.NewFieldError("field", err.Error()),
 		})
-		base.WriteResponseJSON(w, response.Code, response)
+		base2.WriteResponseJSON(w, response.Code, response)
 		return // ToDo: add err check
 	}
-	response := base.NewSignupSuccessResponse(authUser)
+	response := base2.NewSignupSuccessResponse(authUser)
 	obj.auth.GenerateNewAuth(w, authUser.ID)
-	base.WriteResponseJSON(w, response.Code, response)
+	base2.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *JWTHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	var userRequest base.LoginBodyRequest
+	var userRequest base2.LoginBodyRequest
 	err := json.NewDecoder(r.Body).Decode(&userRequest)
 	if err != nil {
 		fmt.Println(err)
-		errors := make([]base.FieldError, 0)
-		errors = append(errors, base.NewFieldError("username", "Не удалось прочитать json"))
-		errors = append(errors, base.NewFieldError("password", "Не удалось прочитать json"))
-		response := base.NewLoginErrorResponse(errors)
-		base.WriteResponseJSON(w, response.Code, response)
+		errors := make([]base2.FieldError, 0)
+		errors = append(errors, base2.NewFieldError("username", "Не удалось прочитать json"))
+		errors = append(errors, base2.NewFieldError("password", "Не удалось прочитать json"))
+		response := base2.NewLoginErrorResponse(errors)
+		base2.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	storedUser, err := obj.userUseCase.GetByCredentials(ctx, userRequest)
 	if err != nil {
-		errors := make([]base.FieldError, 0)
-		errors = append(errors, base.NewFieldError("username", "Неверный логин или пароль"))
-		errors = append(errors, base.NewFieldError("password", "Неверный логин или пароль"))
-		response := base.NewLoginErrorResponse(errors)
-		base.WriteResponseJSON(w, response.Code, response)
+		errors := make([]base2.FieldError, 0)
+		errors = append(errors, base2.NewFieldError("username", "Неверный логин или пароль"))
+		errors = append(errors, base2.NewFieldError("password", "Неверный логин или пароль"))
+		response := base2.NewLoginErrorResponse(errors)
+		base2.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	user := base.User{
+	user := base2.User{
 		Username:        storedUser.Username,
 		Email:           storedUser.Email,
 		LastLogin:       time.Now(),
@@ -144,7 +144,7 @@ func (obj *JWTHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		Balance:         0,
 		BalanceCurrency: "RUB",
 	}
-	response := base.NewLoginSuccessResponse(user)
+	response := base2.NewLoginSuccessResponse(user)
 	obj.auth.GenerateNewAuth(w, storedUser.Id)
-	base.WriteResponseJSON(w, response.Code, response)
+	base2.WriteResponseJSON(w, response.Code, response)
 }

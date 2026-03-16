@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -40,7 +40,7 @@ func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetInfo)
 	}
 	endAt := pgtype.Timestamptz{
 		Time:  budget.EndAt,
-		Valid: true,
+		Valid: !budget.EndAt.IsZero(),
 	}
 	actual := pgtype.Float8{
 		Float64: float64(budget.Actual), // ToDo: change to float

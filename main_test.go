@@ -11,12 +11,14 @@ import (
 	"testing"
 	"time"
 
+	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
 
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +34,7 @@ func SetupStorage() {
 	once.Do(func() {
 		_ = jwt.NewRefreshTokenStore("secret123", "0")
 		models.NewUserStore()
-		models.AddUser(models.UserInfo{
+		models.AddUser(models2.UserInfo{
 			Id:              0,
 			Username:        testUsername,
 			Password:        testPassword,
@@ -337,7 +339,7 @@ func TestRefreshWithInvalidToken(t *testing.T) {
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
+		Expires:  time.Now().Add(jwt2.AccessTokenExpirationTime),
 	})
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -718,7 +720,7 @@ func TestHandlersNoUserInContext(t *testing.T) {
 func TestHandlersEmptyPathID(t *testing.T) {
 	SetupStorage()
 
-	user := models.UserInfo{
+	user := models2.UserInfo{
 		Id:       0,
 		Username: testUsername,
 	}

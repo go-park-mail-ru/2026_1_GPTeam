@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
+	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
@@ -29,7 +31,7 @@ func setupStorage() {
 	once.Do(func() {
 		_ = jwt.NewRefreshTokenStore("secret123", "v1")
 		models.NewUserStore()
-		models.AddUser(models.UserInfo{
+		models.AddUser(models2.UserInfo{
 			Id:        0,
 			Username:  testUsername,
 			Password:  testPassword,
@@ -56,7 +58,7 @@ func makeAccessCookie(t *testing.T, userID string) *http.Cookie {
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
+		Expires:  time.Now().Add(jwt2.AccessTokenExpirationTime),
 	}
 }
 
@@ -201,7 +203,7 @@ func TestAuthMiddleware(t *testing.T) {
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
+		Expires:  time.Now().Add(jwt2.AccessTokenExpirationTime),
 	}
 
 	tokenUnknown, err := jwt.GenerateToken("9999")
@@ -213,7 +215,7 @@ func TestAuthMiddleware(t *testing.T) {
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
+		Expires:  time.Now().Add(jwt2.AccessTokenExpirationTime),
 	}
 
 	cases := []struct {
@@ -365,7 +367,7 @@ func TestAuthMiddleware(t *testing.T) {
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
 				require.Equal(t, http.StatusOK, w.Code)
 				require.NotNil(t, gotCtxUser)
-				user, ok := gotCtxUser.(models.UserInfo)
+				user, ok := gotCtxUser.(models2.UserInfo)
 				require.True(t, ok)
 				require.Equal(t, testUsername, user.Username)
 			},

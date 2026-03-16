@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,9 +16,9 @@ func setupBudgetStoreTest(t *testing.T) {
 	models.NewBudgetStore()
 }
 
-func makeBudget(author int) models.BudgetInfo {
+func makeBudget(author int) models2.BudgetInfo {
 	now := time.Now().UTC().Truncate(time.Second)
-	return models.BudgetInfo{
+	return models2.BudgetInfo{
 		Title:       "Test budget",
 		Description: "test description",
 		CreatedAt:   now,
@@ -172,7 +173,7 @@ func TestGetBudgetByIDAndUserID(t *testing.T) {
 				assert.Equal(t, c.budgetID, got.Id)
 				assert.Equal(t, c.userID, got.Author)
 			} else {
-				assert.Equal(t, models.BudgetInfo{}, got)
+				assert.Equal(t, models2.BudgetInfo{}, got)
 			}
 		})
 	}
