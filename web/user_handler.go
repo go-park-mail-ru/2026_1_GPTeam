@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
-	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
+	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
 )
 
 type UserHandler struct {

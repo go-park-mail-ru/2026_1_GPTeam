@@ -5,7 +5,7 @@ import (
 	"time"
 
 	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -48,7 +48,7 @@ func TestFindUserByCredentials_ReturnsUser(t *testing.T) {
 		CreatedAt: createdAt,
 	})
 
-	user, ok := models.FindUserByCredentials(base.LoginBodyRequest{
+	user, ok := models.FindUserByCredentials(web_helpers.LoginBodyRequest{
 		Username: "CredUser_user_storage_test",
 		Password: "verysecret",
 	})
@@ -70,7 +70,7 @@ func TestFindUserByCredentials_WrongPassword(t *testing.T) {
 		CreatedAt: createdAt,
 	})
 
-	_, ok := models.FindUserByCredentials(base.LoginBodyRequest{
+	_, ok := models.FindUserByCredentials(web_helpers.LoginBodyRequest{
 		Username: "WrongPassword_user_storage_test",
 		Password: "incorrect-password",
 	})

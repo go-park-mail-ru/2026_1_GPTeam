@@ -10,10 +10,10 @@ import (
 )
 
 type AuthenticationServiceInterface interface {
-	GenerateNewAuth(w http.ResponseWriter, userID int)
+	GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userID int)
 	IsAuth(r *http.Request) (bool, int)
-	ClearOld(w http.ResponseWriter, r *http.Request)
-	Refresh(w http.ResponseWriter, r *http.Request) (bool, int)
+	ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request)
+	Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, int)
 }
 
 type JWTAuthService struct {
@@ -27,7 +27,7 @@ func NewJWTAuth(useCase jwt.JWTUseCaseInterface) *JWTAuthService {
 	return &JWTAuthService{jwtUseCase: useCase}
 }
 
-func (obj *JWTAuthService) GenerateNewAuth(w http.ResponseWriter, userID int) {
+func (obj *JWTAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userID int) {
 	token, err := obj.jwtUseCase.GenerateToken(userID)
 	if err != nil {
 		return
@@ -42,7 +42,7 @@ func (obj *JWTAuthService) GenerateNewAuth(w http.ResponseWriter, userID int) {
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
-	token, err = obj.jwtUseCase.GenerateRefreshToken(context.Background(), userID, "pass") // ToDo: general context
+	token, err = obj.jwtUseCase.GenerateRefreshToken(ctx, userID, "pass")
 	if err != nil {
 		return
 	}
@@ -79,13 +79,13 @@ func (obj *JWTAuthService) IsAuth(r *http.Request) (bool, int) {
 	return isValid, userID
 }
 
-func (obj *JWTAuthService) ClearOld(w http.ResponseWriter, r *http.Request) {
+func (obj *JWTAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	cookie, err := obj.GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		refreshToken := cookie.Value
-		err = obj.jwtUseCase.DeleteRefreshToken(context.Background(), refreshToken) // ToDo: general context
+		err = obj.jwtUseCase.DeleteRefreshToken(ctx, refreshToken)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -113,18 +113,18 @@ func (obj *JWTAuthService) ClearOld(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 }
 
-func (obj *JWTAuthService) Refresh(w http.ResponseWriter, r *http.Request) (bool, int) {
+func (obj *JWTAuthService) Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, int) {
 	cookie, err := obj.GetRefreshToken(r)
 	if err != nil {
 		fmt.Println(err)
 		return false, -1
 	}
 	token := cookie.Value
-	isValid, userID := obj.jwtUseCase.CheckRefreshToken(context.Background(), token) // ToDo: general context
+	isValid, userID := obj.jwtUseCase.CheckRefreshToken(ctx, token)
 	if !isValid {
 		return false, -1
 	}
-	obj.ClearOld(w, r)
-	obj.GenerateNewAuth(w, userID)
+	obj.ClearOld(ctx, w, r)
+	obj.GenerateNewAuth(ctx, w, userID)
 	return isValid, userID
 }

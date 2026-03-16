@@ -78,7 +78,7 @@ func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserInfo, 
 		CreatedAt: createdAt.Time,
 		LastLogin: lastLogin.Time,
 		AvatarUrl: avatarUrl.String,
-		// ToDo: updated_at
+		UpdatedAt: updatedAt.Time,
 	}
 	if !lastLogin.Valid {
 		user.LastLogin = time.Time{}
@@ -108,7 +108,7 @@ func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (mo
 		CreatedAt: createdAt.Time,
 		LastLogin: lastLogin.Time,
 		AvatarUrl: avatarUrl.String,
-		// ToDo: updated_at
+		UpdatedAt: updatedAt.Time,
 	}
 	if !lastLogin.Valid {
 		user.LastLogin = time.Time{}
@@ -138,7 +138,7 @@ func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.U
 		CreatedAt: createdAt.Time,
 		LastLogin: lastLogin.Time,
 		AvatarUrl: avatarUrl.String,
-		// ToDo: updated_at
+		UpdatedAt: updatedAt.Time,
 	}
 	if !lastLogin.Valid {
 		user.LastLogin = time.Time{}

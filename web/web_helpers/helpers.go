@@ -1,4 +1,4 @@
-package base
+package web_helpers
 
 import (
 	"encoding/json"

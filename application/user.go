@@ -7,15 +7,15 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserUseCaseInterface interface {
-	Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error)
+	Create(ctx context.Context, user web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error)
 	GetById(ctx context.Context, id int) (models.UserInfo, error)
-	GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (models.UserInfo, error)
-	IsAuthUserExists(ctx context.Context, isAuth bool, userID int) (base.User, bool)
+	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserInfo, error)
+	IsAuthUserExists(ctx context.Context, isAuth bool, userID int) (web_helpers.User, bool)
 }
 
 type User struct {
@@ -26,12 +26,12 @@ func NewUser(repo repository.UserRepositoryInterface) *User {
 	return &User{repo: repo}
 }
 
-func (obj *User) Create(ctx context.Context, user base.SignupBodyRequest) (base.AuthUser, error) {
+func (obj *User) Create(ctx context.Context, user web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
 	avatarUrl := "img/123.png" // ToDo: set default
 	bytes, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		fmt.Printf("unable to hash password: %v\n", err)
-		return base.AuthUser{}, err
+		return web_helpers.AuthUser{}, err
 	}
 	newUser := models.UserInfo{
 		Id:        0,
@@ -45,9 +45,9 @@ func (obj *User) Create(ctx context.Context, user base.SignupBodyRequest) (base.
 	}
 	id, err := obj.repo.Create(ctx, newUser)
 	if err != nil {
-		return base.AuthUser{}, err
+		return web_helpers.AuthUser{}, err
 	}
-	resultUser := base.AuthUser{
+	resultUser := web_helpers.AuthUser{
 		ID:        id,
 		Username:  newUser.Username,
 		Email:     newUser.Email,
@@ -65,7 +65,7 @@ func (obj *User) GetById(ctx context.Context, id int) (models.UserInfo, error) {
 	return user, nil
 }
 
-func (obj *User) GetByCredentials(ctx context.Context, user base.LoginBodyRequest) (models.UserInfo, error) {
+func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserInfo, error) {
 	storedUser, err := obj.repo.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return models.UserInfo{}, err
@@ -77,16 +77,16 @@ func (obj *User) GetByCredentials(ctx context.Context, user base.LoginBodyReques
 	return storedUser, nil
 }
 
-func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userID int) (base.User, bool) {
+func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userID int) (web_helpers.User, bool) {
 	if !isAuth {
-		return base.User{}, false
+		return web_helpers.User{}, false
 	}
 	storedUser, err := obj.repo.GetById(ctx, userID)
 	if err != nil {
 		fmt.Printf("Error while getting user by id: %v\n", err)
-		return base.User{}, false
+		return web_helpers.User{}, false
 	}
-	authUser := base.User{
+	authUser := web_helpers.User{
 		Username:        storedUser.Username,
 		Email:           storedUser.Email,
 		LastLogin:       storedUser.LastLogin,

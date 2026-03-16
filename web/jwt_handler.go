@@ -11,7 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/validators"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
-	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
+	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
 )
 
 type JWTHandlers struct {
@@ -28,14 +28,15 @@ func NewJWTHandler(auth auth.AuthenticationServiceInterface, userUseCase applica
 }
 
 func (obj *JWTHandlers) Logout(w http.ResponseWriter, r *http.Request) {
-	obj.auth.ClearOld(w, r)
+	ctx := context.Background()
+	obj.auth.ClearOld(ctx, w, r)
 	response := base2.NewLogoutSuccessResponse()
 	base2.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *JWTHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	isAuth, userID := obj.auth.Refresh(w, r)
+	isAuth, userID := obj.auth.Refresh(ctx, w, r)
 	authUser, ok := obj.userUseCase.IsAuthUserExists(ctx, isAuth, userID)
 	if !ok {
 		response := base2.NewUnauthorizedErrorResponse()
@@ -108,7 +109,7 @@ func (obj *JWTHandlers) SignUp(w http.ResponseWriter, r *http.Request) {
 		return // ToDo: add err check
 	}
 	response := base2.NewSignupSuccessResponse(authUser)
-	obj.auth.GenerateNewAuth(w, authUser.ID)
+	obj.auth.GenerateNewAuth(ctx, w, authUser.ID)
 	base2.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -145,6 +146,6 @@ func (obj *JWTHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		BalanceCurrency: "RUB",
 	}
 	response := base2.NewLoginSuccessResponse(user)
-	obj.auth.GenerateNewAuth(w, storedUser.Id)
+	obj.auth.GenerateNewAuth(ctx, w, storedUser.Id)
 	base2.WriteResponseJSON(w, response.Code, response)
 }

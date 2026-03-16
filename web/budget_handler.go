@@ -11,7 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/validators"
-	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
+	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
 )
 
 type BudgetHandler struct {

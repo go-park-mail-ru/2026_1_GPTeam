@@ -18,7 +18,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/web/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -171,11 +171,11 @@ func TestSignup(t *testing.T) {
 			body:         []byte(`не валидный json`),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusBadRequest, resp.Code)
 				require.Equal(t, "Неверный формат запроса", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "", Message: "Не удалось прочитать тело запроса"},
 				}, resp.Errors)
 			},
@@ -186,11 +186,11 @@ func TestSignup(t *testing.T) {
 			body:         testhelper.MustJSON(t, map[string]string{"username": "", "password": "", "email": "", "confirm_password": ""}),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusBadRequest, resp.Code)
 				require.Equal(t, "Неверный формат запроса", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "username", Message: "Поле обязательно для заполнения"},
 					{Field: "password", Message: "Поле обязательно для заполнения"},
 					{Field: "email", Message: "Поле обязательно для заполнения"},
@@ -204,11 +204,11 @@ func TestSignup(t *testing.T) {
 			body:         testhelper.MustJSON(t, map[string]string{"username": testUsername, "password": testPassword, "email": "new@email.com", "confirm_password": testPassword}),
 			expectedCode: http.StatusConflict,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusConflict, resp.Code)
 				require.Equal(t, "Пользователь с таким логином уже существует", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "username", Message: "Пользователь с таким логином уже существует"},
 				}, resp.Errors)
 			},
@@ -219,11 +219,11 @@ func TestSignup(t *testing.T) {
 			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email@example.com", "confirm_password": testPassword}),
 			expectedCode: http.StatusConflict,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusConflict, resp.Code)
 				require.Equal(t, "Пользователь с таким email уже существует", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "email", Message: "Пользователь с таким email уже существует"},
 				}, resp.Errors)
 			},
@@ -234,11 +234,11 @@ func TestSignup(t *testing.T) {
 			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email2@example.com", "confirm_password": "Adm1n123456"}),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusBadRequest, resp.Code)
 				require.Equal(t, "Ошибка валидации", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "password", Message: "Пароли не совпадают"},
 					{Field: "confirm_password", Message: "Пароли не совпадают"},
 				}, resp.Errors)
@@ -425,7 +425,7 @@ func TestBalance(t *testing.T) {
 			withAuth:     true,
 			expectedCode: http.StatusOK,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.BalanceResponse
+				var resp web_helpers.BalanceResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusOK, resp.Code)
 				require.Equal(t, 100.5, resp.Balance)
@@ -516,7 +516,7 @@ func TestGetBudget(t *testing.T) {
 	handler.ServeHTTP(wCreate, reqCreate)
 	require.Equal(t, http.StatusOK, wCreate.Code)
 
-	var createResp base.BudgetCreateSuccessResponse
+	var createResp web_helpers.BudgetCreateSuccessResponse
 	require.NoError(t, json.NewDecoder(wCreate.Body).Decode(&createResp))
 	budgetID := createResp.BudgetID
 
@@ -597,7 +597,7 @@ func TestCreateBudget(t *testing.T) {
 			withAuth:     true,
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.BudgetErrorResponse
+				var resp web_helpers.BudgetErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, "Ошибка валидации", resp.Message)
 				fieldNames := make([]string, 0, len(resp.Errors))
@@ -658,7 +658,7 @@ func TestDeleteBudget(t *testing.T) {
 	handler.ServeHTTP(wCreate, reqCreate)
 	require.Equal(t, http.StatusOK, wCreate.Code)
 
-	var createResp base.BudgetCreateSuccessResponse
+	var createResp web_helpers.BudgetCreateSuccessResponse
 	require.NoError(t, json.NewDecoder(wCreate.Body).Decode(&createResp))
 	budgetID := fmt.Sprintf("%d", createResp.BudgetID)
 
