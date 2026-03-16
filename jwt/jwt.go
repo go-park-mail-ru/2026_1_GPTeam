@@ -11,156 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-//const AccessTokenExpirationTime = time.Minute * 15
-//const RefreshTokenExpirationTime = time.Hour * 24 * 7
-//
-//func parseToken(repo repository.JWTRepositoryInterface, tokenStr string) (*jwt.Token, error) {
-//	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-//		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-//			return nil, fmt.Errorf("Unexpected signing method: %v\n", token.Header["alg"])
-//		}
-//		return repo.GetJWTSecret(), nil
-//	})
-//	if err != nil {
-//		return &jwt.Token{}, err
-//	}
-//	return token, nil
-//}
-//
-//func CheckToken(repo repository.JWTRepositoryInterface, tokenStr string) (bool, int) {
-//	token, err := parseToken(repo, tokenStr)
-//	if err != nil {
-//		fmt.Println(err)
-//		return false, -1
-//	}
-//
-//	claims, ok := token.Claims.(jwt.MapClaims)
-//	if !ok || !token.Valid {
-//		return false, -1
-//	}
-//
-//	version, ok := claims["version"].(string)
-//	if !ok {
-//		return false, -1
-//	}
-//	curVersion := repo.GetVersion()
-//	if version != curVersion {
-//		return false, -1
-//	}
-//
-//	userID, ok := claims["user_id"].(int)
-//	if !ok {
-//		return false, -1
-//	}
-//	return true, userID
-//}
-//
-//func CheckRefreshToken(repo repository.JWTRepositoryInterface, tokenStr string) (bool, int) {
-//	token, err := parseToken(repo, tokenStr)
-//	if err != nil {
-//		fmt.Println(err)
-//		return false, -1
-//	}
-//
-//	claims, ok := token.Claims.(jwt.MapClaims)
-//	if !ok || !token.Valid {
-//		return false, -1
-//	}
-//
-//	version, ok := claims["version"].(string)
-//	if !ok {
-//		return false, -1
-//	}
-//	curVersion := repo.GetVersion()
-//	if version != curVersion {
-//		return false, -1
-//	}
-//
-//	tokenID, ok := claims["id"].(string)
-//	if !ok {
-//		return false, -1
-//	}
-//
-//	userID, ok := claims["user_id"].(int)
-//	if !ok {
-//		return false, -1
-//	}
-//
-//	storedToken, err := repo.Get(context.Background(), tokenID)
-//	if err != nil {
-//		return false, -1
-//	}
-//	if storedToken.UserID != userID {
-//		return false, -1
-//	}
-//	return true, userID
-//}
-//
-//func GenerateToken(repo repository.JWTRepositoryInterface, userID int) (string, error) {
-//	expirationTime := time.Now().Add(AccessTokenExpirationTime)
-//	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-//		"user_id": userID,
-//		"exp":     expirationTime.Unix(),
-//		"version": repo.GetVersion(),
-//	})
-//
-//	tokenString, err := token.SignedString(repo.GetJWTSecret())
-//	if err != nil {
-//		fmt.Println(err)
-//		return "", err
-//	}
-//
-//	return tokenString, nil
-//}
-//
-//func GenerateRefreshToken(repo repository.JWTRepositoryInterface, userID int, deviceID string) (string, error) {
-//	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
-//
-//	tokenID := uuid.New().String()
-//	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-//		"id":      tokenID,
-//		"exp":     expirationTime.Unix(),
-//		"user_id": userID,
-//		"version": repo.GetVersion(),
-//	})
-//	refreshString, err := token.SignedString(repo.GetJWTSecret())
-//	if err != nil {
-//		fmt.Println(err)
-//		return "", err
-//	}
-//
-//	err = repo.Create(context.Background(), tokenID, models.RefreshTokenInfo{
-//		UserID:    userID,
-//		DeviceID:  deviceID,
-//		ExpiredAt: expirationTime,
-//	})
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	return refreshString, nil
-//}
-//
-//func DeleteRefreshToken(repo repository.JWTRepositoryInterface, tokenStr string) error {
-//	token, err := parseToken(repo, tokenStr)
-//	if err != nil {
-//		fmt.Println(err)
-//		return err
-//	}
-//
-//	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-//		id, ok := claims["id"].(string)
-//		if !ok {
-//			return fmt.Errorf("invalid token id %v", claims["id"])
-//		}
-//		err = repo.Delete(context.Background(), id) // ToDo: general context
-//		if err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}
-
 type ErrorFunc func(args ...interface{}) error
 
 var WrongSigningMethodError ErrorFunc = func(args ...interface{}) error {
@@ -229,7 +79,6 @@ func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
 	userIDFloat, ok := claims["user_id"].(float64)
 	userID := int(userIDFloat)
 	if !ok {
-		fmt.Println("error here")
 		return false, -1
 	}
 	return true, userID
@@ -340,7 +189,6 @@ func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
 		if !ok {
 			return InvalidTokenID(claims["id"])
 		}
-		fmt.Println("delete refresh token", id)
 		err = obj.repo.Delete(ctx, id)
 		if err != nil {
 			return err

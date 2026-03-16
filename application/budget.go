@@ -12,7 +12,7 @@ type BudgetUseCaseInterface interface {
 	Delete(ctx context.Context, budgetID int, user models.UserInfo) error
 	GetById(ctx context.Context, id int) (models.BudgetInfo, error)
 	GetBudgetsOfUser(ctx context.Context, user models.UserInfo) ([]int, error)
-	IsUserAuthor(budget models.BudgetInfo, user models.UserInfo) bool
+	IsUserAuthorOfBudget(budget models.BudgetInfo, user models.UserInfo) bool
 }
 
 type Budget struct {
@@ -33,7 +33,7 @@ func (obj *Budget) Delete(ctx context.Context, budgetID int, user models.UserInf
 	if err != nil {
 		return err
 	}
-	if !obj.IsUserAuthor(budget, user) {
+	if !obj.IsUserAuthorOfBudget(budget, user) {
 		return UserNotAuthorOfBudgetError(user.Id, budget.Id)
 	}
 	err = obj.repo.Delete(ctx, budgetID)
@@ -50,6 +50,6 @@ func (obj *Budget) GetBudgetsOfUser(ctx context.Context, user models.UserInfo) (
 	return ids, err
 }
 
-func (obj *Budget) IsUserAuthor(budget models.BudgetInfo, user models.UserInfo) bool {
+func (obj *Budget) IsUserAuthorOfBudget(budget models.BudgetInfo, user models.UserInfo) bool {
 	return user.Id == budget.Author
 }

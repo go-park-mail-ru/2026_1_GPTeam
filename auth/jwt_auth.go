@@ -28,7 +28,6 @@ func NewJWTAuth(useCase jwt.JWTUseCaseInterface) *JWTAuthService {
 }
 
 func (obj *JWTAuthService) GenerateNewAuth(w http.ResponseWriter, userID int) {
-	fmt.Printf("set cookie to user id %v\n", userID)
 	token, err := obj.jwtUseCase.GenerateToken(userID)
 	if err != nil {
 		return
@@ -77,7 +76,6 @@ func (obj *JWTAuthService) IsAuth(r *http.Request) (bool, int) {
 	}
 	token := cookie.Value
 	isValid, userID := obj.jwtUseCase.CheckToken(token)
-	fmt.Println("---", isValid, userID)
 	return isValid, userID
 }
 

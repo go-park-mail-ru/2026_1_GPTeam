@@ -78,7 +78,7 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		base.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	isAuthor := obj.useCase.IsUserAuthor(budget, authUser)
+	isAuthor := obj.useCase.IsUserAuthorOfBudget(budget, authUser)
 	if !isAuthor {
 		response := base.NewNotFoundErrorResponse("Бюджет не найден")
 		base.WriteResponseJSON(w, response.Code, response)

@@ -35,7 +35,6 @@ func (obj *JWTHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 
 func (obj *JWTHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	fmt.Println("start refresh token")
 	isAuth, userID := obj.auth.Refresh(w, r)
 	authUser, ok := obj.userUseCase.IsAuthUserExists(ctx, isAuth, userID)
 	if !ok {
