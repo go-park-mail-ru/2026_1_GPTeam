@@ -43,11 +43,11 @@ func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetInfo)
 		Valid: !budget.EndAt.IsZero(),
 	}
 	actual := pgtype.Float8{
-		Float64: float64(budget.Actual), // ToDo: change to float
+		Float64: budget.Actual,
 		Valid:   true,
 	}
 	target := pgtype.Float8{
-		Float64: float64(budget.Target),
+		Float64: budget.Target,
 		Valid:   true,
 	}
 	//currency := pgtype.EnumCodec{} // ToDo: to enum type (when load db)

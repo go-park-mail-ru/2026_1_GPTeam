@@ -24,7 +24,7 @@ func NewJWTHandler(auth auth.AuthenticationServiceInterface, userUseCase applica
 	return &JWTHandlers{
 		auth:        auth,
 		userUseCase: userUseCase,
-	} // ToDo: get auth packet; auth packet creates in main
+	}
 }
 
 func (obj *JWTHandlers) Logout(w http.ResponseWriter, r *http.Request) {
