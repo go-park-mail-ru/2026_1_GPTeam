@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
@@ -14,6 +15,10 @@ type JWTRepositoryInterface interface {
 	Delete(ctx context.Context, uuid string) error
 	DeleteByUserID(ctx context.Context, userID int) error
 	Get(ctx context.Context, uuid string) (models.RefreshTokenInfo, error)
+}
+
+var TooManyRowsError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("too many rows in result set")
 }
 
 type PostgresJWT struct {
@@ -74,6 +79,11 @@ func (obj *PostgresJWT) Get(ctx context.Context, uuid string) (models.RefreshTok
 	var expiredAt pgtype.Timestamp
 	err := obj.db.QueryRow(ctx, query, uuid).Scan(&userId, &expiredAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.RefreshTokenInfo{}, NothingInTableError()
+		} else if errors.Is(err, pgx.ErrTooManyRows) {
+			return models.RefreshTokenInfo{}, TooManyRowsError()
+		}
 		fmt.Printf("Unable to get token: %v\n", err)
 		return models.RefreshTokenInfo{}, err
 	}

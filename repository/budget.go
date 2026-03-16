@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -107,6 +108,9 @@ func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetIn
 	var author pgtype.Int4
 	err := obj.db.QueryRow(ctx, query, id).Scan(&title, &description, &createdAt, &startAt, &endAt, &updatedAt, &actual, &target, &currency, &author)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.BudgetInfo{}, NothingInTableError()
+		}
 		fmt.Printf("Unable to get budget: %v\n", err)
 		return models.BudgetInfo{}, err
 	}
@@ -140,12 +144,18 @@ func (obj *PostgresBudget) GetIDsByUserId(ctx context.Context, userID int) ([]in
 		var id int
 		err = rows.Scan(&id)
 		if err != nil {
-			return []int{}, err
+			if errors.Is(err, pgx.ErrNoRows) {
+				return []int{}, NothingInTableError()
+			}
+			return ids, err
 		}
 		ids = append(ids, id)
 	}
 	if err = rows.Err(); err != nil {
 		return []int{}, err
+	}
+	if len(ids) == 0 {
+		return []int{}, NothingInTableError()
 	}
 	return ids, nil
 }

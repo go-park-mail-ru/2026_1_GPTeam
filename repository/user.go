@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,21 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type ErrorFunc func(args ...interface{}) error
+
+var NothingInTableError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("no rows in result set")
+}
+var InvalidDataInTableError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("unable to scan: invalid data in table")
+}
+var DuplicatedDataError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("duplicated data in table: %v", args)
+}
+var ConstraintError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("constraint error: %v", args)
+}
 
 type UserRepositoryInterface interface {
 	Create(ctx context.Context, userInfo models.UserInfo) (int, error)
@@ -67,6 +83,9 @@ func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserInfo, 
 	var updatedAt pgtype.Timestamp
 	err := obj.db.QueryRow(ctx, query, id).Scan(&username, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.UserInfo{}, NothingInTableError()
+		}
 		fmt.Printf("Unable to get user: %v\n", err)
 		return models.UserInfo{}, err
 	}
@@ -97,6 +116,9 @@ func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (mo
 	var updatedAt pgtype.Timestamp
 	err := obj.db.QueryRow(ctx, query, username).Scan(&id, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.UserInfo{}, NothingInTableError()
+		}
 		fmt.Printf("Unable to get user: %v\n", err)
 		return models.UserInfo{}, err
 	}
@@ -127,7 +149,10 @@ func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.U
 	var updatedAt pgtype.Timestamp
 	err := obj.db.QueryRow(ctx, query, email).Scan(&id, &username, &password, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
-		fmt.Printf("Unable to get user: %v\n", err) // ToDo: add errors to global constants + add pgx.ErrNoRows
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.UserInfo{}, NothingInTableError()
+		}
+		fmt.Printf("Unable to get user: %v\n", err)
 		return models.UserInfo{}, err
 	}
 	user := models.UserInfo{
