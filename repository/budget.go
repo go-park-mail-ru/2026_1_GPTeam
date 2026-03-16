@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -30,7 +31,7 @@ func getCurrenciesFromDB(db *pgx.Conn) []string {
 	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
 	row, err := db.Query(context.Background(), query)
 	if err != nil {
-		fmt.Printf("unable get currencies from db: %v\n", err)
+		fmt.Printf("unable get currencies from db: %v\n", err) // ToDo: add new error
 		return []string{}
 	}
 	var currencies []string
@@ -87,6 +88,17 @@ func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetInfo)
 		Valid: true,
 	}
 	err := obj.db.QueryRow(ctx, query, title, description, endAt, actual, target, currency, author).Scan(&id)
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if ok {
+		switch pgErr.Code {
+		case "23505":
+			return -1, DuplicatedDataError(pgErr.Message)
+		case "23514":
+			return -1, ConstraintError(pgErr.Message)
+		default:
+			return -1, pgErr
+		}
+	}
 	if err != nil {
 		fmt.Printf("Unable to create budget: %v\n", err)
 		return -1, err
@@ -145,7 +157,7 @@ func (obj *PostgresBudget) GetIDsByUserId(ctx context.Context, userID int) ([]in
 		err = rows.Scan(&id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return []int{}, NothingInTableError()
+				return []int{}, InvalidDataInTableError()
 			}
 			return ids, err
 		}

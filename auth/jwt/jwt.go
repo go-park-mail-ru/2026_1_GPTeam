@@ -209,7 +209,7 @@ func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
 		if !ok {
 			return InvalidTokenID(claims["id"])
 		}
-		err = obj.repo.Delete(ctx, id)
+		err = obj.repo.DeleteByUUID(ctx, id)
 		if err != nil {
 			return err
 		}

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/application/validators"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
 	"github.com/stretchr/testify/require"
 )
 

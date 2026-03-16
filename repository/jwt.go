@@ -7,12 +7,13 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type JWTRepositoryInterface interface {
 	Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error
-	Delete(ctx context.Context, uuid string) error
+	DeleteByUUID(ctx context.Context, uuid string) error
 	DeleteByUserID(ctx context.Context, userID int) error
 	Get(ctx context.Context, uuid string) (models.RefreshTokenInfo, error)
 }
@@ -31,7 +32,7 @@ func NewPostgresJWT(db *pgx.Conn) *PostgresJWT {
 	}
 }
 
-func (obj *PostgresJWT) Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error {
+func (obj *PostgresJWT) Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error { // ToDo: use token.Uuid
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
 	pk := pgtype.Text{
 		String: uuid,
@@ -46,6 +47,17 @@ func (obj *PostgresJWT) Create(ctx context.Context, uuid string, token models.Re
 		Valid: true,
 	}
 	_, err := obj.db.Exec(ctx, query, pk, userID, expiredAt)
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if ok {
+		switch pgErr.Code {
+		case "23505":
+			return DuplicatedDataError(pgErr.Message)
+		case "23514":
+			return ConstraintError(pgErr.Message)
+		default:
+			return pgErr
+		}
+	}
 	if err != nil {
 		fmt.Printf("Unable to create token: %v\n", err)
 		return err
@@ -53,10 +65,13 @@ func (obj *PostgresJWT) Create(ctx context.Context, uuid string, token models.Re
 	return nil
 }
 
-func (obj *PostgresJWT) Delete(ctx context.Context, uuid string) error {
+func (obj *PostgresJWT) DeleteByUUID(ctx context.Context, uuid string) error {
 	query := `delete from jwt where uuid = $1;`
 	_, err := obj.db.Exec(ctx, query, uuid)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return NothingInTableError()
+		}
 		fmt.Printf("Unable to delete token: %v\n", err)
 		return err
 	}
@@ -67,6 +82,9 @@ func (obj *PostgresJWT) DeleteByUserID(ctx context.Context, userID int) error {
 	query := `delete from jwt where user_id = $1;`
 	_, err := obj.db.Exec(ctx, query, userID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return NothingInTableError()
+		}
 		fmt.Printf("Unable to delete token: %v\n", err)
 		return err
 	}

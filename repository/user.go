@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -17,7 +18,7 @@ var NothingInTableError ErrorFunc = func(args ...interface{}) error {
 	return fmt.Errorf("no rows in result set")
 }
 var InvalidDataInTableError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("unable to scan: invalid data in table")
+	return fmt.Errorf("unable to scan: invalid data in table") // ToDo: paste err in message
 }
 var DuplicatedDataError ErrorFunc = func(args ...interface{}) error {
 	return fmt.Errorf("duplicated data in table: %v", args)
@@ -65,9 +66,20 @@ func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserInfo) (
 		Valid:  true,
 	}
 	err := obj.db.QueryRow(ctx, query, username, password, email, lastLogin, avatarUrl).Scan(&id)
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if ok {
+		switch pgErr.Code {
+		case "23505":
+			return -1, DuplicatedDataError(pgErr.Message)
+		case "23514":
+			return -1, ConstraintError(pgErr.Message)
+		default:
+			return -1, pgErr
+		}
+	}
 	if err != nil {
 		fmt.Printf("Unable to create user: %v\n", err)
-		return -1, err // ToDo: add err check
+		return -1, err
 	}
 	return id, nil
 }
