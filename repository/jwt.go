@@ -11,17 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type JWTRepositoryInterface interface {
-	Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error
-	DeleteByUUID(ctx context.Context, uuid string) error
-	DeleteByUserID(ctx context.Context, userID int) error
-	Get(ctx context.Context, uuid string) (models.RefreshTokenInfo, error)
-}
-
-var TooManyRowsError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("too many rows in result set")
-}
-
 type PostgresJWT struct {
 	db *pgx.Conn
 }

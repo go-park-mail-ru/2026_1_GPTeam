@@ -13,14 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type BudgetRepositoryInterface interface {
-	Create(ctx context.Context, budget models.BudgetInfo) (int, error)
-	GetById(ctx context.Context, id int) (models.BudgetInfo, error)
-	GetIDsByUserId(ctx context.Context, userID int) ([]int, error)
-	Delete(ctx context.Context, id int) error
-	GetCurrencies() []string
-}
-
 type PostgresBudget struct {
 	db         *pgx.Conn
 	mu         sync.RWMutex

@@ -11,13 +11,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserUseCaseInterface interface {
-	Create(ctx context.Context, user web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error)
-	GetById(ctx context.Context, id int) (models.UserInfo, error)
-	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserInfo, error)
-	IsAuthUserExists(ctx context.Context, isAuth bool, userID int) (web_helpers.User, bool)
-}
-
 type User struct {
 	repo repository.UserRepositoryInterface
 }

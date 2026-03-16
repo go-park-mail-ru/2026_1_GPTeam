@@ -45,20 +45,20 @@ func main() {
 	}()
 
 	userRepo := repository.NewPostgresUser(conn)
-	userUseCases := application.NewUser(userRepo)
-	userHandlers := web.NewUserHandler(userUseCases)
-
+	budgetRepo := repository.NewPostgresBudget(conn)
 	jwtRepo := repository.NewPostgresJWT(conn)
+
+	userUseCases := application.NewUser(userRepo)
 	jwtUseCases, err := jwt.NewJWT(jwtRepo, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	authUseCases := auth.NewJWTAuth(jwtUseCases)
-	authHandlers := web.NewJWTHandler(authUseCases, userUseCases)
-
-	budgetRepo := repository.NewPostgresBudget(conn)
 	budgetUseCases := application.NewBudget(budgetRepo)
+
+	userHandlers := web.NewUserHandler(userUseCases)
+	authHandlers := web.NewJWTHandler(authUseCases, userUseCases)
 	budgetHandlers := web.NewBudgetHandler(budgetUseCases)
 
 	mux := http.NewServeMux()

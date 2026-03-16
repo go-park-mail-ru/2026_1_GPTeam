@@ -91,7 +91,9 @@ func TestValidateCurrency(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.ValidateCurrency(testCase.Currency)
+			err := validators.ValidateCurrency(testCase.Currency, []string{
+				"RUB", "USD", "EUR",
+			})
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
