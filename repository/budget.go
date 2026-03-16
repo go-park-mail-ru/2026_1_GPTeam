@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
@@ -15,15 +16,41 @@ type BudgetRepositoryInterface interface {
 	GetById(ctx context.Context, id int) (models.BudgetInfo, error)
 	GetIDsByUserId(ctx context.Context, userID int) ([]int, error)
 	Delete(ctx context.Context, id int) error
+	GetCurrencies() []string
 }
 
 type PostgresBudget struct {
-	db *pgx.Conn
+	db         *pgx.Conn
+	mu         sync.RWMutex
+	currencies []string
+}
+
+func getCurrenciesFromDB(db *pgx.Conn) []string {
+	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
+	row, err := db.Query(context.Background(), query)
+	if err != nil {
+		fmt.Printf("unable get currencies from db: %v\n", err)
+		return []string{}
+	}
+	var currencies []string
+	for row.Next() {
+		var code string
+		err = row.Scan(&code)
+		if err != nil {
+			fmt.Printf("unable get currencies from db: %v\n", err)
+			return []string{}
+		}
+		currencies = append(currencies, code)
+	}
+	return currencies
 }
 
 func NewPostgresBudget(db *pgx.Conn) *PostgresBudget {
+	currencies := getCurrenciesFromDB(db)
+	fmt.Printf("Read currencies from db: %v\n", currencies)
 	return &PostgresBudget{
-		db: db,
+		db:         db,
+		currencies: currencies,
 	}
 }
 
@@ -51,6 +78,7 @@ func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetInfo)
 		Valid:   true,
 	}
 	//currency := pgtype.EnumCodec{} // ToDo: to enum type (when load db)
+
 	currency := pgtype.Text{
 		String: budget.Currency,
 		Valid:  true,
@@ -132,4 +160,10 @@ func (obj *PostgresBudget) Delete(ctx context.Context, id int) error {
 		return err
 	}
 	return nil
+}
+
+func (obj *PostgresBudget) GetCurrencies() []string {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
+	return obj.currencies
 }
