@@ -132,7 +132,7 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if body.Currency == "" {
 		fieldErrors = append(fieldErrors, base2.NewFieldError("currency", "Поле обязательно для заполнения"))
 	}
-	err := validators.ValidateCurrency(body.Currency)
+	err := validators.ValidateCurrency(body.Currency, obj.useCase.GetAllowedCurrencies())
 	if err != nil {
 		fieldErrors = append(fieldErrors, base2.NewFieldError("currency", err.Error()))
 	}

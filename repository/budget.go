@@ -77,8 +77,6 @@ func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetInfo)
 		Float64: budget.Target,
 		Valid:   true,
 	}
-	//currency := pgtype.EnumCodec{} // ToDo: to enum type (when load db)
-
 	currency := pgtype.Text{
 		String: budget.Currency,
 		Valid:  true,

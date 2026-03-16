@@ -13,6 +13,7 @@ type BudgetUseCaseInterface interface {
 	GetById(ctx context.Context, id int) (models2.BudgetInfo, error)
 	GetBudgetsOfUser(ctx context.Context, user models2.UserInfo) ([]int, error)
 	IsUserAuthorOfBudget(budget models2.BudgetInfo, user models2.UserInfo) bool
+	GetAllowedCurrencies() []string
 }
 
 type Budget struct {
@@ -52,4 +53,8 @@ func (obj *Budget) GetBudgetsOfUser(ctx context.Context, user models2.UserInfo) 
 
 func (obj *Budget) IsUserAuthorOfBudget(budget models2.BudgetInfo, user models2.UserInfo) bool {
 	return user.Id == budget.Author
+}
+
+func (obj *Budget) GetAllowedCurrencies() []string {
+	return obj.repo.GetCurrencies()
 }

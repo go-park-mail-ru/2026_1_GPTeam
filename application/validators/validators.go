@@ -92,13 +92,8 @@ func ValidateEmail(email string) error {
 	return nil
 }
 
-func ValidateCurrency(currency string) error {
+func ValidateCurrency(currency string, allowedCurrencies []string) error {
 	currency = strings.ToUpper(currency)
-	allowedCurrencies := []string{
-		"RUB",
-		"USD",
-		"EUR",
-	}
 	if !slices.Contains(allowedCurrencies, currency) {
 		return CurrencyNotAllowed
 	}
