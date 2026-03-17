@@ -15,10 +15,10 @@ import (
 )
 
 type BudgetHandler struct {
-	budgetApp application.BudgetUseCaseInterface
+	budgetApp application.BudgetUseCase
 }
 
-func NewBudgetHandler(useCase application.BudgetUseCaseInterface) *BudgetHandler {
+func NewBudgetHandler(useCase application.BudgetUseCase) *BudgetHandler {
 	return &BudgetHandler{budgetApp: useCase}
 }
 

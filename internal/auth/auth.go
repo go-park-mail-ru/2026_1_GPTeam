@@ -9,14 +9,21 @@ import (
 	jwt_auth2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 )
 
+type AuthenticationService interface {
+	GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userId int)
+	IsAuth(r *http.Request) (bool, int)
+	ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request)
+	Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, int)
+}
+
 type JWTAuthService struct {
-	jwt jwt_auth2.JwtUseCaseInterface
+	jwt jwt_auth2.JwtUseCase
 }
 
 const TokenName = "token"
 const RefreshTokenName = "refresh_token"
 
-func NewJWTAuth(useCase jwt_auth2.JwtUseCaseInterface) *JWTAuthService {
+func NewJWTAuth(useCase jwt_auth2.JwtUseCase) *JWTAuthService {
 	return &JWTAuthService{jwt: useCase}
 }
 

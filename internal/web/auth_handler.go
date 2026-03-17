@@ -14,11 +14,11 @@ import (
 )
 
 type AuthHandlers struct {
-	authService auth.AuthenticationServiceInterface
-	userApp     application.UserUseCaseInterface
+	authService auth.AuthenticationService
+	userApp     application.UserUseCase
 }
 
-func NewJWTHandler(auth auth.AuthenticationServiceInterface, userUseCase application.UserUseCaseInterface) *AuthHandlers {
+func NewJWTHandler(auth auth.AuthenticationService, userUseCase application.UserUseCase) *AuthHandlers {
 	return &AuthHandlers{
 		authService: auth,
 		userApp:     userUseCase,

@@ -7,11 +7,20 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 )
 
-type Budget struct {
-	repository repository.BudgetRepositoryInterface
+type BudgetUseCase interface {
+	Create(ctx context.Context, budget models2.BudgetModel) (int, error)
+	Delete(ctx context.Context, budgetId int, user models2.UserModel) error
+	GetById(ctx context.Context, id int) (models2.BudgetModel, error)
+	GetBudgetsOfUser(ctx context.Context, user models2.UserModel) ([]int, error)
+	IsUserAuthorOfBudget(budget models2.BudgetModel, user models2.UserModel) bool
+	GetAllowedCurrencies() []string
 }
 
-func NewBudget(repository repository.BudgetRepositoryInterface) *Budget {
+type Budget struct {
+	repository repository.BudgetRepository
+}
+
+func NewBudget(repository repository.BudgetRepository) *Budget {
 	return &Budget{repository: repository}
 }
 

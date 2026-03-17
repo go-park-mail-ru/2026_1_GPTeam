@@ -15,14 +15,25 @@ import (
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
+type JwtUseCase interface {
+	parseToken(tokenStr string) (*jwt.Token, error)
+	CheckToken(tokenStr string) (bool, int)
+	CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int)
+	GenerateToken(userId int) (string, error)
+	GenerateRefreshToken(ctx context.Context, userId int, deviceId string) (string, error)
+	DeleteRefreshToken(ctx context.Context, tokenStr string) error
+	GetJWTSecret() []byte
+	GetVersion() string
+}
+
 type Jwt struct {
-	repository repository.JwtRepositoryInterface
+	repository repository.JwtRepository
 	mu         sync.RWMutex
 	secret     []byte
 	version    string
 }
 
-func NewJwt(repository repository.JwtRepositoryInterface, secret string, version string) (*Jwt, error) {
+func NewJwt(repository repository.JwtRepository, secret string, version string) (*Jwt, error) {
 	if len(secret) < 8 {
 		return &Jwt{}, JwtSecretError
 	}

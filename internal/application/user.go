@@ -11,11 +11,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type User struct {
-	repository repository.UserRepositoryInterface
+type UserUseCase interface {
+	Create(ctx context.Context, user web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error)
+	GetById(ctx context.Context, id int) (models.UserModel, error)
+	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserModel, error)
+	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
 }
 
-func NewUser(repository repository.UserRepositoryInterface) *User {
+type User struct {
+	repository repository.UserRepository
+}
+
+func NewUser(repository repository.UserRepository) *User {
 	return &User{repository: repository}
 }
 

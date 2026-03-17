@@ -12,15 +12,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type PostgresUser struct {
+type UserRepository interface {
+	Create(ctx context.Context, userInfo models.UserModel) (int, error)
+	GetById(ctx context.Context, id int) (models.UserModel, error)
+	GetByUsername(ctx context.Context, username string) (models.UserModel, error)
+	GetByEmail(ctx context.Context, email string) (models.UserModel, error)
+}
+
+type UserPostgres struct {
 	db *pgx.Conn
 }
 
-func NewPostgresUser(db *pgx.Conn) *PostgresUser {
-	return &PostgresUser{db: db}
+func NewPostgresUser(db *pgx.Conn) *UserPostgres {
+	return &UserPostgres{db: db}
 }
 
-func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserModel) (int, error) {
+func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) (int, error) {
 	query := `insert into "user" (username, password, email, last_login, avatar_url) VALUES ($1, $2, $3, $4, $5) returning id;`
 	var id int
 	username := pgtype.Text{
@@ -62,7 +69,7 @@ func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserModel) 
 	return id, nil
 }
 
-func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserModel, error) {
+func (obj *UserPostgres) GetById(ctx context.Context, id int) (models.UserModel, error) {
 	query := `select username, password, email, created_at, last_login, avatar_url, updated_at from "user" where id = $1;`
 	var username pgtype.Text
 	var password pgtype.Text
@@ -95,7 +102,7 @@ func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserModel,
 	return user, nil
 }
 
-func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (models.UserModel, error) {
+func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (models.UserModel, error) {
 	query := `select id, password, email, created_at, last_login, avatar_url, updated_at from "user" where username = $1;`
 	var id pgtype.Int4
 	var password pgtype.Text
@@ -128,7 +135,7 @@ func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (mo
 	return user, nil
 }
 
-func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.UserModel, error) {
+func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (models.UserModel, error) {
 	query := `select id, username, password, created_at, last_login, avatar_url, updated_at from "user" where email = $1;`
 	var id pgtype.Int4
 	var username pgtype.Text

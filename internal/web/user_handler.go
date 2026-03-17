@@ -10,10 +10,10 @@ import (
 )
 
 type UserHandler struct {
-	userApp application.UserUseCaseInterface
+	userApp application.UserUseCase
 }
 
-func NewUserHandler(useCase application.UserUseCaseInterface) *UserHandler {
+func NewUserHandler(useCase application.UserUseCase) *UserHandler {
 	return &UserHandler{userApp: useCase}
 }
 

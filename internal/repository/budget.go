@@ -13,7 +13,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type PostgresBudget struct { // ToDo: change naming
+type BudgetRepository interface {
+	Create(ctx context.Context, budget models.BudgetModel) (int, error)
+	GetById(ctx context.Context, id int) (models.BudgetModel, error)
+	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
+	Delete(ctx context.Context, id int) error
+	GetCurrencies() []string
+}
+
+type BudgetPostgres struct {
 	db         *pgx.Conn
 	mu         sync.RWMutex
 	currencies []string
@@ -39,16 +47,16 @@ func getCurrenciesFromDB(db *pgx.Conn) []string {
 	return currencies
 }
 
-func NewPostgresBudget(db *pgx.Conn) *PostgresBudget {
+func NewPostgresBudget(db *pgx.Conn) *BudgetPostgres {
 	currencies := getCurrenciesFromDB(db)
 	fmt.Printf("Read currencies from db: %v\n", currencies)
-	return &PostgresBudget{
+	return &BudgetPostgres{
 		db:         db,
 		currencies: currencies,
 	}
 }
 
-func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
+func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
 	query := `insert into budget (title, description, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7) returning id;`
 	var id int
 	title := pgtype.Text{
@@ -98,7 +106,7 @@ func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetModel
 	return id, nil
 }
 
-func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
+func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author from budget where id = $1;`
 	var title pgtype.Text
 	var description pgtype.Text
@@ -136,7 +144,7 @@ func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetMo
 	return budget, nil
 }
 
-func (obj *PostgresBudget) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
+func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
 	query := `select id from budget where author = $1;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userId)
@@ -164,7 +172,7 @@ func (obj *PostgresBudget) GetIdsByUserId(ctx context.Context, userId int) ([]in
 	return ids, nil
 }
 
-func (obj *PostgresBudget) Delete(ctx context.Context, id int) error {
+func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
 	// ToDo: weak delete
 	query := `delete from budget where id = $1;`
 	_, err := obj.db.Exec(ctx, query, id)
@@ -174,7 +182,7 @@ func (obj *PostgresBudget) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-func (obj *PostgresBudget) GetCurrencies() []string {
+func (obj *BudgetPostgres) GetCurrencies() []string {
 	obj.mu.RLock()
 	defer obj.mu.RUnlock()
 	return obj.currencies

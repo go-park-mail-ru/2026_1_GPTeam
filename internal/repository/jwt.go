@@ -11,15 +11,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type PostgresJwt struct {
+type JwtRepository interface {
+	Create(ctx context.Context, token models.RefreshTokenModel) error
+	DeleteByUuid(ctx context.Context, uuid string) error
+	DeleteByUserId(ctx context.Context, userId int) error
+	Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error)
+}
+
+type JwtPostgres struct {
 	db *pgx.Conn
 }
 
-func NewPostgresJwt(db *pgx.Conn) *PostgresJwt {
-	return &PostgresJwt{db: db}
+func NewPostgresJwt(db *pgx.Conn) *JwtPostgres {
+	return &JwtPostgres{db: db}
 }
 
-func (obj *PostgresJwt) Create(ctx context.Context, token models.RefreshTokenModel) error {
+func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenModel) error {
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
 	pk := pgtype.Text{
 		String: token.Uuid,
@@ -52,7 +59,7 @@ func (obj *PostgresJwt) Create(ctx context.Context, token models.RefreshTokenMod
 	return nil
 }
 
-func (obj *PostgresJwt) DeleteByUuid(ctx context.Context, uuid string) error {
+func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
 	query := `delete from jwt where uuid = $1;`
 	_, err := obj.db.Exec(ctx, query, uuid)
 	if err != nil {
@@ -65,7 +72,7 @@ func (obj *PostgresJwt) DeleteByUuid(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (obj *PostgresJwt) DeleteByUserId(ctx context.Context, userID int) error {
+func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 	query := `delete from jwt where user_id = $1;`
 	_, err := obj.db.Exec(ctx, query, userID)
 	if err != nil {
@@ -78,7 +85,7 @@ func (obj *PostgresJwt) DeleteByUserId(ctx context.Context, userID int) error {
 	return nil
 }
 
-func (obj *PostgresJwt) Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error) {
+func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error) {
 	query := `select user_id, expired_at from jwt where uuid = $1;`
 	var userId pgtype.Int4
 	var expiredAt pgtype.Timestamp
