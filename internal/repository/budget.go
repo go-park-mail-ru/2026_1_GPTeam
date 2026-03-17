@@ -59,7 +59,7 @@ func NewBudgetPostgres(db *pgx.Conn) (*BudgetPostgres, error) {
 }
 
 func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
-	query := `insert into budget (title, description, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7) returning id;`
+	query := `insert into budget (title, description, created_at, start_at, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id;`
 	var id int
 	title := pgtype.Text{
 		String: budget.Title,
@@ -68,6 +68,14 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 	description := pgtype.Text{
 		String: budget.Description,
 		Valid:  true,
+	}
+	createdAt := pgtype.Timestamptz{
+		Time:  budget.CreatedAt,
+		Valid: true,
+	}
+	startAt := pgtype.Timestamptz{
+		Time:  budget.StartAt,
+		Valid: true,
 	}
 	endAt := pgtype.Timestamptz{
 		Time:  budget.EndAt,
@@ -89,7 +97,7 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 		Int32: int32(budget.Author),
 		Valid: true,
 	}
-	err := obj.db.QueryRow(ctx, query, title, description, endAt, actual, target, currency, author).Scan(&id)
+	err := obj.db.QueryRow(ctx, query, title, description, createdAt, startAt, endAt, actual, target, currency, author).Scan(&id)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		switch pgErr.Code {

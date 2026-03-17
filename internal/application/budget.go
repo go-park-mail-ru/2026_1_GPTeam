@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
@@ -25,6 +26,7 @@ func NewBudget(repository repository.BudgetRepository) *Budget {
 }
 
 func (obj *Budget) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
+	budget.CreatedAt = time.Date(budget.CreatedAt.Year(), budget.CreatedAt.Month(), budget.CreatedAt.Day(), 0, 0, 0, 0, time.UTC)
 	id, err := obj.repository.Create(ctx, budget)
 	return id, err
 }
