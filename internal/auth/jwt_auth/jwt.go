@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -24,10 +24,10 @@ type Jwt struct {
 
 func NewJwt(repository repository.JwtRepositoryInterface, secret string, version string) (*Jwt, error) {
 	if len(secret) < 8 {
-		return &Jwt{}, JwtSecretError()
+		return &Jwt{}, JwtSecretError
 	}
 	if version == "" {
-		return &Jwt{}, JwtVersionError()
+		return &Jwt{}, JwtVersionError
 	}
 	return &Jwt{
 		repository: repository,
@@ -39,7 +39,7 @@ func NewJwt(repository repository.JwtRepositoryInterface, secret string, version
 func (obj *Jwt) parseToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, WrongSigningMethodError(token.Header["alg"])
+			return nil, WrongSigningMethodError
 		}
 		return obj.GetJWTSecret(), nil
 	})
@@ -181,7 +181,7 @@ func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		id, ok := claims["id"].(string)
 		if !ok {
-			return InvalidTokenId(claims["id"])
+			return InvalidTokenId
 		}
 		err = obj.repository.DeleteByUuid(ctx, id)
 		if err != nil {

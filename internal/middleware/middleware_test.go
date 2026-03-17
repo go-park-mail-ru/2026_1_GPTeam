@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt_auth"
+	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"

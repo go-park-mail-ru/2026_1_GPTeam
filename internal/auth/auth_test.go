@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	auth2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -39,8 +40,8 @@ func issueAuthCookies(t *testing.T, userID string) (*http.Cookie, *http.Cookie) 
 	auth.GenerateNewAuthCookie(rec, userID)
 
 	cookies := rec.Result().Cookies()
-	accessCookie := findCookie(cookies, auth.TokenName)
-	refreshCookie := findCookie(cookies, auth.RefreshTokenName)
+	accessCookie := findCookie(cookies, auth2.TokenName)
+	refreshCookie := findCookie(cookies, auth2.RefreshTokenName)
 
 	require.NotNil(t, accessCookie)
 	require.NotNil(t, refreshCookie)
@@ -63,7 +64,7 @@ func TestGenerateNewAuthCookie(t *testing.T) {
 			userID: "123",
 			assertAccess: func(t *testing.T, c *http.Cookie) {
 				require.NotNil(t, c)
-				assert.Equal(t, auth.TokenName, c.Name)
+				assert.Equal(t, auth2.TokenName, c.Name)
 				assert.NotEmpty(t, c.Value)
 				assert.Equal(t, "/", c.Path)
 				assert.True(t, c.HttpOnly)
@@ -77,7 +78,7 @@ func TestGenerateNewAuthCookie(t *testing.T) {
 			assertAccess: nil,
 			assertRefresh: func(t *testing.T, c *http.Cookie) {
 				require.NotNil(t, c)
-				assert.Equal(t, auth.RefreshTokenName, c.Name)
+				assert.Equal(t, auth2.RefreshTokenName, c.Name)
 				assert.NotEmpty(t, c.Value)
 				assert.Equal(t, "/auth/", c.Path)
 				assert.True(t, c.HttpOnly)
@@ -108,10 +109,10 @@ func TestGenerateNewAuthCookie(t *testing.T) {
 			cookies := rec.Result().Cookies()
 
 			if c.assertAccess != nil {
-				c.assertAccess(t, findCookie(cookies, auth.TokenName))
+				c.assertAccess(t, findCookie(cookies, auth2.TokenName))
 			}
 			if c.assertRefresh != nil {
-				c.assertRefresh(t, findCookie(cookies, auth.RefreshTokenName))
+				c.assertRefresh(t, findCookie(cookies, auth2.RefreshTokenName))
 			}
 		})
 	}
@@ -192,7 +193,7 @@ func TestIsAuth(t *testing.T) {
 		{
 			name: "сломанный токен → не авторизован",
 			cookie: &http.Cookie{
-				Name:  auth.TokenName,
+				Name:  auth2.TokenName,
 				Value: "broken-token",
 			},
 			wantOK:     false,
@@ -236,8 +237,8 @@ func TestRefreshToken(t *testing.T) {
 		assert.Equal(t, "501", userID)
 
 		newCookies := rec.Result().Cookies()
-		newAccess := findCookie(newCookies, auth.TokenName)
-		newRefresh := findCookie(newCookies, auth.RefreshTokenName)
+		newAccess := findCookie(newCookies, auth2.TokenName)
+		newRefresh := findCookie(newCookies, auth2.RefreshTokenName)
 
 		require.NotNil(t, newAccess)
 		require.NotNil(t, newRefresh)
@@ -279,7 +280,7 @@ func TestRefreshToken(t *testing.T) {
 
 		req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
 		req.AddCookie(&http.Cookie{
-			Name:  auth.RefreshTokenName,
+			Name:  auth2.RefreshTokenName,
 			Value: "broken-refresh-token",
 		})
 		rec := httptest.NewRecorder()
@@ -305,8 +306,8 @@ func TestClearOldToken(t *testing.T) {
 		auth.ClearOldToken(rec, req)
 
 		cookies := rec.Result().Cookies()
-		clearedAccess := findCookie(cookies, auth.TokenName)
-		clearedRefresh := findCookie(cookies, auth.RefreshTokenName)
+		clearedAccess := findCookie(cookies, auth2.TokenName)
+		clearedRefresh := findCookie(cookies, auth2.RefreshTokenName)
 
 		require.NotNil(t, clearedAccess)
 		require.NotNil(t, clearedRefresh)

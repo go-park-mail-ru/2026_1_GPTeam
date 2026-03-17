@@ -7,14 +7,14 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	web_helpers2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 )
 
 func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		web_helpers.SetCORS(w)
+		web_helpers2.SetCORS(w)
 		if r.Method == http.MethodOptions {
 			return
 		}
@@ -33,15 +33,15 @@ func AuthMiddleware(next http.Handler, authService auth.AuthenticationServiceInt
 		isAuth, userId := authService.IsAuth(r)
 		if !isAuth {
 			fmt.Printf("[Auth] 401 для пути: %s\n", path)
-			response := web_helpers.NewUnauthorizedErrorResponse()
-			web_helpers.WriteResponseJSON(w, response.Code, response)
+			response := web_helpers2.NewUnauthorizedErrorResponse()
+			web_helpers2.WriteResponseJSON(w, response.Code, response)
 			return
 		}
 
 		authUser, err := userApp.GetById(context.Background(), userId)
 		if err != nil {
-			response := web_helpers.NewUnauthorizedErrorResponse()
-			web_helpers.WriteResponseJSON(w, response.Code, response)
+			response := web_helpers2.NewUnauthorizedErrorResponse()
+			web_helpers2.WriteResponseJSON(w, response.Code, response)
 			return
 		}
 
@@ -57,8 +57,8 @@ func MethodValidationMiddleware(allowedMethods ...string) func(next http.Handler
 				next.ServeHTTP(w, r)
 				return
 			}
-			response := web_helpers.NewMethodError()
-			web_helpers.WriteResponseJSON(w, response.Code, response)
+			response := web_helpers2.NewMethodError()
+			web_helpers2.WriteResponseJSON(w, response.Code, response)
 		})
 	}
 }
@@ -68,8 +68,8 @@ func PanicMiddleware(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				fmt.Printf("[Panic] %s\n", err)
-				response := web_helpers.NewServerErrorResponse("")
-				web_helpers.WriteResponseJSON(w, response.Code, response)
+				response := web_helpers2.NewServerErrorResponse("")
+				web_helpers2.WriteResponseJSON(w, response.Code, response)
 			}
 		}()
 		next.ServeHTTP(w, r)

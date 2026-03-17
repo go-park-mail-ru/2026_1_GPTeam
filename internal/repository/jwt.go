@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -38,9 +38,9 @@ func (obj *PostgresJwt) Create(ctx context.Context, token models.RefreshTokenMod
 	if ok {
 		switch pgErr.Code {
 		case "23505":
-			return DuplicatedDataError(pgErr.Message)
+			return DuplicatedDataError
 		case "23514":
-			return ConstraintError(pgErr.Message)
+			return ConstraintError
 		default:
 			return pgErr
 		}
@@ -57,7 +57,7 @@ func (obj *PostgresJwt) DeleteByUuid(ctx context.Context, uuid string) error {
 	_, err := obj.db.Exec(ctx, query, uuid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return NothingInTableError()
+			return NothingInTableError
 		}
 		fmt.Printf("Unable to delete token: %v\n", err)
 		return err
@@ -70,7 +70,7 @@ func (obj *PostgresJwt) DeleteByUserId(ctx context.Context, userID int) error {
 	_, err := obj.db.Exec(ctx, query, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return NothingInTableError()
+			return NothingInTableError
 		}
 		fmt.Printf("Unable to delete token: %v\n", err)
 		return err
@@ -85,9 +85,9 @@ func (obj *PostgresJwt) Get(ctx context.Context, uuid string) (models.RefreshTok
 	err := obj.db.QueryRow(ctx, query, uuid).Scan(&userId, &expiredAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.RefreshTokenModel{}, NothingInTableError()
+			return models.RefreshTokenModel{}, NothingInTableError
 		} else if errors.Is(err, pgx.ErrTooManyRows) {
-			return models.RefreshTokenModel{}, TooManyRowsError()
+			return models.RefreshTokenModel{}, TooManyRowsError
 		}
 		fmt.Printf("Unable to get token: %v\n", err)
 		return models.RefreshTokenModel{}, err

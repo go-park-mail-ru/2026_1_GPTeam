@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -84,9 +84,9 @@ func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetModel
 	if ok {
 		switch pgErr.Code {
 		case "23505":
-			return -1, DuplicatedDataError(pgErr.Message)
+			return -1, DuplicatedDataError
 		case "23514":
-			return -1, ConstraintError(pgErr.Message)
+			return -1, ConstraintError
 		default:
 			return -1, pgErr
 		}
@@ -113,7 +113,7 @@ func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetMo
 	err := obj.db.QueryRow(ctx, query, id).Scan(&title, &description, &createdAt, &startAt, &endAt, &updatedAt, &actual, &target, &currency, &author)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.BudgetModel{}, NothingInTableError()
+			return models.BudgetModel{}, NothingInTableError
 		}
 		fmt.Printf("Unable to get budget: %v\n", err)
 		return models.BudgetModel{}, err
@@ -149,7 +149,7 @@ func (obj *PostgresBudget) GetIdsByUserId(ctx context.Context, userId int) ([]in
 		err = rows.Scan(&id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return []int{}, InvalidDataInTableError()
+				return []int{}, InvalidDataInTableError
 			}
 			return ids, err
 		}
@@ -159,7 +159,7 @@ func (obj *PostgresBudget) GetIdsByUserId(ctx context.Context, userId int) ([]in
 		return []int{}, err
 	}
 	if len(ids) == 0 {
-		return []int{}, NothingInTableError()
+		return []int{}, NothingInTableError
 	}
 	return ids, nil
 }

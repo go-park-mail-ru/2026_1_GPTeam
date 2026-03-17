@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
+	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

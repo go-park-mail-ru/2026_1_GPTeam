@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt_auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/web"
+	application2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
+	repository2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	web2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/joho/godotenv"
@@ -44,22 +44,22 @@ func main() {
 		}
 	}()
 
-	userRepo := repository.NewPostgresUser(conn)
-	budgetRepo := repository.NewPostgresBudget(conn)
-	jwtRepo := repository.NewPostgresJwt(conn)
+	userRepo := repository2.NewPostgresUser(conn)
+	budgetRepo := repository2.NewPostgresBudget(conn)
+	jwtRepo := repository2.NewPostgresJwt(conn)
 
-	userUseCases := application.NewUser(userRepo)
+	userUseCases := application2.NewUser(userRepo)
 	jwtUseCases, err := jwt_auth.NewJwt(jwtRepo, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	authUseCases := auth.NewJWTAuth(jwtUseCases)
-	budgetUseCases := application.NewBudget(budgetRepo)
+	budgetUseCases := application2.NewBudget(budgetRepo)
 
-	userHandlers := web.NewUserHandler(userUseCases)
-	authHandlers := web.NewJWTHandler(authUseCases, userUseCases)
-	budgetHandlers := web.NewBudgetHandler(budgetUseCases)
+	userHandlers := web2.NewUserHandler(userUseCases)
+	authHandlers := web2.NewJWTHandler(authUseCases, userUseCases)
+	budgetHandlers := web2.NewBudgetHandler(budgetUseCases)
 
 	mux := http.NewServeMux()
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.Logout)))

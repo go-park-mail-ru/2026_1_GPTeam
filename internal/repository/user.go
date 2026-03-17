@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -48,9 +48,9 @@ func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserModel) 
 	if ok {
 		switch pgErr.Code {
 		case "23505":
-			return -1, DuplicatedDataError(pgErr.Message)
+			return -1, DuplicatedDataError
 		case "23514":
-			return -1, ConstraintError(pgErr.Message)
+			return -1, ConstraintError
 		default:
 			return -1, pgErr
 		}
@@ -74,7 +74,7 @@ func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserModel,
 	err := obj.db.QueryRow(ctx, query, id).Scan(&username, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserModel{}, NothingInTableError()
+			return models.UserModel{}, NothingInTableError
 		}
 		fmt.Printf("Unable to get user: %v\n", err)
 		return models.UserModel{}, err
@@ -107,7 +107,7 @@ func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (mo
 	err := obj.db.QueryRow(ctx, query, username).Scan(&id, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserModel{}, NothingInTableError()
+			return models.UserModel{}, NothingInTableError
 		}
 		fmt.Printf("Unable to get user: %v\n", err)
 		return models.UserModel{}, err
@@ -140,7 +140,7 @@ func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.U
 	err := obj.db.QueryRow(ctx, query, email).Scan(&id, &username, &password, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserModel{}, NothingInTableError()
+			return models.UserModel{}, NothingInTableError
 		}
 		fmt.Printf("Unable to get user: %v\n", err)
 		return models.UserModel{}, err
