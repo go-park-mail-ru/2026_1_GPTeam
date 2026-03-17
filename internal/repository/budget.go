@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -19,43 +18,16 @@ type BudgetRepository interface {
 	GetById(ctx context.Context, id int) (models.BudgetModel, error)
 	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
 	Delete(ctx context.Context, id int) error
-	GetCurrencies() []string
 }
 
 type BudgetPostgres struct {
-	db         *pgx.Conn
-	mu         sync.RWMutex
-	currencies []string
+	db *pgx.Conn
 }
 
-func getCurrenciesFromDB(db *pgx.Conn) ([]string, error) {
-	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
-	row, err := db.Query(context.Background(), query)
-	if err != nil {
-		return []string{}, UnableToReadCurrenciesError
-	}
-	var currencies []string
-	for row.Next() {
-		var code string
-		err = row.Scan(&code)
-		if err != nil {
-			return []string{}, UnableToReadCurrenciesError
-		}
-		currencies = append(currencies, code)
-	}
-	return currencies, nil
-}
-
-func NewBudgetPostgres(db *pgx.Conn) (*BudgetPostgres, error) {
-	currencies, err := getCurrenciesFromDB(db)
-	if err != nil {
-		return &BudgetPostgres{}, err
-	}
-	fmt.Printf("Read currencies from db: %v\n", currencies)
+func NewBudgetPostgres(db *pgx.Conn) *BudgetPostgres {
 	return &BudgetPostgres{
-		db:         db,
-		currencies: currencies,
-	}, nil
+		db: db,
+	}
 }
 
 func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
@@ -191,10 +163,4 @@ func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
 		return err
 	}
 	return nil
-}
-
-func (obj *BudgetPostgres) GetCurrencies() []string {
-	obj.mu.RLock()
-	defer obj.mu.RUnlock()
-	return obj.currencies
 }

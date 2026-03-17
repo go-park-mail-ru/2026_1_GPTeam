@@ -44,12 +44,13 @@ func main() {
 		}
 	}()
 
-	userPostgres := repository.NewUserPostgres(conn)
-	budgetPostgres, err := repository.NewBudgetPostgres(conn)
+	enumsPostgres, err := repository.NewEnumsPostgres(conn)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	userPostgres := repository.NewUserPostgres(conn)
+	budgetPostgres := repository.NewBudgetPostgres(conn)
 	jwtPostgres := repository.NewJwtPostgres(conn)
 
 	userApp := application.NewUser(userPostgres)
@@ -63,7 +64,7 @@ func main() {
 
 	userHandler := web.NewUserHandler(userApp)
 	authHandler := web.NewAuthHandler(authService, userApp)
-	budgetHandler := web.NewBudgetHandler(budgetApp)
+	budgetHandler := web.NewBudgetHandler(budgetApp, enumsPostgres)
 
 	mux := http.NewServeMux()
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
