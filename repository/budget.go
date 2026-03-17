@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type PostgresBudget struct {
+type PostgresBudget struct { // ToDo: change naming
 	db         *pgx.Conn
 	mu         sync.RWMutex
 	currencies []string
