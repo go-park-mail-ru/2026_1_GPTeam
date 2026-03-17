@@ -16,14 +16,14 @@ import (
 )
 
 type BudgetHandler struct {
-	budgetApp       application.BudgetUseCase
-	enumsRepository repository.EnumsRepository
+	budgetApp application.BudgetUseCase
+	enumsApp  application.EnumsUseCase
 }
 
-func NewBudgetHandler(useCase application.BudgetUseCase, enumsRepo repository.EnumsRepository) *BudgetHandler {
+func NewBudgetHandler(useCase application.BudgetUseCase, enumsApp application.EnumsUseCase) *BudgetHandler {
 	return &BudgetHandler{
-		budgetApp:       useCase,
-		enumsRepository: enumsRepo,
+		budgetApp: useCase,
+		enumsApp:  enumsApp,
 	}
 }
 
@@ -135,7 +135,7 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if body.Currency == "" {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", "Поле обязательно для заполнения"))
 	}
-	err := validators.ValidateCurrency(body.Currency, obj.enumsRepository.GetCurrencyCodes())
+	err := validators.ValidateCurrency(body.Currency, obj.enumsApp.GetCurrencyCodes())
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", err.Error()))
 	}

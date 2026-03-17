@@ -9,9 +9,9 @@ import (
 )
 
 type EnumsRepository interface {
-	GetCurrencyCodes() []string
-	GetTransactionTypes() []string
-	GetCategoryTypes() []string
+	GetCurrencyCodesFromDB() []string
+	GetTransactionTypesFromDB() []string
+	GetCategoryTypesFromDB() []string
 }
 
 type EnumsPostgres struct {
@@ -22,19 +22,19 @@ type EnumsPostgres struct {
 	categoryTypes    []string
 }
 
-func (obj *EnumsPostgres) GetCurrencyCodes() []string {
+func (obj *EnumsPostgres) GetCurrencyCodesFromDB() []string {
 	obj.mu.RLock()
 	defer obj.mu.RUnlock()
 	return obj.currencyCodes
 }
 
-func (obj *EnumsPostgres) GetTransactionTypes() []string {
+func (obj *EnumsPostgres) GetTransactionTypesFromDB() []string {
 	obj.mu.RLock()
 	defer obj.mu.RUnlock()
 	return obj.transactionTypes
 }
 
-func (obj *EnumsPostgres) GetCategoryTypes() []string {
+func (obj *EnumsPostgres) GetCategoryTypesFromDB() []string {
 	obj.mu.RLock()
 	defer obj.mu.RUnlock()
 	return obj.categoryTypes

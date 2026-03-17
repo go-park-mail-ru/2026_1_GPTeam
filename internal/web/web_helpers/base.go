@@ -319,3 +319,18 @@ func NewBudgetGetSuccessResponse(budget BudgetRequest) BudgetGetSuccessResponse 
 		Budget: budget,
 	}
 }
+
+type CurrencyCodesResponse struct {
+	SimpleResponse
+	CurrencyCodes []string `json:"currency_codes"`
+}
+
+func NewCurrencyCodesResponse(codes []string) CurrencyCodesResponse {
+	return CurrencyCodesResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		CurrencyCodes: codes,
+	}
+}

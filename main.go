@@ -53,6 +53,7 @@ func main() {
 	budgetPostgres := repository.NewBudgetPostgres(conn)
 	jwtPostgres := repository.NewJwtPostgres(conn)
 
+	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres)
 	jwt, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
@@ -62,9 +63,10 @@ func main() {
 	authService := auth.NewJwtAuthService(jwt)
 	budgetApp := application.NewBudget(budgetPostgres)
 
+	enumsHandler := web.NewEnumsHandler(enumsApp)
 	userHandler := web.NewUserHandler(userApp)
 	authHandler := web.NewAuthHandler(authService, userApp)
-	budgetHandler := web.NewBudgetHandler(budgetApp, enumsPostgres)
+	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 
 	mux := http.NewServeMux()
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
@@ -77,6 +79,7 @@ func main() {
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
+	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
