@@ -9,134 +9,132 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/validators"
-	base2 "github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/web/web_helpers"
 )
 
-type JWTHandlers struct {
-	useCase     jwt.JWTUseCaseInterface
-	auth        auth.AuthenticationServiceInterface
-	userUseCase application.UserUseCaseInterface
+type AuthHandlers struct {
+	authService auth.AuthenticationServiceInterface
+	userApp     application.UserUseCaseInterface
 }
 
-func NewJWTHandler(auth auth.AuthenticationServiceInterface, userUseCase application.UserUseCaseInterface) *JWTHandlers {
-	return &JWTHandlers{
-		auth:        auth,
-		userUseCase: userUseCase,
+func NewJWTHandler(auth auth.AuthenticationServiceInterface, userUseCase application.UserUseCaseInterface) *AuthHandlers {
+	return &AuthHandlers{
+		authService: auth,
+		userApp:     userUseCase,
 	}
 }
 
-func (obj *JWTHandlers) Logout(w http.ResponseWriter, r *http.Request) {
+func (obj *AuthHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	obj.auth.ClearOld(ctx, w, r)
-	response := base2.NewLogoutSuccessResponse()
-	base2.WriteResponseJSON(w, response.Code, response)
+	obj.authService.ClearOld(ctx, w, r)
+	response := web_helpers.NewLogoutSuccessResponse()
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
-func (obj *JWTHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
+func (obj *AuthHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	isAuth, userID := obj.auth.Refresh(ctx, w, r)
-	authUser, ok := obj.userUseCase.IsAuthUserExists(ctx, isAuth, userID)
+	isAuth, userId := obj.authService.Refresh(ctx, w, r)
+	authUser, ok := obj.userApp.IsAuthUserExists(ctx, isAuth, userId)
 	if !ok {
-		response := base2.NewUnauthorizedErrorResponse()
-		base2.WriteResponseJSON(w, response.Code, response)
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	response := base2.NewLoginSuccessResponse(authUser)
-	base2.WriteResponseJSON(w, response.Code, response)
+	response := web_helpers.NewLoginSuccessResponse(authUser)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
-func (obj *JWTHandlers) SignUp(w http.ResponseWriter, r *http.Request) {
+func (obj *AuthHandlers) SignUp(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	var body base2.SignupBodyRequest
+	var body web_helpers.SignupBodyRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		fmt.Println(err)
-		response := base2.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []base2.FieldError{
-			base2.NewFieldError("", "Не удалось прочитать тело запроса"),
+		response := web_helpers.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []web_helpers.FieldError{
+			web_helpers.NewFieldError("", "Не удалось прочитать тело запроса"),
 		})
-		base2.WriteResponseJSON(w, response.Code, response)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	if body.Username == "" || body.Password == "" || body.Email == "" || body.ConfirmPassword == "" {
-		var fieldErrors []base2.FieldError
+		var fieldErrors []web_helpers.FieldError
 		if body.Username == "" {
-			fieldErrors = append(fieldErrors, base2.NewFieldError("username", "Поле обязательно для заполнения"))
+			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("username", "Поле обязательно для заполнения"))
 		}
 		if body.Password == "" {
-			fieldErrors = append(fieldErrors, base2.NewFieldError("password", "Поле обязательно для заполнения"))
+			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("password", "Поле обязательно для заполнения"))
 		}
 		if body.Email == "" {
-			fieldErrors = append(fieldErrors, base2.NewFieldError("email", "Поле обязательно для заполнения"))
+			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("email", "Поле обязательно для заполнения"))
 		}
 		if body.ConfirmPassword == "" {
-			fieldErrors = append(fieldErrors, base2.NewFieldError("confirm_password", "Поле обязательно для заполнения"))
+			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("confirm_password", "Поле обязательно для заполнения"))
 		}
-		response := base2.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
-		base2.WriteResponseJSON(w, response.Code, response)
+		response := web_helpers.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	errors := make([]base2.FieldError, 0)
+	errors := make([]web_helpers.FieldError, 0)
 	err := validators.ValidateUsername(body.Username)
 	if err != nil {
-		errors = append(errors, base2.NewFieldError("username", err.Error()))
+		errors = append(errors, web_helpers.NewFieldError("username", err.Error()))
 	}
 	err = validators.ValidatePassword(body.Password)
 	if err != nil {
-		errors = append(errors, base2.NewFieldError("password", err.Error()))
+		errors = append(errors, web_helpers.NewFieldError("password", err.Error()))
 	}
 	err = validators.ValidateEmail(body.Email)
 	if err != nil {
-		errors = append(errors, base2.NewFieldError("email", err.Error()))
+		errors = append(errors, web_helpers.NewFieldError("email", err.Error()))
 	}
 	if body.Password != body.ConfirmPassword {
-		errors = append(errors, base2.NewFieldError("password", "Пароли не совпадают"))
-		errors = append(errors, base2.NewFieldError("confirm_password", "Пароли не совпадают"))
+		errors = append(errors, web_helpers.NewFieldError("password", "Пароли не совпадают"))
+		errors = append(errors, web_helpers.NewFieldError("confirm_password", "Пароли не совпадают"))
 	}
 	if len(errors) > 0 {
-		response := base2.NewValidationErrorResponse(errors)
-		base2.WriteResponseJSON(w, response.Code, response)
+		response := web_helpers.NewValidationErrorResponse(errors)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	authUser, err := obj.userUseCase.Create(ctx, body)
+	authUser, err := obj.userApp.Create(ctx, body)
 	if err != nil {
-		response := base2.NewValidationErrorResponse([]base2.FieldError{
-			base2.NewFieldError("field", err.Error()),
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("field", err.Error()),
 		})
-		base2.WriteResponseJSON(w, response.Code, response)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return // ToDo: add err check
 	}
-	response := base2.NewSignupSuccessResponse(authUser)
-	obj.auth.GenerateNewAuth(ctx, w, authUser.ID)
-	base2.WriteResponseJSON(w, response.Code, response)
+	response := web_helpers.NewSignupSuccessResponse(authUser)
+	obj.authService.GenerateNewAuth(ctx, w, authUser.ID)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
-func (obj *JWTHandlers) Login(w http.ResponseWriter, r *http.Request) {
+func (obj *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	var userRequest base2.LoginBodyRequest
+	var userRequest web_helpers.LoginBodyRequest
 	err := json.NewDecoder(r.Body).Decode(&userRequest)
 	if err != nil {
 		fmt.Println(err)
-		errors := make([]base2.FieldError, 0)
-		errors = append(errors, base2.NewFieldError("username", "Не удалось прочитать json"))
-		errors = append(errors, base2.NewFieldError("password", "Не удалось прочитать json"))
-		response := base2.NewLoginErrorResponse(errors)
-		base2.WriteResponseJSON(w, response.Code, response)
+		errors := make([]web_helpers.FieldError, 0)
+		errors = append(errors, web_helpers.NewFieldError("username", "Не удалось прочитать json"))
+		errors = append(errors, web_helpers.NewFieldError("password", "Не удалось прочитать json"))
+		response := web_helpers.NewLoginErrorResponse(errors)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	storedUser, err := obj.userUseCase.GetByCredentials(ctx, userRequest)
+	storedUser, err := obj.userApp.GetByCredentials(ctx, userRequest)
 	if err != nil {
-		errors := make([]base2.FieldError, 0)
-		errors = append(errors, base2.NewFieldError("username", "Неверный логин или пароль"))
-		errors = append(errors, base2.NewFieldError("password", "Неверный логин или пароль"))
-		response := base2.NewLoginErrorResponse(errors)
-		base2.WriteResponseJSON(w, response.Code, response)
+		errors := make([]web_helpers.FieldError, 0)
+		errors = append(errors, web_helpers.NewFieldError("username", "Неверный логин или пароль"))
+		errors = append(errors, web_helpers.NewFieldError("password", "Неверный логин или пароль"))
+		response := web_helpers.NewLoginErrorResponse(errors)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	user := base2.User{
+	user := web_helpers.User{
 		Username:        storedUser.Username,
 		Email:           storedUser.Email,
 		LastLogin:       time.Now(),
@@ -145,7 +143,7 @@ func (obj *JWTHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		Balance:         0,
 		BalanceCurrency: "RUB",
 	}
-	response := base2.NewLoginSuccessResponse(user)
-	obj.auth.GenerateNewAuth(ctx, w, storedUser.Id)
-	base2.WriteResponseJSON(w, response.Code, response)
+	response := web_helpers.NewLoginSuccessResponse(user)
+	obj.authService.GenerateNewAuth(ctx, w, storedUser.Id)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

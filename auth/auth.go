@@ -6,29 +6,22 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt_auth"
 )
 
-type AuthenticationServiceInterface interface {
-	GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userID int)
-	IsAuth(r *http.Request) (bool, int)
-	ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request)
-	Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, int)
-}
-
 type JWTAuthService struct {
-	jwtUseCase jwt.JWTUseCaseInterface
+	jwt jwt_auth.JwtUseCaseInterface
 }
 
 const TokenName = "token"
 const RefreshTokenName = "refresh_token"
 
-func NewJWTAuth(useCase jwt.JWTUseCaseInterface) *JWTAuthService {
-	return &JWTAuthService{jwtUseCase: useCase}
+func NewJWTAuth(useCase jwt_auth.JwtUseCaseInterface) *JWTAuthService {
+	return &JWTAuthService{jwt: useCase}
 }
 
-func (obj *JWTAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userID int) {
-	token, err := obj.jwtUseCase.GenerateToken(userID)
+func (obj *JWTAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userId int) {
+	token, err := obj.jwt.GenerateToken(userId)
 	if err != nil {
 		return
 	}
@@ -36,13 +29,13 @@ func (obj *JWTAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		Name:     TokenName,
 		Value:    token,
 		Path:     "/",
-		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
+		Expires:  time.Now().Add(jwt_auth.AccessTokenExpirationTime),
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
-	token, err = obj.jwtUseCase.GenerateRefreshToken(ctx, userID, "pass")
+	token, err = obj.jwt.GenerateRefreshToken(ctx, userId, "pass")
 	if err != nil {
 		return
 	}
@@ -50,7 +43,7 @@ func (obj *JWTAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		Name:     RefreshTokenName,
 		Value:    token,
 		Path:     "/auth/",
-		Expires:  time.Now().Add(jwt.RefreshTokenExpirationTime),
+		Expires:  time.Now().Add(jwt_auth.RefreshTokenExpirationTime),
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
@@ -75,8 +68,8 @@ func (obj *JWTAuthService) IsAuth(r *http.Request) (bool, int) {
 		return false, -1
 	}
 	token := cookie.Value
-	isValid, userID := obj.jwtUseCase.CheckToken(token)
-	return isValid, userID
+	isValid, userId := obj.jwt.CheckToken(token)
+	return isValid, userId
 }
 
 func (obj *JWTAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -85,7 +78,7 @@ func (obj *JWTAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, 
 		fmt.Println(err)
 	} else {
 		refreshToken := cookie.Value
-		err = obj.jwtUseCase.DeleteRefreshToken(ctx, refreshToken)
+		err = obj.jwt.DeleteRefreshToken(ctx, refreshToken)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -120,11 +113,11 @@ func (obj *JWTAuthService) Refresh(ctx context.Context, w http.ResponseWriter, r
 		return false, -1
 	}
 	token := cookie.Value
-	isValid, userID := obj.jwtUseCase.CheckRefreshToken(ctx, token)
+	isValid, userId := obj.jwt.CheckRefreshToken(ctx, token)
 	if !isValid {
 		return false, -1
 	}
 	obj.ClearOld(ctx, w, r)
-	obj.GenerateNewAuth(ctx, w, userID)
-	return isValid, userID
+	obj.GenerateNewAuth(ctx, w, userId)
+	return isValid, userId
 }

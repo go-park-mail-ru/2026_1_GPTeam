@@ -23,7 +23,7 @@ func getCurrenciesFromDB(db *pgx.Conn) []string {
 	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
 	row, err := db.Query(context.Background(), query)
 	if err != nil {
-		fmt.Printf("unable get currencies from db: %v\n", err) // ToDo: add new error
+		fmt.Printf("unable get currencies from db: %v\n", err) // ToDo: use new error
 		return []string{}
 	}
 	var currencies []string
@@ -48,7 +48,7 @@ func NewPostgresBudget(db *pgx.Conn) *PostgresBudget {
 	}
 }
 
-func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetInfo) (int, error) {
+func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
 	query := `insert into budget (title, description, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7) returning id;`
 	var id int
 	title := pgtype.Text{
@@ -98,7 +98,7 @@ func (obj *PostgresBudget) Create(ctx context.Context, budget models.BudgetInfo)
 	return id, nil
 }
 
-func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetInfo, error) {
+func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author from budget where id = $1;`
 	var title pgtype.Text
 	var description pgtype.Text
@@ -113,12 +113,12 @@ func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetIn
 	err := obj.db.QueryRow(ctx, query, id).Scan(&title, &description, &createdAt, &startAt, &endAt, &updatedAt, &actual, &target, &currency, &author)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.BudgetInfo{}, NothingInTableError()
+			return models.BudgetModel{}, NothingInTableError()
 		}
 		fmt.Printf("Unable to get budget: %v\n", err)
-		return models.BudgetInfo{}, err
+		return models.BudgetModel{}, err
 	}
-	budget := models.BudgetInfo{
+	budget := models.BudgetModel{
 		Id:          id,
 		Title:       title.String,
 		Description: description.String,
@@ -136,10 +136,10 @@ func (obj *PostgresBudget) GetById(ctx context.Context, id int) (models.BudgetIn
 	return budget, nil
 }
 
-func (obj *PostgresBudget) GetIDsByUserId(ctx context.Context, userID int) ([]int, error) {
+func (obj *PostgresBudget) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
 	query := `select id from budget where author = $1;`
 	var ids []int
-	rows, err := obj.db.Query(ctx, query, userID)
+	rows, err := obj.db.Query(ctx, query, userId)
 	if err != nil {
 		return []int{}, err
 	}

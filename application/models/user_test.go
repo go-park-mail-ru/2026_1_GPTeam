@@ -21,7 +21,7 @@ func TestAddUserAndGetUserByID(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	id := models.AddUser(models2.UserInfo{
+	id := models.AddUser(models2.UserModel{
 		Username:  "WatchDemo_user_storage_test",
 		Password:  "secret",
 		Email:     "watchdemo_user_storage_test@gmail.com",
@@ -41,7 +41,7 @@ func TestFindUserByCredentials_ReturnsUser(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	models.AddUser(models2.UserInfo{
+	models.AddUser(models2.UserModel{
 		Username:  "CredUser_user_storage_test",
 		Password:  "verysecret",
 		Email:     "cred_user_storage_test@gmail.com",
@@ -63,7 +63,7 @@ func TestFindUserByCredentials_WrongPassword(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	models.AddUser(models2.UserInfo{
+	models.AddUser(models2.UserModel{
 		Username:  "WrongPassword_user_storage_test",
 		Password:  "correct-password",
 		Email:     "wrong_password_user_storage_test@gmail.com",
@@ -81,7 +81,7 @@ func TestUserExists_ReturnsTrueForExistingUser(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	models.AddUser(models2.UserInfo{
+	models.AddUser(models2.UserModel{
 		Username:  "ExistsUser_user_storage_test",
 		Password:  "secret",
 		Email:     "exists_user_storage_test@gmail.com",
@@ -96,7 +96,7 @@ func TestEmailExists_ReturnsTrueForExistingEmail(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	models.AddUser(models2.UserInfo{
+	models.AddUser(models2.UserModel{
 		Username:  "EmailUser_user_storage_test",
 		Password:  "secret",
 		Email:     "email_user_storage_test@gmail.com",
@@ -111,7 +111,7 @@ func TestIsAuthUserInDatabase_ReturnsTrueForExistingID(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	id := models.AddUser(models2.UserInfo{
+	id := models.AddUser(models2.UserModel{
 		Username:  "AuthUser_user_storage_test",
 		Password:  "secret",
 		Email:     "auth_user_storage_test@gmail.com",

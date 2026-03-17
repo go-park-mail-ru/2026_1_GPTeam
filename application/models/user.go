@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type UserInfo struct {
+type UserModel struct {
 	Id        int
 	Username  string
 	Password  string

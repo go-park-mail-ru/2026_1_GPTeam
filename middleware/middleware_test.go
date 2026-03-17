@@ -11,7 +11,7 @@ import (
 
 	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
+	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
@@ -31,7 +31,7 @@ func setupStorage() {
 	once.Do(func() {
 		_ = jwt.NewRefreshTokenStore("secret123", "v1")
 		models.NewUserStore()
-		models.AddUser(models2.UserInfo{
+		models.AddUser(models2.UserModel{
 			Id:        0,
 			Username:  testUsername,
 			Password:  testPassword,
@@ -367,7 +367,7 @@ func TestAuthMiddleware(t *testing.T) {
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
 				require.Equal(t, http.StatusOK, w.Code)
 				require.NotNil(t, gotCtxUser)
-				user, ok := gotCtxUser.(models2.UserInfo)
+				user, ok := gotCtxUser.(models2.UserModel)
 				require.True(t, ok)
 				require.Equal(t, testUsername, user.Username)
 			},

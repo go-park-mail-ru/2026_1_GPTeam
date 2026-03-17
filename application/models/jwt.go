@@ -4,9 +4,9 @@ import (
 	"time"
 )
 
-type RefreshTokenInfo struct {
+type RefreshTokenModel struct {
 	Uuid      string
-	UserID    int
+	UserId    int
 	ExpiredAt time.Time
-	DeviceID  string
+	DeviceId  string
 }

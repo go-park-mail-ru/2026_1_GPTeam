@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/web"
@@ -46,10 +46,10 @@ func main() {
 
 	userRepo := repository.NewPostgresUser(conn)
 	budgetRepo := repository.NewPostgresBudget(conn)
-	jwtRepo := repository.NewPostgresJWT(conn)
+	jwtRepo := repository.NewPostgresJwt(conn)
 
 	userUseCases := application.NewUser(userRepo)
-	jwtUseCases, err := jwt.NewJWT(jwtRepo, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
+	jwtUseCases, err := jwt_auth.NewJwt(jwtRepo, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -75,6 +75,7 @@ func main() {
 
 	handler := middleware.AuthMiddleware(mux, authUseCases, userUseCases)
 	handler = middleware.CORSMiddleware(handler)
+	handler = middleware.PanicMiddleware(handler)
 
 	server := http.Server{
 		Addr:         ":8080",

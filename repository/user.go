@@ -20,7 +20,7 @@ func NewPostgresUser(db *pgx.Conn) *PostgresUser {
 	return &PostgresUser{db: db}
 }
 
-func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserInfo) (int, error) {
+func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserModel) (int, error) {
 	query := `insert into "user" (username, password, email, last_login, avatar_url) VALUES ($1, $2, $3, $4, $5) returning id;`
 	var id int
 	username := pgtype.Text{
@@ -62,7 +62,7 @@ func (obj *PostgresUser) Create(ctx context.Context, userInfo models.UserInfo) (
 	return id, nil
 }
 
-func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserInfo, error) {
+func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserModel, error) {
 	query := `select username, password, email, created_at, last_login, avatar_url, updated_at from "user" where id = $1;`
 	var username pgtype.Text
 	var password pgtype.Text
@@ -74,12 +74,12 @@ func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserInfo, 
 	err := obj.db.QueryRow(ctx, query, id).Scan(&username, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserInfo{}, NothingInTableError()
+			return models.UserModel{}, NothingInTableError()
 		}
 		fmt.Printf("Unable to get user: %v\n", err)
-		return models.UserInfo{}, err
+		return models.UserModel{}, err
 	}
-	user := models.UserInfo{
+	user := models.UserModel{
 		Id:        id,
 		Username:  username.String,
 		Password:  password.String,
@@ -95,7 +95,7 @@ func (obj *PostgresUser) GetById(ctx context.Context, id int) (models.UserInfo, 
 	return user, nil
 }
 
-func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (models.UserInfo, error) {
+func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (models.UserModel, error) {
 	query := `select id, password, email, created_at, last_login, avatar_url, updated_at from "user" where username = $1;`
 	var id pgtype.Int4
 	var password pgtype.Text
@@ -107,12 +107,12 @@ func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (mo
 	err := obj.db.QueryRow(ctx, query, username).Scan(&id, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserInfo{}, NothingInTableError()
+			return models.UserModel{}, NothingInTableError()
 		}
 		fmt.Printf("Unable to get user: %v\n", err)
-		return models.UserInfo{}, err
+		return models.UserModel{}, err
 	}
-	user := models.UserInfo{
+	user := models.UserModel{
 		Id:        int(id.Int32),
 		Username:  username,
 		Password:  password.String,
@@ -128,7 +128,7 @@ func (obj *PostgresUser) GetByUsername(ctx context.Context, username string) (mo
 	return user, nil
 }
 
-func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.UserInfo, error) {
+func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.UserModel, error) {
 	query := `select id, username, password, created_at, last_login, avatar_url, updated_at from "user" where email = $1;`
 	var id pgtype.Int4
 	var username pgtype.Text
@@ -140,12 +140,12 @@ func (obj *PostgresUser) GetByEmail(ctx context.Context, email string) (models.U
 	err := obj.db.QueryRow(ctx, query, email).Scan(&id, &username, &password, &createdAt, &lastLogin, &avatarUrl, &updatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserInfo{}, NothingInTableError()
+			return models.UserModel{}, NothingInTableError()
 		}
 		fmt.Printf("Unable to get user: %v\n", err)
-		return models.UserInfo{}, err
+		return models.UserModel{}, err
 	}
-	user := models.UserInfo{
+	user := models.UserModel{
 		Id:        int(id.Int32),
 		Username:  username.String,
 		Password:  password.String,

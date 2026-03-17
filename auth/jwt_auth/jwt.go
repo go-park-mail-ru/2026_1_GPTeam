@@ -1,4 +1,4 @@
-package jwt
+package jwt_auth
 
 import (
 	"context"
@@ -12,53 +12,27 @@ import (
 	"github.com/google/uuid"
 )
 
-type ErrorFunc func(args ...interface{}) error
-
-var WrongSigningMethodError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("unexpected signing method: %v\n", args)
-}
-var InvalidTokenID ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("invalid token id %v\n", args)
-}
-var JWTSecretError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("secret must be at least 8 bytes")
-}
-var JWTVersionError ErrorFunc = func(args ...interface{}) error {
-	return fmt.Errorf("JWT_VERSION env variable not set")
-}
-
-type JWTUseCaseInterface interface {
-	parseToken(tokenStr string) (*jwt.Token, error)
-	CheckToken(tokenStr string) (bool, int)
-	CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int)
-	GenerateToken(userID int) (string, error)
-	GenerateRefreshToken(ctx context.Context, userID int, deviceID string) (string, error)
-	DeleteRefreshToken(ctx context.Context, tokenStr string) error
-	GetJWTSecret() []byte
-	GetVersion() string
-}
-
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
 type Jwt struct {
-	repo    repository.JWTRepositoryInterface
-	mu      sync.RWMutex
-	secret  []byte
-	version string
+	repository repository.JwtRepositoryInterface
+	mu         sync.RWMutex
+	secret     []byte
+	version    string
 }
 
-func NewJWT(repo repository.JWTRepositoryInterface, secret string, version string) (*Jwt, error) {
+func NewJwt(repository repository.JwtRepositoryInterface, secret string, version string) (*Jwt, error) {
 	if len(secret) < 8 {
-		return &Jwt{}, JWTSecretError()
+		return &Jwt{}, JwtSecretError()
 	}
 	if version == "" {
-		return &Jwt{}, JWTVersionError()
+		return &Jwt{}, JwtVersionError()
 	}
 	return &Jwt{
-		repo:    repo,
-		secret:  []byte(secret),
-		version: version,
+		repository: repository,
+		secret:     []byte(secret),
+		version:    version,
 	}, nil
 }
 
@@ -96,12 +70,12 @@ func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
 		return false, -1
 	}
 
-	userIDFloat, ok := claims["user_id"].(float64)
-	userID := int(userIDFloat)
+	userIdFloat, ok := claims["user_id"].(float64)
+	userId := int(userIdFloat)
 	if !ok {
 		return false, -1
 	}
-	return true, userID
+	return true, userId
 }
 
 func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int) {
@@ -125,25 +99,25 @@ func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, i
 		return false, -1
 	}
 
-	tokenID, ok := claims["id"].(string)
+	tokenId, ok := claims["id"].(string)
 	if !ok {
 		return false, -1
 	}
 
-	userIDFloat, ok := claims["user_id"].(float64)
-	userID := int(userIDFloat)
+	userIdFloat, ok := claims["user_id"].(float64)
+	userId := int(userIdFloat)
 	if !ok {
 		return false, -1
 	}
 
-	storedToken, err := obj.repo.Get(ctx, tokenID)
+	storedToken, err := obj.repository.Get(ctx, tokenId)
 	if err != nil {
 		return false, -1
 	}
-	if storedToken.UserID != userID {
+	if storedToken.UserId != userId {
 		return false, -1
 	}
-	return true, userID
+	return true, userId
 }
 
 func (obj *Jwt) GenerateToken(userID int) (string, error) {
@@ -154,40 +128,40 @@ func (obj *Jwt) GenerateToken(userID int) (string, error) {
 		"version": obj.GetVersion(),
 	})
 
-	tokenString, err := token.SignedString(obj.GetJWTSecret())
+	tokenStr, err := token.SignedString(obj.GetJWTSecret())
 	if err != nil {
 		fmt.Println(err)
 		return "", err
 	}
 
-	return tokenString, nil
+	return tokenStr, nil
 }
 
-func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userID int, deviceID string) (string, error) {
+func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userId int, deviceId string) (string, error) {
 	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
 
-	tokenID := uuid.New().String()
+	tokenId := uuid.New().String()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":      tokenID,
+		"id":      tokenId,
 		"exp":     expirationTime.Unix(),
-		"user_id": userID,
+		"user_id": userId,
 		"version": obj.GetVersion(),
 	})
-	refreshString, err := token.SignedString(obj.GetJWTSecret())
+	refreshStr, err := token.SignedString(obj.GetJWTSecret())
 	if err != nil {
 		fmt.Println(err)
 		return "", err
 	}
 
-	err = obj.repo.DeleteByUserID(ctx, userID)
+	err = obj.repository.DeleteByUserId(ctx, userId)
 	if err != nil {
 		fmt.Println(err)
 		return "", err
 	}
-	err = obj.repo.Create(ctx, tokenID, models.RefreshTokenInfo{
-		Uuid:      tokenID,
-		UserID:    userID,
-		DeviceID:  deviceID,
+	err = obj.repository.Create(ctx, models.RefreshTokenModel{
+		Uuid:      tokenId,
+		UserId:    userId,
+		DeviceId:  deviceId,
 		ExpiredAt: expirationTime,
 	})
 	if err != nil {
@@ -195,7 +169,7 @@ func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userID int, deviceID s
 		return "", err
 	}
 
-	return refreshString, nil
+	return refreshStr, nil
 }
 
 func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
@@ -207,9 +181,9 @@ func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		id, ok := claims["id"].(string)
 		if !ok {
-			return InvalidTokenID(claims["id"])
+			return InvalidTokenId(claims["id"])
 		}
-		err = obj.repo.DeleteByUUID(ctx, id)
+		err = obj.repository.DeleteByUuid(ctx, id)
 		if err != nil {
 			return err
 		}

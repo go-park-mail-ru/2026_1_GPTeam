@@ -16,9 +16,9 @@ func setupBudgetStoreTest(t *testing.T) {
 	models.NewBudgetStore()
 }
 
-func makeBudget(author int) models2.BudgetInfo {
+func makeBudget(author int) models2.BudgetModel {
 	now := time.Now().UTC().Truncate(time.Second)
-	return models2.BudgetInfo{
+	return models2.BudgetModel{
 		Title:       "Test budget",
 		Description: "test description",
 		CreatedAt:   now,
@@ -173,7 +173,7 @@ func TestGetBudgetByIDAndUserID(t *testing.T) {
 				assert.Equal(t, c.budgetID, got.Id)
 				assert.Equal(t, c.userID, got.Author)
 			} else {
-				assert.Equal(t, models2.BudgetInfo{}, got)
+				assert.Equal(t, models2.BudgetModel{}, got)
 			}
 		})
 	}

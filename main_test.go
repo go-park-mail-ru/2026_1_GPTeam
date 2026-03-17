@@ -13,7 +13,7 @@ import (
 
 	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt"
+	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
@@ -34,7 +34,7 @@ func SetupStorage() {
 	once.Do(func() {
 		_ = jwt.NewRefreshTokenStore("secret123", "0")
 		models.NewUserStore()
-		models.AddUser(models2.UserInfo{
+		models.AddUser(models2.UserModel{
 			Id:              0,
 			Username:        testUsername,
 			Password:        testPassword,
@@ -720,7 +720,7 @@ func TestHandlersNoUserInContext(t *testing.T) {
 func TestHandlersEmptyPathID(t *testing.T) {
 	SetupStorage()
 
-	user := models2.UserInfo{
+	user := models2.UserModel{
 		Id:       0,
 		Username: testUsername,
 	}

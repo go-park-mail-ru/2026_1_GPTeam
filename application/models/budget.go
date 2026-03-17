@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type BudgetInfo struct {
+type BudgetModel struct {
 	Id          int
 	Title       string
 	Description string

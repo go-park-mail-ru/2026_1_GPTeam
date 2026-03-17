@@ -8,17 +8,17 @@ import (
 )
 
 type BudgetUseCaseInterface interface {
-	Create(ctx context.Context, budget models.BudgetInfo) (int, error)
-	Delete(ctx context.Context, budgetID int, user models.UserInfo) error
-	GetById(ctx context.Context, id int) (models.BudgetInfo, error)
-	GetBudgetsOfUser(ctx context.Context, user models.UserInfo) ([]int, error)
-	IsUserAuthorOfBudget(budget models.BudgetInfo, user models.UserInfo) bool
+	Create(ctx context.Context, budget models.BudgetModel) (int, error)
+	Delete(ctx context.Context, budgetId int, user models.UserModel) error
+	GetById(ctx context.Context, id int) (models.BudgetModel, error)
+	GetBudgetsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
+	IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool
 	GetAllowedCurrencies() []string
 }
 
 type UserUseCaseInterface interface {
 	Create(ctx context.Context, user web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error)
-	GetById(ctx context.Context, id int) (models.UserInfo, error)
-	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserInfo, error)
-	IsAuthUserExists(ctx context.Context, isAuth bool, userID int) (web_helpers.User, bool)
+	GetById(ctx context.Context, id int) (models.UserModel, error)
+	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserModel, error)
+	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
 }

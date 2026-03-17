@@ -14,3 +14,6 @@ var InvalidTokenID ErrorFunc = func(args ...interface{}) error {
 var UserNotAuthorOfBudgetError ErrorFunc = func(args ...interface{}) error {
 	return fmt.Errorf("user %v not author of budget %v\n", args[0], args[1])
 }
+var HashPasswordError ErrorFunc = func(args ...interface{}) error {
+	return fmt.Errorf("unable to hash password: %v\n", args)
+}

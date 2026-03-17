@@ -7,23 +7,23 @@ import (
 )
 
 type UserRepositoryInterface interface {
-	Create(ctx context.Context, userInfo models.UserInfo) (int, error)
-	GetById(ctx context.Context, id int) (models.UserInfo, error)
-	GetByUsername(ctx context.Context, username string) (models.UserInfo, error)
-	GetByEmail(ctx context.Context, email string) (models.UserInfo, error)
+	Create(ctx context.Context, userInfo models.UserModel) (int, error)
+	GetById(ctx context.Context, id int) (models.UserModel, error)
+	GetByUsername(ctx context.Context, username string) (models.UserModel, error)
+	GetByEmail(ctx context.Context, email string) (models.UserModel, error)
 }
 
 type BudgetRepositoryInterface interface {
-	Create(ctx context.Context, budget models.BudgetInfo) (int, error)
-	GetById(ctx context.Context, id int) (models.BudgetInfo, error)
-	GetIDsByUserId(ctx context.Context, userID int) ([]int, error)
+	Create(ctx context.Context, budget models.BudgetModel) (int, error)
+	GetById(ctx context.Context, id int) (models.BudgetModel, error)
+	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
 	Delete(ctx context.Context, id int) error
 	GetCurrencies() []string
 }
 
-type JWTRepositoryInterface interface {
-	Create(ctx context.Context, uuid string, token models.RefreshTokenInfo) error
-	DeleteByUUID(ctx context.Context, uuid string) error
-	DeleteByUserID(ctx context.Context, userID int) error
-	Get(ctx context.Context, uuid string) (models.RefreshTokenInfo, error)
+type JwtRepositoryInterface interface {
+	Create(ctx context.Context, token models.RefreshTokenModel) error
+	DeleteByUuid(ctx context.Context, uuid string) error
+	DeleteByUserId(ctx context.Context, userId int) error
+	Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error)
 }
