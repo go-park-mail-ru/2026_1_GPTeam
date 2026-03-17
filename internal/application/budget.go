@@ -10,7 +10,7 @@ import (
 type BudgetUseCase interface {
 	Create(ctx context.Context, budget models.BudgetModel) (int, error)
 	Delete(ctx context.Context, budgetId int, user models.UserModel) error
-	GetById(ctx context.Context, id int) (models.BudgetModel, error)
+	GetById(ctx context.Context, id int, user models.UserModel) (models.BudgetModel, error)
 	GetBudgetsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
 	IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool
 	GetAllowedCurrencies() []string
@@ -30,19 +30,19 @@ func (obj *Budget) Create(ctx context.Context, budget models.BudgetModel) (int, 
 }
 
 func (obj *Budget) Delete(ctx context.Context, budgetId int, user models.UserModel) error {
-	budget, err := obj.GetById(ctx, budgetId)
+	_, err := obj.GetById(ctx, budgetId, user)
 	if err != nil {
 		return err
-	}
-	if !obj.IsUserAuthorOfBudget(budget, user) {
-		return UserNotAuthorOfBudgetError
 	}
 	err = obj.repository.Delete(ctx, budgetId)
 	return err
 }
 
-func (obj *Budget) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
+func (obj *Budget) GetById(ctx context.Context, id int, user models.UserModel) (models.BudgetModel, error) {
 	budget, err := obj.repository.GetById(ctx, id)
+	if !obj.IsUserAuthorOfBudget(budget, user) {
+		return models.BudgetModel{}, UserNotAuthorOfBudgetError
+	}
 	return budget, err
 }
 

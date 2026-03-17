@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -66,18 +67,17 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	budget, err := obj.budgetApp.GetById(r.Context(), budgetId)
+	budget, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
 	if err != nil {
 		fmt.Println(err)
+		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
+			response := web_helpers.NewNotFoundErrorResponse("Бюджет не найден")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("", err.Error()),
 		})
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	isAuthor := obj.budgetApp.IsUserAuthorOfBudget(budget, authUser)
-	if !isAuthor {
-		response := web_helpers.NewNotFoundErrorResponse("Бюджет не найден")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
