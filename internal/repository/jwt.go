@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -44,10 +45,9 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		switch pgErr.Code {
-		//case pgerrcode:
-		case "23505":
+		case pgerrcode.UniqueViolation:
 			return DuplicatedDataError
-		case "23514":
+		case pgerrcode.CheckViolation:
 			return ConstraintError
 		default:
 			return pgErr

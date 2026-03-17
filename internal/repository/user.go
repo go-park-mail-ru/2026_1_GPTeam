@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -54,9 +55,9 @@ func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) 
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		switch pgErr.Code {
-		case "23505":
+		case pgerrcode.UniqueViolation:
 			return -1, DuplicatedDataError
-		case "23514":
+		case pgerrcode.CheckViolation:
 			return -1, ConstraintError
 		default:
 			return -1, pgErr
