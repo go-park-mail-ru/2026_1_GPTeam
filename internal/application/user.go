@@ -27,8 +27,7 @@ func NewUser(repository repository.UserRepository) *User {
 }
 
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
-	avatarUrl := "img/123.png"                                                                  // ToDo: set default in db
-	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper
+	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper (на будущее, так как надо сделать поддержку старых перцов и плавную миграцию на новый перец)
 	if err != nil {
 		fmt.Printf("unable to hash password: %v\n", err)
 		return web_helpers.AuthUser{}, HashPasswordError
@@ -40,8 +39,9 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 		Email:     userRequest.Email,
 		CreatedAt: time.Now(),
 		LastLogin: time.Time{},
-		AvatarUrl: avatarUrl,
+		AvatarUrl: "",
 		UpdatedAt: time.Now(),
+		Active:    true,
 	}
 	id, err := obj.repository.Create(ctx, userModel)
 	if err != nil {

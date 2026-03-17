@@ -28,33 +28,34 @@ type BudgetPostgres struct {
 	currencies []string
 }
 
-func getCurrenciesFromDB(db *pgx.Conn) []string {
+func getCurrenciesFromDB(db *pgx.Conn) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
 	row, err := db.Query(context.Background(), query)
 	if err != nil {
-		fmt.Printf("unable get currencies from db: %v\n", err) // ToDo: use new error
-		return []string{}
+		return []string{}, UnableToReadCurrenciesError
 	}
 	var currencies []string
 	for row.Next() {
 		var code string
 		err = row.Scan(&code)
 		if err != nil {
-			fmt.Printf("unable get currencies from db: %v\n", err)
-			return []string{}
+			return []string{}, UnableToReadCurrenciesError
 		}
 		currencies = append(currencies, code)
 	}
-	return currencies
+	return currencies, nil
 }
 
-func NewPostgresBudget(db *pgx.Conn) *BudgetPostgres {
-	currencies := getCurrenciesFromDB(db)
+func NewPostgresBudget(db *pgx.Conn) (*BudgetPostgres, error) {
+	currencies, err := getCurrenciesFromDB(db)
+	if err != nil {
+		return &BudgetPostgres{}, err
+	}
 	fmt.Printf("Read currencies from db: %v\n", currencies)
 	return &BudgetPostgres{
 		db:         db,
 		currencies: currencies,
-	}
+	}, nil
 }
 
 func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
@@ -108,7 +109,7 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 }
 
 func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
-	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author from budget where id = $1;`
+	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author, active from budget where id = $1 and active = true;`
 	var title pgtype.Text
 	var description pgtype.Text
 	var createdAt pgtype.Timestamptz
@@ -119,7 +120,8 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 	var target pgtype.Float8
 	var currency pgtype.Text
 	var author pgtype.Int4
-	err := obj.db.QueryRow(ctx, query, id).Scan(&title, &description, &createdAt, &startAt, &endAt, &updatedAt, &actual, &target, &currency, &author)
+	var active pgtype.Bool
+	err := obj.db.QueryRow(ctx, query, id).Scan(&title, &description, &createdAt, &startAt, &endAt, &updatedAt, &actual, &target, &currency, &author, &active)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.BudgetModel{}, NothingInTableError
@@ -138,6 +140,7 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 		Target:      target.Float64,
 		Currency:    currency.String,
 		Author:      int(author.Int32),
+		Active:      active.Bool,
 	}
 	if !endAt.Valid {
 		budget.EndAt = time.Time{}
@@ -146,7 +149,7 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 }
 
 func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
-	query := `select id from budget where author = $1;`
+	query := `select id from budget where author = $1 and active = true;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userId)
 	if err != nil {
@@ -174,8 +177,7 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 }
 
 func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
-	// ToDo: weak delete
-	query := `delete from budget where id = $1;`
+	query := `update budget set active = false where id = $1;`
 	_, err := obj.db.Exec(ctx, query, id)
 	if err != nil {
 		return err

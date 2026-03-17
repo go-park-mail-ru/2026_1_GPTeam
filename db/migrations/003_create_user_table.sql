@@ -5,8 +5,9 @@ create table if not exists "user" (
     email text not null unique,
     created_at timestamp not null default now(),
     last_login timestamp default null,
-    avatar_url text not null,
+    avatar_url text not null default 'img/default.png',
     updated_at timestamp not null default now(),
+    active boolean default true,
 
     constraint username_length check ( length(username) >= 3 and length(username) <= 255),
     constraint password_length check ( length(password) >= 8 ),

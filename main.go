@@ -45,7 +45,11 @@ func main() {
 	}()
 
 	userRepo := repository.NewPostgresUser(conn)
-	budgetRepo := repository.NewPostgresBudget(conn)
+	budgetRepo, err := repository.NewPostgresBudget(conn)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	jwtRepo := repository.NewPostgresJwt(conn)
 
 	userUseCases := application.NewUser(userRepo)

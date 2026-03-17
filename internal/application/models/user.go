@@ -13,4 +13,5 @@ type UserModel struct {
 	LastLogin time.Time
 	AvatarUrl string
 	UpdatedAt time.Time
+	Active    bool
 }

@@ -10,6 +10,7 @@ create table if not exists budget (
     target double precision not null,
     currency currency_code not null,
     author int not null references "user"(id),
+    active boolean default true,
 
     constraint title_length check ( length(title) > 0 and length(title) <= 255 ),
     constraint description_length check ( length(description) > 0 ),

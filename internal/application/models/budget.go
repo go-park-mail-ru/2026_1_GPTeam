@@ -16,4 +16,5 @@ type BudgetModel struct {
 	Target      float64
 	Currency    string
 	Author      int
+	Active      bool
 }
