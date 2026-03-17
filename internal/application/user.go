@@ -31,7 +31,7 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper
 	if err != nil {
 		fmt.Printf("unable to hash password: %v\n", err)
-		return web_helpers.AuthUser{}, err
+		return web_helpers.AuthUser{}, HashPasswordError
 	}
 	userModel := models.UserModel{
 		Id:        0,

@@ -58,7 +58,7 @@ func main() {
 	budgetUseCases := application.NewBudget(budgetRepo)
 
 	userHandlers := web.NewUserHandler(userUseCases)
-	authHandlers := web.NewJWTHandler(authUseCases, userUseCases)
+	authHandlers := web.NewAuthHandler(authUseCases, userUseCases)
 	budgetHandlers := web.NewBudgetHandler(budgetUseCases)
 
 	mux := http.NewServeMux()

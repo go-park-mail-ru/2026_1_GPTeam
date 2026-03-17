@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 )
@@ -34,9 +35,8 @@ func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 
 	ids, err := obj.budgetApp.GetBudgetsOfUser(r.Context(), authUser)
 	if err != nil {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
-			web_helpers.NewFieldError("", err.Error()),
-		})
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+		response.Message = err.Error()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -69,15 +69,18 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 
 	budget, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
 	if err != nil {
-		fmt.Println(err)
 		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.NothingInTableError) {
 			response := web_helpers.NewNotFoundErrorResponse("Бюджет не найден")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
-			web_helpers.NewFieldError("", err.Error()),
-		})
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+		response.Message = err.Error()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -115,37 +118,37 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var fieldErrors []web_helpers.FieldError
+	var validationErrors []web_helpers.FieldError
 	if body.Title == "" {
-		fieldErrors = append(fieldErrors, web_helpers.NewFieldError("title", "Поле обязательно для заполнения"))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", "Поле обязательно для заполнения"))
 	}
 	if body.Description == "" {
-		fieldErrors = append(fieldErrors, web_helpers.NewFieldError("description", "Поле обязательно для заполнения"))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("description", "Поле обязательно для заполнения"))
 	}
 	if body.Target == 0 {
-		fieldErrors = append(fieldErrors, web_helpers.NewFieldError("target", "Поле обязательно для заполнения"))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("target", "Поле обязательно для заполнения"))
 	}
 	if body.Currency == "" {
-		fieldErrors = append(fieldErrors, web_helpers.NewFieldError("currency", "Поле обязательно для заполнения"))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", "Поле обязательно для заполнения"))
 	}
 	err := validators.ValidateCurrency(body.Currency, obj.budgetApp.GetAllowedCurrencies())
 	if err != nil {
-		fieldErrors = append(fieldErrors, web_helpers.NewFieldError("currency", err.Error()))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", err.Error()))
 	}
 	err = validators.ValidateTargetBudget(body.Target)
 	if err != nil {
-		fieldErrors = append(fieldErrors, web_helpers.NewFieldError("target", err.Error()))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("target", err.Error()))
 	}
 	err = validators.ValidateStartDate(body.StartAt)
 	if err != nil {
-		fieldErrors = append(fieldErrors, web_helpers.NewFieldError("start_at", err.Error()))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("start_at", err.Error()))
 	}
 	err = validators.ValidateEndDate(body.StartAt, body.EndAt)
 	if err != nil {
-		fieldErrors = append(fieldErrors, web_helpers.NewFieldError("end_at", err.Error()))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("end_at", err.Error()))
 	}
-	if len(fieldErrors) > 0 {
-		response := web_helpers.NewBudgetErrorResponse(http.StatusBadRequest, "Ошибка валидации", fieldErrors)
+	if len(validationErrors) > 0 {
+		response := web_helpers.NewBudgetErrorResponse(http.StatusBadRequest, "Ошибка валидации", validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -163,10 +166,20 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := obj.budgetApp.Create(r.Context(), budget)
 	if err != nil {
-		fmt.Println(err)
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
-			web_helpers.NewFieldError("", err.Error()),
-		})
+		if errors.Is(err, repository.DuplicatedDataError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Такой бюджет уже существует"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.ConstraintError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Введены некорректные данные"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+		response.Message = err.Error()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -199,8 +212,17 @@ func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err = obj.budgetApp.Delete(r.Context(), budgetId, authUser)
 	if err != nil {
-		fmt.Println(err)
-		response := web_helpers.NewNotFoundErrorResponse("Бюджет не найден")
+		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Бюджет не найден")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewNotFoundErrorResponse(err.Error())
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
