@@ -3,16 +3,16 @@ package application
 import (
 	"context"
 
-	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 )
 
 type BudgetUseCase interface {
-	Create(ctx context.Context, budget models2.BudgetModel) (int, error)
-	Delete(ctx context.Context, budgetId int, user models2.UserModel) error
-	GetById(ctx context.Context, id int) (models2.BudgetModel, error)
-	GetBudgetsOfUser(ctx context.Context, user models2.UserModel) ([]int, error)
-	IsUserAuthorOfBudget(budget models2.BudgetModel, user models2.UserModel) bool
+	Create(ctx context.Context, budget models.BudgetModel) (int, error)
+	Delete(ctx context.Context, budgetId int, user models.UserModel) error
+	GetById(ctx context.Context, id int) (models.BudgetModel, error)
+	GetBudgetsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
+	IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool
 	GetAllowedCurrencies() []string
 }
 
@@ -24,12 +24,12 @@ func NewBudget(repository repository.BudgetRepository) *Budget {
 	return &Budget{repository: repository}
 }
 
-func (obj *Budget) Create(ctx context.Context, budget models2.BudgetModel) (int, error) {
+func (obj *Budget) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
 	id, err := obj.repository.Create(ctx, budget)
 	return id, err
 }
 
-func (obj *Budget) Delete(ctx context.Context, budgetId int, user models2.UserModel) error {
+func (obj *Budget) Delete(ctx context.Context, budgetId int, user models.UserModel) error {
 	budget, err := obj.GetById(ctx, budgetId)
 	if err != nil {
 		return err
@@ -41,17 +41,17 @@ func (obj *Budget) Delete(ctx context.Context, budgetId int, user models2.UserMo
 	return err
 }
 
-func (obj *Budget) GetById(ctx context.Context, id int) (models2.BudgetModel, error) {
+func (obj *Budget) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
 	budget, err := obj.repository.GetById(ctx, id)
 	return budget, err
 }
 
-func (obj *Budget) GetBudgetsOfUser(ctx context.Context, user models2.UserModel) ([]int, error) {
+func (obj *Budget) GetBudgetsOfUser(ctx context.Context, user models.UserModel) ([]int, error) {
 	ids, err := obj.repository.GetIdsByUserId(ctx, user.Id)
 	return ids, err
 }
 
-func (obj *Budget) IsUserAuthorOfBudget(budget models2.BudgetModel, user models2.UserModel) bool {
+func (obj *Budget) IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool {
 	return user.Id == budget.Author
 }
 

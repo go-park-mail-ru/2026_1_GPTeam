@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	web_helpers2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 )
 
 type UserHandler struct {
@@ -23,14 +23,14 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	_ = authUser
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
-		response := web_helpers2.NewUnauthorizedErrorResponse()
-		web_helpers2.WriteResponseJSON(w, response.Code, response)
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	balance := 0.0
 	currency := "RUB"
-	response := web_helpers2.NewBalanceResponse(balance, currency, 0, 0)
-	web_helpers2.WriteResponseJSON(w, response.Code, response)
+	response := web_helpers.NewBalanceResponse(balance, currency, 0, 0)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
@@ -38,11 +38,11 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	authUser, ok := user.(models.UserModel)
 	if !ok {
 		fmt.Printf("user is a %T\n", user)
-		response := web_helpers2.NewUnauthorizedErrorResponse()
-		web_helpers2.WriteResponseJSON(w, response.Code, response)
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	userResponse := web_helpers2.User{
+	userResponse := web_helpers.User{
 		Username:        authUser.Username,
 		Email:           authUser.Email,
 		CreatedAt:       authUser.CreatedAt,
@@ -51,6 +51,6 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		Balance:         0,
 		BalanceCurrency: "RUB",
 	}
-	response := web_helpers2.NewLoginSuccessResponse(userResponse)
-	web_helpers2.WriteResponseJSON(w, response.Code, response)
+	response := web_helpers.NewLoginSuccessResponse(userResponse)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

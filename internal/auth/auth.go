@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	jwt_auth2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 )
 
 type AuthenticationService interface {
@@ -17,13 +17,13 @@ type AuthenticationService interface {
 }
 
 type JWTAuthService struct {
-	jwt jwt_auth2.JwtUseCase
+	jwt jwt_auth.JwtUseCase
 }
 
 const TokenName = "token"
 const RefreshTokenName = "refresh_token"
 
-func NewJWTAuth(useCase jwt_auth2.JwtUseCase) *JWTAuthService {
+func NewJWTAuth(useCase jwt_auth.JwtUseCase) *JWTAuthService {
 	return &JWTAuthService{jwt: useCase}
 }
 
@@ -36,7 +36,7 @@ func (obj *JWTAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		Name:     TokenName,
 		Value:    token,
 		Path:     "/",
-		Expires:  time.Now().Add(jwt_auth2.AccessTokenExpirationTime),
+		Expires:  time.Now().Add(jwt_auth.AccessTokenExpirationTime),
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
@@ -50,7 +50,7 @@ func (obj *JWTAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		Name:     RefreshTokenName,
 		Value:    token,
 		Path:     "/auth/",
-		Expires:  time.Now().Add(jwt_auth2.RefreshTokenExpirationTime),
+		Expires:  time.Now().Add(jwt_auth.RefreshTokenExpirationTime),
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,

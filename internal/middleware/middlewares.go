@@ -38,7 +38,7 @@ func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, u
 			return
 		}
 
-		authUser, err := userApp.GetById(context.Background(), userId)
+		authUser, err := userApp.GetById(r.Context(), userId)
 		if err != nil {
 			response := web_helpers2.NewUnauthorizedErrorResponse()
 			web_helpers2.WriteResponseJSON(w, response.Code, response)

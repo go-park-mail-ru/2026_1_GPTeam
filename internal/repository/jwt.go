@@ -44,6 +44,7 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		switch pgErr.Code {
+		//case pgerrcode:
 		case "23505":
 			return DuplicatedDataError
 		case "23514":
