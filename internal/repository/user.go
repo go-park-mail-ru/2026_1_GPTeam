@@ -24,7 +24,7 @@ type UserPostgres struct {
 	db *pgx.Conn
 }
 
-func NewPostgresUser(db *pgx.Conn) *UserPostgres {
+func NewUserPostgres(db *pgx.Conn) *UserPostgres {
 	return &UserPostgres{db: db}
 }
 

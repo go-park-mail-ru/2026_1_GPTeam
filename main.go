@@ -44,40 +44,40 @@ func main() {
 		}
 	}()
 
-	userRepo := repository.NewPostgresUser(conn)
-	budgetRepo, err := repository.NewPostgresBudget(conn)
+	userPostgres := repository.NewUserPostgres(conn)
+	budgetPostgres, err := repository.NewBudgetPostgres(conn)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	jwtRepo := repository.NewPostgresJwt(conn)
+	jwtPostgres := repository.NewJwtPostgres(conn)
 
-	userUseCases := application.NewUser(userRepo)
-	jwtUseCases, err := jwt_auth.NewJwt(jwtRepo, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
+	userApp := application.NewUser(userPostgres)
+	jwt, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	authUseCases := auth.NewJWTAuth(jwtUseCases)
-	budgetUseCases := application.NewBudget(budgetRepo)
+	authService := auth.NewJwtAuthService(jwt)
+	budgetApp := application.NewBudget(budgetPostgres)
 
-	userHandlers := web.NewUserHandler(userUseCases)
-	authHandlers := web.NewAuthHandler(authUseCases, userUseCases)
-	budgetHandlers := web.NewBudgetHandler(budgetUseCases)
+	userHandler := web.NewUserHandler(userApp)
+	authHandler := web.NewAuthHandler(authService, userApp)
+	budgetHandler := web.NewBudgetHandler(budgetApp)
 
 	mux := http.NewServeMux()
-	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.Logout)))
-	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.RefreshToken)))
-	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.SignUp)))
-	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandlers.Login)))
-	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandlers.Profile)))
-	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandlers.Balance)))
-	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandlers.GetBudgets)))
-	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandlers.GetBudget)))
-	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandlers.Create)))
-	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandlers.Delete)))
+	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
+	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.RefreshToken)))
+	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.SignUp)))
+	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Login)))
+	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Profile)))
+	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Balance)))
+	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudgets)))
+	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
+	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
+	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
 
-	handler := middleware.AuthMiddleware(mux, authUseCases, userUseCases)
+	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 

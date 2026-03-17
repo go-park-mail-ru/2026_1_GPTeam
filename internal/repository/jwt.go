@@ -23,7 +23,7 @@ type JwtPostgres struct {
 	db *pgx.Conn
 }
 
-func NewPostgresJwt(db *pgx.Conn) *JwtPostgres {
+func NewJwtPostgres(db *pgx.Conn) *JwtPostgres {
 	return &JwtPostgres{db: db}
 }
 

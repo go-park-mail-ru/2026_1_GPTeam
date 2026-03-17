@@ -46,7 +46,7 @@ func getCurrenciesFromDB(db *pgx.Conn) ([]string, error) {
 	return currencies, nil
 }
 
-func NewPostgresBudget(db *pgx.Conn) (*BudgetPostgres, error) {
+func NewBudgetPostgres(db *pgx.Conn) (*BudgetPostgres, error) {
 	currencies, err := getCurrenciesFromDB(db)
 	if err != nil {
 		return &BudgetPostgres{}, err
