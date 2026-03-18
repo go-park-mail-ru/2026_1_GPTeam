@@ -66,14 +66,15 @@ func NewEnumsPostgres(db *pgx.Conn) (*EnumsPostgres, error) {
 
 func getCurrenciesFromDB(db *pgx.Conn) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
-	row, err := db.Query(context.Background(), query)
+	rows, err := db.Query(context.Background(), query)
 	if err != nil {
 		return []string{}, UnableToReadCurrenciesError
 	}
+	defer rows.Close()
 	var currencies []string
-	for row.Next() {
+	for rows.Next() {
 		var code string
-		err = row.Scan(&code)
+		err = rows.Scan(&code)
 		if err != nil {
 			return []string{}, UnableToReadCurrenciesError
 		}
@@ -84,14 +85,15 @@ func getCurrenciesFromDB(db *pgx.Conn) ([]string, error) {
 
 func getTransactionTypesFromDB(db *pgx.Conn) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'transaction_type'::regtype order by enumsortorder;`
-	row, err := db.Query(context.Background(), query)
+	rows, err := db.Query(context.Background(), query)
 	if err != nil {
 		return []string{}, UnableToReadTransactionTypesError
 	}
+	defer rows.Close()
 	var transactionTypes []string
-	for row.Next() {
+	for rows.Next() {
 		var transactionType string
-		err = row.Scan(&transactionType)
+		err = rows.Scan(&transactionType)
 		if err != nil {
 			return []string{}, UnableToReadTransactionTypesError
 		}
@@ -102,14 +104,15 @@ func getTransactionTypesFromDB(db *pgx.Conn) ([]string, error) {
 
 func getCategoriesFromDB(db *pgx.Conn) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'category_type'::regtype order by enumsortorder;`
-	row, err := db.Query(context.Background(), query)
+	rows, err := db.Query(context.Background(), query)
 	if err != nil {
 		return []string{}, UnableToReadCategoriesError
 	}
+	defer rows.Close()
 	var categories []string
-	for row.Next() {
+	for rows.Next() {
 		var category string
-		err = row.Scan(&category)
+		err = rows.Scan(&category)
 		if err != nil {
 			return []string{}, UnableToReadCategoriesError
 		}

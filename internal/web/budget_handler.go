@@ -44,7 +44,7 @@ func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	response := web_helpers.NewBudgetsIDsResponse(ids)
+	response := web_helpers.NewBudgetsIdsResponse(ids)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 

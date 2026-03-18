@@ -52,6 +52,7 @@ func main() {
 	userPostgres := repository.NewUserPostgres(conn)
 	budgetPostgres := repository.NewBudgetPostgres(conn)
 	jwtPostgres := repository.NewJwtPostgres(conn)
+	transactionPostgres := repository.NewTransactionPostgres(conn)
 
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres)
@@ -62,11 +63,13 @@ func main() {
 	}
 	authService := auth.NewJwtAuthService(jwt)
 	budgetApp := application.NewBudget(budgetPostgres)
+	transactionApp := application.NewTransaction(transactionPostgres)
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
 	userHandler := web.NewUserHandler(userApp)
 	authHandler := web.NewAuthHandler(authService, userApp)
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
+	transactionHandler := web.NewTransactionHandler(transactionApp)
 
 	mux := http.NewServeMux()
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
@@ -80,6 +83,7 @@ func main() {
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
+	mux.Handle("/get_transactions", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(transactionHandler.GetTransactions)))
 
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)

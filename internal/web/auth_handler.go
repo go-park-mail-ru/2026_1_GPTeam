@@ -122,7 +122,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response := web_helpers.NewSignupSuccessResponse(authUser)
-	obj.authService.GenerateNewAuth(r.Context(), w, authUser.ID)
+	obj.authService.GenerateNewAuth(r.Context(), w, authUser.Id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 

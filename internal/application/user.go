@@ -48,7 +48,7 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 		return web_helpers.AuthUser{}, err
 	}
 	user := web_helpers.AuthUser{
-		ID:        id,
+		Id:        id,
 		Username:  userModel.Username,
 		Email:     userModel.Email,
 		LastLogin: userModel.LastLogin,
