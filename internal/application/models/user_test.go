@@ -1,34 +1,34 @@
-package storage_test
+package models_test
 
 import (
 	"testing"
 	"time"
 
+	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
-
-	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 )
 
 func setupUserStoreTest(t *testing.T) {
 	t.Helper()
-	storage.NewUserStore()
+	models.NewUserStore()
 }
 
 func TestAddUserAndGetUserByID(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	id := storage.AddUser(storage.UserInfo{
+	id := models.AddUser(models2.UserModel{
 		Username:  "WatchDemo_user_storage_test",
 		Password:  "secret",
 		Email:     "watchdemo_user_storage_test@gmail.com",
 		CreatedAt: createdAt,
 	})
 
-	user, ok := storage.GetUserByID(id)
+	user, ok := models.GetUserByID(id)
 	require.True(t, ok)
 
 	assert.Equal(t, "WatchDemo_user_storage_test", user.Username)
@@ -41,14 +41,14 @@ func TestFindUserByCredentials_ReturnsUser(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	storage.AddUser(storage.UserInfo{
+	models.AddUser(models2.UserModel{
 		Username:  "CredUser_user_storage_test",
 		Password:  "verysecret",
 		Email:     "cred_user_storage_test@gmail.com",
 		CreatedAt: createdAt,
 	})
 
-	user, ok := storage.FindUserByCredentials(base.LoginBodyRequest{
+	user, ok := models.FindUserByCredentials(web_helpers.LoginBodyRequest{
 		Username: "CredUser_user_storage_test",
 		Password: "verysecret",
 	})
@@ -63,14 +63,14 @@ func TestFindUserByCredentials_WrongPassword(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	storage.AddUser(storage.UserInfo{
+	models.AddUser(models2.UserModel{
 		Username:  "WrongPassword_user_storage_test",
 		Password:  "correct-password",
 		Email:     "wrong_password_user_storage_test@gmail.com",
 		CreatedAt: createdAt,
 	})
 
-	_, ok := storage.FindUserByCredentials(base.LoginBodyRequest{
+	_, ok := models.FindUserByCredentials(web_helpers.LoginBodyRequest{
 		Username: "WrongPassword_user_storage_test",
 		Password: "incorrect-password",
 	})
@@ -81,37 +81,37 @@ func TestUserExists_ReturnsTrueForExistingUser(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	storage.AddUser(storage.UserInfo{
+	models.AddUser(models2.UserModel{
 		Username:  "ExistsUser_user_storage_test",
 		Password:  "secret",
 		Email:     "exists_user_storage_test@gmail.com",
 		CreatedAt: createdAt,
 	})
 
-	assert.True(t, storage.UserExists("ExistsUser_user_storage_test"))
-	assert.False(t, storage.UserExists("DefinitelyMissingUser_user_storage_test"))
+	assert.True(t, models.UserExists("ExistsUser_user_storage_test"))
+	assert.False(t, models.UserExists("DefinitelyMissingUser_user_storage_test"))
 }
 
 func TestEmailExists_ReturnsTrueForExistingEmail(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	storage.AddUser(storage.UserInfo{
+	models.AddUser(models2.UserModel{
 		Username:  "EmailUser_user_storage_test",
 		Password:  "secret",
 		Email:     "email_user_storage_test@gmail.com",
 		CreatedAt: createdAt,
 	})
 
-	assert.True(t, storage.EmailExists("email_user_storage_test@gmail.com"))
-	assert.False(t, storage.EmailExists("missing_email_user_storage_test@gmail.com"))
+	assert.True(t, models.EmailExists("email_user_storage_test@gmail.com"))
+	assert.False(t, models.EmailExists("missing_email_user_storage_test@gmail.com"))
 }
 
 func TestIsAuthUserInDatabase_ReturnsTrueForExistingID(t *testing.T) {
 	setupUserStoreTest(t)
 
 	createdAt := time.Now().UTC().Truncate(time.Second)
-	id := storage.AddUser(storage.UserInfo{
+	id := models.AddUser(models2.UserModel{
 		Username:  "AuthUser_user_storage_test",
 		Password:  "secret",
 		Email:     "auth_user_storage_test@gmail.com",
@@ -121,9 +121,9 @@ func TestIsAuthUserInDatabase_ReturnsTrueForExistingID(t *testing.T) {
 		Balance:   150.5,
 	})
 
-	user, ok := storage.IsAuthUserInDatabase(true, "0")
+	user, ok := models.IsAuthUserInDatabase(true, "0")
 	if id != 0 {
-		user, ok = storage.IsAuthUserInDatabase(true, string(rune('0'+id)))
+		user, ok = models.IsAuthUserInDatabase(true, string(rune('0'+id)))
 	}
 
 	require.True(t, ok)
@@ -136,12 +136,12 @@ func TestIsAuthUserInDatabase_ReturnsTrueForExistingID(t *testing.T) {
 func TestIsAuthUserInDatabase_ReturnsFalseForInvalidAuthData(t *testing.T) {
 	setupUserStoreTest(t)
 
-	_, ok := storage.IsAuthUserInDatabase(false, "1")
+	_, ok := models.IsAuthUserInDatabase(false, "1")
 	assert.False(t, ok)
 
-	_, ok = storage.IsAuthUserInDatabase(true, "invalid-id")
+	_, ok = models.IsAuthUserInDatabase(true, "invalid-id")
 	assert.False(t, ok)
 
-	_, ok = storage.IsAuthUserInDatabase(true, "999999")
+	_, ok = models.IsAuthUserInDatabase(true, "999999")
 	assert.False(t, ok)
 }

@@ -5,13 +5,14 @@ create table if not exists "user" (
     email text not null unique,
     created_at timestamp not null default now(),
     last_login timestamp default null,
-    avatar_url text not null,
+    avatar_url text not null default 'img/default.png',
     updated_at timestamp not null default now(),
+    active boolean default true,
 
     constraint username_length check ( length(username) >= 3 and length(username) <= 255),
     constraint password_length check ( length(password) >= 8 ),
-    constraint email_is_correct check ( email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' ),
-    constraint last_login_not_in_past check ( last_login is null or last_login > created_at),
+    constraint email_is_correct check ( email ~* '^[A-Za-zа-яёА-ЯЁ0-9._%+-]+@[A-Za-zа-яёА-ЯЁ0-9.-]+\.[A-Za-zа-яёА-ЯЁ]{2,}$' ),
+    constraint last_login_not_in_past check ( last_login is null or last_login >= created_at),
     constraint update_at_not_in_past check ( updated_at >= created_at )
 );
 

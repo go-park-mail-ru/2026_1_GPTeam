@@ -10,11 +10,12 @@ create table if not exists budget (
     target double precision not null,
     currency currency_code not null,
     author int not null references "user"(id),
+    active boolean default true,
 
     constraint title_length check ( length(title) > 0 and length(title) <= 255 ),
     constraint description_length check ( length(description) > 0 ),
     constraint start_not_in_past check ( start_at >= created_at ),
-    constraint end_after_start check ( end_at is null or end_at > start_at ),
+    constraint end_after_start check ( end_at is null or end_at >= start_at ),
     constraint updated_at_not_in_past check ( updated_at >= created_at ),
     constraint actual_not_negative check ( actual >= 0 ),
     constraint target_greater_than_actual check ( target > actual )

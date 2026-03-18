@@ -1,23 +1,24 @@
-package storage_test
+package models_test
 
 import (
 	"testing"
 	"time"
 
+	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 )
 
 func setupBudgetStoreTest(t *testing.T) {
 	t.Helper()
-	storage.NewBudgetStore()
+	models.NewBudgetStore()
 }
 
-func makeBudget(author int) storage.BudgetInfo {
+func makeBudget(author int) models2.BudgetModel {
 	now := time.Now().UTC().Truncate(time.Second)
-	return storage.BudgetInfo{
+	return models2.BudgetModel{
 		Title:       "Test budget",
 		Description: "test description",
 		CreatedAt:   now,
@@ -35,9 +36,9 @@ func TestAddBudgetAndGetBudgetByID(t *testing.T) {
 	setupBudgetStoreTest(t)
 
 	budget := makeBudget(101)
-	id := storage.AddBudget(budget)
+	id := models.AddBudget(budget)
 
-	got, ok := storage.GetBudgetByID(id)
+	got, ok := models.GetBudgetByID(id)
 	require.True(t, ok)
 
 	assert.Equal(t, id, got.Id)
@@ -56,7 +57,7 @@ func TestGetBudgetByID(t *testing.T) {
 	t.Parallel()
 	setupBudgetStoreTest(t)
 
-	id := storage.AddBudget(makeBudget(10))
+	id := models.AddBudget(makeBudget(10))
 
 	cases := []struct {
 		name   string
@@ -79,7 +80,7 @@ func TestGetBudgetByID(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			_, ok := storage.GetBudgetByID(c.id)
+			_, ok := models.GetBudgetByID(c.id)
 			assert.Equal(t, c.wantOK, ok)
 		})
 	}
@@ -89,9 +90,9 @@ func TestGetBudgetIDsByUserID(t *testing.T) {
 	t.Parallel()
 	setupBudgetStoreTest(t)
 
-	id1 := storage.AddBudget(makeBudget(1))
-	id2 := storage.AddBudget(makeBudget(1))
-	storage.AddBudget(makeBudget(2))
+	id1 := models.AddBudget(makeBudget(1))
+	id2 := models.AddBudget(makeBudget(1))
+	models.AddBudget(makeBudget(2))
 
 	cases := []struct {
 		name    string
@@ -121,7 +122,7 @@ func TestGetBudgetIDsByUserID(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			ids := storage.GetBudgetIDsByUserID(c.userID)
+			ids := models.GetBudgetIDsByUserID(c.userID)
 			assert.Len(t, ids, c.wantLen)
 			for _, wantID := range c.wantIDs {
 				assert.Contains(t, ids, wantID)
@@ -134,7 +135,7 @@ func TestGetBudgetByIDAndUserID(t *testing.T) {
 	t.Parallel()
 	setupBudgetStoreTest(t)
 
-	id := storage.AddBudget(makeBudget(77))
+	id := models.AddBudget(makeBudget(77))
 
 	cases := []struct {
 		name     string
@@ -166,13 +167,13 @@ func TestGetBudgetByIDAndUserID(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			got, ok := storage.GetBudgetByIDAndUserID(c.budgetID, c.userID)
+			got, ok := models.GetBudgetByIDAndUserID(c.budgetID, c.userID)
 			assert.Equal(t, c.wantOK, ok)
 			if c.wantOK {
 				assert.Equal(t, c.budgetID, got.Id)
 				assert.Equal(t, c.userID, got.Author)
 			} else {
-				assert.Equal(t, storage.BudgetInfo{}, got)
+				assert.Equal(t, models2.BudgetModel{}, got)
 			}
 		})
 	}
@@ -223,17 +224,17 @@ func TestDeleteBudgetByIDAndUserID(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			id := storage.AddBudget(makeBudget(c.authorID))
+			id := models.AddBudget(makeBudget(c.authorID))
 			targetID := id
 			if !c.useRealID {
 				targetID = c.budgetID
 			}
 
-			ok := storage.DeleteBudgetByIDAndUserID(targetID, c.deleteUserID)
+			ok := models.DeleteBudgetByIDAndUserID(targetID, c.deleteUserID)
 			assert.Equal(t, c.wantOK, ok)
 
 			if c.useRealID {
-				_, exists := storage.GetBudgetByID(id)
+				_, exists := models.GetBudgetByID(id)
 				assert.Equal(t, c.wantExists, exists)
 			}
 		})
