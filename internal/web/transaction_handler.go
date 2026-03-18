@@ -11,14 +11,19 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 )
 
 type TransactionHandler struct {
 	transactionApp application.TransactionUseCase
+	enumsApp       application.EnumsUseCase
 }
 
-func NewTransactionHandler(transactionApp application.TransactionUseCase) *TransactionHandler {
-	return &TransactionHandler{transactionApp: transactionApp}
+func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsApp application.EnumsUseCase) *TransactionHandler {
+	return &TransactionHandler{
+		transactionApp: transactionApp,
+		enumsApp:       enumsApp,
+	}
 }
 
 func (obj *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +45,26 @@ func (obj *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var validationErrors []web_helpers.FieldError
-	// ToDo: validators
+	err = validators.ValidateTransactionTitle(body.Title)
+	if err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", err.Error()))
+	}
+	err = validators.ValidateTransactionDescription(body.Description)
+	if err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("description", err.Error()))
+	}
+	err = validators.ValidateTransactionValue(body.Value)
+	if err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("value", err.Error()))
+	}
+	err = validators.ValidateTransactionType(body.Type, obj.enumsApp.GetTransactionTypes())
+	if err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("type", err.Error()))
+	}
+	err = validators.ValidateTransactionCategory(body.Category, obj.enumsApp.GetCategoryTypes())
+	if err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("category", err.Error()))
+	}
 	if len(validationErrors) > 0 {
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)

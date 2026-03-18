@@ -354,7 +354,7 @@ func NewTransactionsIdsResponse(ids []int) TransactionsIdsResponse {
 
 type TransactionRequest struct {
 	AccountId       int       `json:"account_id"`
-	Value           int       `json:"value"`
+	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
 	Title           string    `json:"title"`

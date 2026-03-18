@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -74,9 +73,8 @@ func ValidateEmail(email string) error {
 }
 
 func ValidateCurrency(currency string, allowedCurrencies []string) error {
-	currency = strings.ToUpper(currency)
 	if !slices.Contains(allowedCurrencies, currency) {
-		return CurrencyNotAllowed
+		return CurrencyNotAllowedError
 	}
 	return nil
 }
@@ -106,6 +104,44 @@ func ValidateEndDate(startDate time.Time, endDate time.Time) error {
 	}
 	if endDate.Before(startDate) {
 		return EndDateInPastError
+	}
+	return nil
+}
+
+func ValidateTransactionValue(value float64) error {
+	if value <= 0 {
+		return ValueIsNegativeError
+	}
+	return nil
+}
+
+func ValidateTransactionType(transactionType string, allowedTypes []string) error {
+	if !slices.Contains(allowedTypes, transactionType) {
+		return TransactionTypeNotAllowedError
+	}
+	return nil
+}
+
+func ValidateTransactionCategory(category string, allowedCategories []string) error {
+	if !slices.Contains(allowedCategories, category) {
+		return TransactionCategoryNotAllowedError
+	}
+	return nil
+}
+
+func ValidateTransactionTitle(title string) error {
+	if len(title) == 0 {
+		return TransactionTitleEmptyError
+	}
+	if len(title) > 255 {
+		return TransactionTitleLongError
+	}
+	return nil
+}
+
+func ValidateTransactionDescription(description string) error {
+	if len(description) == 0 {
+		return TransactionDescriptionEmptyError
 	}
 	return nil
 }

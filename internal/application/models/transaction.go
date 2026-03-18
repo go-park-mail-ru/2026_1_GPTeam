@@ -6,7 +6,7 @@ type TransactionModel struct {
 	Id              int
 	UserId          int
 	AccountId       int
-	Value           int
+	Value           float64
 	Type            string
 	Category        string
 	Title           string
