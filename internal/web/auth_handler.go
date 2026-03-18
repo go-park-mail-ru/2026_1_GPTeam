@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
@@ -149,13 +148,10 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := web_helpers.User{
-		Username:        storedUser.Username,
-		Email:           storedUser.Email,
-		LastLogin:       time.Now(),
-		CreatedAt:       storedUser.CreatedAt,
-		AvatarUrl:       storedUser.AvatarUrl,
-		Balance:         0,
-		BalanceCurrency: "RUB",
+		Username:  storedUser.Username,
+		Email:     storedUser.Email,
+		CreatedAt: storedUser.CreatedAt,
+		AvatarUrl: storedUser.AvatarUrl,
 	}
 	response := web_helpers.NewLoginSuccessResponse(user)
 	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)
