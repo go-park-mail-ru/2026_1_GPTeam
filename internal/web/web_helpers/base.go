@@ -351,3 +351,28 @@ func NewTransactionsIdsResponse(ids []int) TransactionsIdsResponse {
 		Ids: ids,
 	}
 }
+
+type TransactionRequest struct {
+	AccountId       int       `json:"account_id"`
+	Value           int       `json:"value"`
+	Type            string    `json:"type"`
+	Category        string    `json:"category"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description"`
+	TransactionDate time.Time `json:"transaction_date"`
+}
+
+type TransactionCreateSuccessResponse struct {
+	SimpleResponse
+	TransactionId int `json:"transaction_id"`
+}
+
+func NewTransactionCreateSuccessResponse(id int) *TransactionCreateSuccessResponse {
+	return &TransactionCreateSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		TransactionId: id,
+	}
+}

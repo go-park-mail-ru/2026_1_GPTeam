@@ -8,6 +8,7 @@ import (
 )
 
 type TransactionUseCase interface {
+	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
 	GetTransactionsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
 }
 
@@ -17,6 +18,12 @@ type Transaction struct {
 
 func NewTransaction(repo repository.TransactionRepository) *Transaction {
 	return &Transaction{repository: repo}
+}
+
+func (obj *Transaction) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
+	transaction.AccountId = 1 // ToDo: это заглушка, так как счета надо будет делать позже -> надо самостоятельно сделать себе счёт с id=1
+	id, err := obj.repository.Create(ctx, transaction)
+	return id, err
 }
 
 func (obj *Transaction) GetTransactionsOfUser(ctx context.Context, user models.UserModel) ([]int, error) {
