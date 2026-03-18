@@ -87,13 +87,10 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 		return web_helpers.User{}, false
 	}
 	user := web_helpers.User{
-		Username:        storedUser.Username,
-		Email:           storedUser.Email,
-		LastLogin:       storedUser.LastLogin,
-		CreatedAt:       storedUser.CreatedAt,
-		AvatarUrl:       storedUser.AvatarUrl,
-		Balance:         0,
-		BalanceCurrency: "RUB",
+		Username:  storedUser.Username,
+		Email:     storedUser.Email,
+		CreatedAt: storedUser.CreatedAt,
+		AvatarUrl: storedUser.AvatarUrl,
 	}
 	return user, true
 }

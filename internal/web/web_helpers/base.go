@@ -75,13 +75,10 @@ type AuthUser struct {
 }
 
 type User struct {
-	Username        string    `json:"username"`
-	Email           string    `json:"email"`
-	CreatedAt       time.Time `json:"created_at"`
-	LastLogin       time.Time `json:"last_login,omitempty"`
-	AvatarUrl       string    `json:"avatar_url"`
-	Balance         float64   `json:"balance"`
-	BalanceCurrency string    `json:"currency"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+	AvatarUrl string    `json:"avatar_url"`
 }
 
 type BudgetRequest struct {
