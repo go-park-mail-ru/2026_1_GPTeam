@@ -69,7 +69,7 @@ func main() {
 	userHandler := web.NewUserHandler(userApp)
 	authHandler := web.NewAuthHandler(authService, userApp)
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
-	transactionHandler := web.NewTransactionHandler(transactionApp)
+	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp)
 
 	mux := http.NewServeMux()
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
