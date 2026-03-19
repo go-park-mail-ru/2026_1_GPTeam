@@ -69,11 +69,11 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 	if ok {
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
-			return -1, DuplicatedDataError
+			return -1, TransactionDuplicatedDataError
 		case pgerrcode.CheckViolation:
 			return -1, ConstraintError
 		case pgerrcode.ForeignKeyViolation:
-			return -1, ForeignKeyError
+			return -1, TransactionAccountForeignKeyError
 		default:
 			return -1, pgErr
 		}

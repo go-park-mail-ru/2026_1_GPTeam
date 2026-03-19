@@ -85,16 +85,26 @@ func (obj *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := obj.transactionApp.Create(r.Context(), transaction)
 	if err != nil {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 		if errors.Is(err, repository.DuplicatedDataError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Такой бюджет уже существует"
-		} else if errors.Is(err, repository.ConstraintError) {
-			response.Message = "Введены некорректные данные"
-		} else if errors.Is(err, repository.ForeignKeyError) {
-			response.Message = "Счёта не существует"
-		} else {
-			response.Message = err.Error()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
 		}
+		if errors.Is(err, repository.ConstraintError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Введены некорректные данные"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.TransactionAccountForeignKeyError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+				web_helpers.NewFieldError("account", "Счёта не существует"),
+			})
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -112,10 +122,14 @@ func (obj *TransactionHandler) GetTransactions(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	ids, err := obj.transactionApp.GetTransactionsOfUser(r.Context(), authUser)
+	ids, err := obj.transactionApp.GetTransactionIdsOfUser(r.Context(), authUser)
 	if err != nil {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
-		response.Message = err.Error()
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Транзакции не найдены")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}

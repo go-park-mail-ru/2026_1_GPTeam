@@ -9,7 +9,7 @@ import (
 
 type TransactionUseCase interface {
 	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
-	GetTransactionsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
+	GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
 }
 
 type Transaction struct {
@@ -26,7 +26,7 @@ func (obj *Transaction) Create(ctx context.Context, transaction models.Transacti
 	return id, err
 }
 
-func (obj *Transaction) GetTransactionsOfUser(ctx context.Context, user models.UserModel) ([]int, error) {
+func (obj *Transaction) GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error) {
 	ids, err := obj.repository.GetIdsByUserId(ctx, user.Id)
 	return ids, err
 }
