@@ -18,6 +18,7 @@ type UserRepository interface {
 	GetById(ctx context.Context, id int) (models.UserModel, error)
 	GetByUsername(ctx context.Context, username string) (models.UserModel, error)
 	GetByEmail(ctx context.Context, email string) (models.UserModel, error)
+	UpdateAvatar(ctx context.Context, id int, avatarUrl string) error
 }
 
 type UserPostgres struct {
@@ -169,4 +170,29 @@ func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (models.U
 		user.LastLogin = time.Time{}
 	}
 	return user, nil
+}
+
+func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl string) error {
+	query := `update "user" set avatar_url = $1, updated_at = $2 where id = $3;`
+
+	avatar := pgtype.Text{
+		String: avatarUrl,
+		Valid:  true,
+	}
+	updatedAt := pgtype.Timestamp{
+		Time:  time.Now(),
+		Valid: true,
+	}
+
+	result, err := obj.db.Exec(ctx, query, avatar, updatedAt, id)
+	if err != nil {
+		fmt.Printf("Unable to update avatar: %v\n", err)
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return NothingInTableError
+	}
+
+	return nil
 }

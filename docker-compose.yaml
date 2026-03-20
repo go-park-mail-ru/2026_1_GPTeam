@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:17
+    container_name: gpteam-db-new
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-name}
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-name}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrations:
+    image: postgres:17
+    volumes:
+      - ./db/migrations:/migrations  # Путь из твоей структуры
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: >
+      bash -c "for f in /migrations/*.sql; do
+        echo \"Накатываю: \$$f\";
+        awk '/---- create above \\/ drop below ----/{exit} {print}' \$$f | psql -h db -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-name};
+      done"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-password}

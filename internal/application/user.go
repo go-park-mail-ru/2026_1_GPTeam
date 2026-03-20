@@ -3,11 +3,15 @@ package application
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,6 +20,7 @@ type UserUseCase interface {
 	GetById(ctx context.Context, id int) (models.UserModel, error)
 	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserModel, error)
 	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
+	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
 }
 
 type User struct {
@@ -55,6 +60,26 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 		CreatedAt: userModel.CreatedAt,
 	}
 	return user, nil
+}
+
+func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, extension string) (string, error) {
+	avatarUrl := uuid.New().String() + extension
+	filePath := filepath.Join("./static", avatarUrl)
+	dst, err := os.Create(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		return "", err
+	}
+	err = obj.repository.UpdateAvatar(ctx, userID, avatarUrl)
+	if err != nil {
+		return "", err
+	}
+
+	return avatarUrl, nil
 }
 
 func (obj *User) GetById(ctx context.Context, id int) (models.UserModel, error) {

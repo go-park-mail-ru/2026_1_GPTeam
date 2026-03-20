@@ -25,7 +25,7 @@ func CORSMiddleware(next http.Handler) http.Handler {
 func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, userApp application.UserUseCase) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if strings.HasPrefix(path, "/auth/") && path != "/auth/logout" {
+		if (strings.HasPrefix(path, "/auth/") && path != "/auth/logout") || strings.HasPrefix(path, "/img/") { //авы должно быть видно без авторизации
 			next.ServeHTTP(w, r)
 			return
 		}
