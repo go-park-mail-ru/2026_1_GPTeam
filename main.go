@@ -89,6 +89,8 @@ func main() {
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/get_transactions", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(transactionHandler.GetTransactions)))
 	mux.Handle("/transaction", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(transactionHandler.Create)))
+	mux.Handle("/transaction/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(transactionHandler.Delete)))
+	mux.Handle("/get_transaction/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(transactionHandler.Detail)))
 
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgerrcode"
@@ -14,6 +15,9 @@ import (
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
 	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
+	Delete(ctx context.Context, transactionId int) (int, error)
+	Detail(ctx context.Context, transactionId int) (models.TransactionModel, error)
+	IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error)
 }
 
 type TransactionPostgres struct {
@@ -74,4 +78,54 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		return []int{}, NothingInTableError
 	}
 	return ids, nil
+}
+
+func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (int, error) {
+	query := `delete from transaction where id = $1 returning id;`
+	var id int
+	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, NothingInTableError
+		}
+		return 0, err
+	}
+	return id, nil
+}
+
+func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
+	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date from transaction where id = $1;`
+	var userId int
+	var accountId int
+	var value float64
+	var transactionType string
+	var category string
+	var title string
+	var description string
+	var createdAt time.Time
+	var transactionDate time.Time
+	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&userId, &accountId, &value, &transactionType, &category, &title, &description, &createdAt, &transactionDate)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.TransactionModel{}, NothingInTableError
+		}
+		return models.TransactionModel{}, err
+	}
+	transaction := models.TransactionModel{
+		Id:              transactionId,
+		UserId:          userId,
+		AccountId:       accountId,
+		Value:           value,
+		Type:            transactionType,
+		Category:        category,
+		Title:           title,
+		Description:     description,
+		CreatedAt:       createdAt,
+		TransactionDate: transactionDate,
+	}
+	return transaction, nil
+}
+
+func (obj *TransactionPostgres) IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error) {
+	return transaction.UserId == user.Id, nil
 }

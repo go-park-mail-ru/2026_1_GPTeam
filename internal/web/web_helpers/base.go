@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
 
 type SimpleResponse struct {
@@ -371,5 +373,46 @@ func NewTransactionCreateSuccessResponse(id int) *TransactionCreateSuccessRespon
 			Message: "Ok",
 		},
 		TransactionId: id,
+	}
+}
+
+type TransactionDeleteSuccessResponse struct {
+	SimpleResponse
+	TransactionId int `json:"transaction_id"`
+}
+
+func NewTransactionDeleteSuccessResponse(id int) *TransactionDeleteSuccessResponse {
+	return &TransactionDeleteSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		TransactionId: id,
+	}
+}
+
+type TransactionDetailSuccessResponse struct {
+	SimpleResponse
+	Transaction map[string]interface{} `json:"transaction"`
+}
+
+func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *TransactionDetailSuccessResponse {
+	return &TransactionDetailSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Transaction: map[string]interface{}{
+			"id":               transaction.Id,
+			"user_id":          transaction.UserId,
+			"account_id":       transaction.AccountId,
+			"value":            transaction.Value,
+			"type":             transaction.Type,
+			"category":         transaction.Category,
+			"title":            transaction.Title,
+			"description":      transaction.Description,
+			"created_at":       transaction.CreatedAt,
+			"transaction_date": transaction.TransactionDate,
+		},
 	}
 }

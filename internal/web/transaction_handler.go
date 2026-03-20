@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
@@ -121,5 +122,103 @@ func (obj *TransactionHandler) GetTransactions(w http.ResponseWriter, r *http.Re
 		return
 	}
 	response := web_helpers.NewTransactionsIdsResponse(ids)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(models.UserModel)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	transactionId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
+		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	transaction, err := obj.transactionApp.Detail(r.Context(), transactionId)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	isAuthor, err := obj.transactionApp.IsUserAuthorOfTransaction(transaction, authUser)
+	if err != nil || !isAuthor {
+		response := web_helpers.NewForbiddenErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	id, err := obj.transactionApp.Delete(r.Context(), transactionId)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	response := web_helpers.NewTransactionDeleteSuccessResponse(id)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *TransactionHandler) Detail(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(models.UserModel)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	transactionId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
+		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	transaction, err := obj.transactionApp.Detail(r.Context(), transactionId)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	isAuthor, err := obj.transactionApp.IsUserAuthorOfTransaction(transaction, authUser)
+	if err != nil || !isAuthor {
+		response := web_helpers.NewForbiddenErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	response := web_helpers.NewTransactionDetailSuccessResponse(transaction)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
