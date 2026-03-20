@@ -173,10 +173,9 @@ func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (models.U
 }
 
 func (obj *UserPostgres) UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error {
-	query := `update "user" set last_login = $1 where id = $2;`
+	query := `UPDATE "user" SET last_login = $1 WHERE id = $2;`
 	_, err := obj.db.Exec(ctx, query, lastLogin, userId)
 	if err != nil {
-		fmt.Printf("Unable to update last login for user %d: %v\n", userId, err)
 		return err
 	}
 	return nil
