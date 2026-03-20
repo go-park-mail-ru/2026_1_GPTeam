@@ -58,18 +58,11 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 
 func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author, active from budget where id = $1 and active = true;`
-	var title string
-	var description string
-	var createdAt time.Time
-	var startAt time.Time
 	var endAt pgtype.Timestamptz
-	var updatedAt time.Time
-	var actual float64
-	var target float64
-	var currency string
-	var author int
-	var active bool
-	err := obj.db.QueryRow(ctx, query, id).Scan(&title, &description, &createdAt, &startAt, &endAt, &updatedAt, &actual, &target, &currency, &author, &active)
+	budget := models.BudgetModel{
+		Id: id,
+	}
+	err := obj.db.QueryRow(ctx, query, id).Scan(&budget.Title, &budget.Description, &budget.CreatedAt, &budget.StartAt, &endAt, &budget.UpdatedAt, &budget.Actual, &budget.Target, &budget.Currency, &budget.Author, &budget.Active)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.BudgetModel{}, NothingInTableError
@@ -77,20 +70,7 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 		fmt.Printf("Unable to get budget: %v\n", err)
 		return models.BudgetModel{}, err
 	}
-	budget := models.BudgetModel{
-		Id:          id,
-		Title:       title,
-		Description: description,
-		CreatedAt:   createdAt,
-		StartAt:     startAt,
-		EndAt:       endAt.Time,
-		UpdatedAt:   updatedAt,
-		Actual:      actual,
-		Target:      target,
-		Currency:    currency,
-		Author:      author,
-		Active:      active,
-	}
+	budget.EndAt = endAt.Time
 	if !endAt.Valid {
 		budget.EndAt = time.Time{}
 	}

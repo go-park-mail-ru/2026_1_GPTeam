@@ -149,7 +149,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	err = obj.accountApp.LinkAccountAndUser(r.Context(), accountId, accountId)
+	err = obj.accountApp.LinkAccountAndUser(r.Context(), accountId, authUser.Id)
 	if err != nil {
 		if errors.Is(err, repository.ConstraintError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})

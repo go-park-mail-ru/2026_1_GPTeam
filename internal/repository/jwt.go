@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgerrcode"
@@ -76,9 +75,11 @@ func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 
 func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error) {
 	query := `select user_id, expired_at from jwt where uuid = $1;`
-	var userId int
-	var expiredAt time.Time
-	err := obj.db.QueryRow(ctx, query, uuid).Scan(&userId, &expiredAt)
+	token := models.RefreshTokenModel{
+		Uuid:     uuid,
+		DeviceId: "",
+	}
+	err := obj.db.QueryRow(ctx, query, uuid).Scan(&token.UserId, &token.ExpiredAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.RefreshTokenModel{}, NothingInTableError
@@ -87,12 +88,6 @@ func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTok
 		}
 		fmt.Printf("Unable to get token: %v\n", err)
 		return models.RefreshTokenModel{}, err
-	}
-	token := models.RefreshTokenModel{
-		Uuid:      uuid,
-		UserId:    userId,
-		ExpiredAt: expiredAt,
-		DeviceId:  "",
 	}
 	return token, nil
 }
