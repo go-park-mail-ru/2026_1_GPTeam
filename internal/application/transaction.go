@@ -10,8 +10,8 @@ import (
 type TransactionUseCase interface {
 	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
 	GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
-	Delete(ctx context.Context, transactionId int) (int, error)
-	Detail(ctx context.Context, transactionId int) (models.TransactionModel, error)
+	Delete(ctx context.Context, transactionId int, userId int) (int, error)
+	Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error)
 	IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error)
 }
 
@@ -33,18 +33,28 @@ func (obj *Transaction) GetTransactionIdsOfUser(ctx context.Context, user models
 	return ids, err
 }
 
-func (obj *Transaction) Delete(ctx context.Context, transactionId int) (int, error) {
+func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId int) (int, error) {
+	transaction, err := obj.repository.Detail(ctx, transactionId)
+	if err != nil {
+		return 0, err
+	}
+	if transaction.UserId != userId {
+		return 0, ForbiddenError
+	}
 	id, err := obj.repository.Delete(ctx, transactionId)
 	if err != nil {
 		return 0, err
 	}
-	return id, err
+	return id, nil
 }
 
-func (obj *Transaction) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
+func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error) {
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return models.TransactionModel{}, err
+	}
+	if transaction.UserId != userId {
+		return models.TransactionModel{}, ForbiddenError
 	}
 	return transaction, nil
 }

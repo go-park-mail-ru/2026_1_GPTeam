@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgerrcode"
@@ -17,7 +16,6 @@ type TransactionRepository interface {
 	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
 	Delete(ctx context.Context, transactionId int) (int, error)
 	Detail(ctx context.Context, transactionId int) (models.TransactionModel, error)
-	IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error)
 }
 
 type TransactionPostgres struct {
@@ -53,7 +51,7 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 }
 
 func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
-	query := `select id from transaction where user_id = $1;`
+	query := `select id from transaction where user_id = $1 and deleted_at is null;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userId)
 	if err != nil {
@@ -81,7 +79,7 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 }
 
 func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (int, error) {
-	query := `delete from transaction where id = $1 returning id;`
+	query := `UPDATE transaction SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id;`
 	var id int
 	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&id)
 	if err != nil {
@@ -94,38 +92,17 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 }
 
 func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
-	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date from transaction where id = $1;`
-	var userId int
-	var accountId int
-	var value float64
-	var transactionType string
-	var category string
-	var title string
-	var description string
-	var createdAt time.Time
-	var transactionDate time.Time
-	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&userId, &accountId, &value, &transactionType, &category, &title, &description, &createdAt, &transactionDate)
+	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date from transaction where id = $1 and deleted_at is null;`
+	transaction := models.TransactionModel{
+		Id: transactionId,
+	}
+
+	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.TransactionModel{}, NothingInTableError
 		}
 		return models.TransactionModel{}, err
 	}
-	transaction := models.TransactionModel{
-		Id:              transactionId,
-		UserId:          userId,
-		AccountId:       accountId,
-		Value:           value,
-		Type:            transactionType,
-		Category:        category,
-		Title:           title,
-		Description:     description,
-		CreatedAt:       createdAt,
-		TransactionDate: transactionDate,
-	}
 	return transaction, nil
-}
-
-func (obj *TransactionPostgres) IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error) {
-	return transaction.UserId == user.Id, nil
 }

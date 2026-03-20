@@ -391,9 +391,22 @@ func NewTransactionDeleteSuccessResponse(id int) *TransactionDeleteSuccessRespon
 	}
 }
 
+type TransactionResponse struct {
+	Id              int       `json:"id"`
+	UserId          int       `json:"user_id"`
+	AccountId       int       `json:"account_id"`
+	Value           float64   `json:"value"`
+	Type            string    `json:"type"`
+	Category        string    `json:"category"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description"`
+	CreatedAt       time.Time `json:"created_at"`
+	TransactionDate time.Time `json:"transaction_date"`
+}
+
 type TransactionDetailSuccessResponse struct {
 	SimpleResponse
-	Transaction map[string]interface{} `json:"transaction"`
+	Transaction TransactionResponse `json:"transaction"`
 }
 
 func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *TransactionDetailSuccessResponse {
@@ -402,17 +415,17 @@ func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *T
 			Code:    http.StatusOK,
 			Message: "Ok",
 		},
-		Transaction: map[string]interface{}{
-			"id":               transaction.Id,
-			"user_id":          transaction.UserId,
-			"account_id":       transaction.AccountId,
-			"value":            transaction.Value,
-			"type":             transaction.Type,
-			"category":         transaction.Category,
-			"title":            transaction.Title,
-			"description":      transaction.Description,
-			"created_at":       transaction.CreatedAt,
-			"transaction_date": transaction.TransactionDate,
+		Transaction: TransactionResponse{
+			Id:              transaction.Id,
+			UserId:          transaction.UserId,
+			AccountId:       transaction.AccountId,
+			Value:           transaction.Value,
+			Type:            transaction.Type,
+			Category:        transaction.Category,
+			Title:           transaction.Title,
+			Description:     transaction.Description,
+			CreatedAt:       transaction.CreatedAt,
+			TransactionDate: transaction.TransactionDate,
 		},
 	}
 }
