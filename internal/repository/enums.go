@@ -40,18 +40,18 @@ func (obj *EnumsPostgres) GetCategoryTypesFromDB() []string {
 	return obj.categoryTypes
 }
 
-func NewEnumsPostgres(db *pgx.Conn) (*EnumsPostgres, error) {
-	currencyCodes, err := getCurrenciesFromDB(db)
+func NewEnumsPostgres(ctx context.Context, db *pgx.Conn) (*EnumsPostgres, error) {
+	currencyCodes, err := getCurrenciesFromDB(ctx, db)
 	if err != nil {
 		return &EnumsPostgres{}, err
 	}
 	fmt.Printf("Read currencies from db: %v\n", currencyCodes)
-	transactionTypes, err := getTransactionTypesFromDB(db)
+	transactionTypes, err := getTransactionTypesFromDB(ctx, db)
 	if err != nil {
 		return &EnumsPostgres{}, err
 	}
 	fmt.Printf("Read transaction types from db: %v\n", transactionTypes)
-	categoryTypes, err := getCategoriesFromDB(db)
+	categoryTypes, err := getCategoriesFromDB(ctx, db)
 	if err != nil {
 		return &EnumsPostgres{}, err
 	}
@@ -64,9 +64,9 @@ func NewEnumsPostgres(db *pgx.Conn) (*EnumsPostgres, error) {
 	}, nil
 }
 
-func getCurrenciesFromDB(db *pgx.Conn) ([]string, error) {
+func getCurrenciesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
-	rows, err := db.Query(context.Background(), query)
+	rows, err := db.Query(ctx, query)
 	if err != nil {
 		return []string{}, UnableToReadCurrenciesError
 	}
@@ -83,9 +83,9 @@ func getCurrenciesFromDB(db *pgx.Conn) ([]string, error) {
 	return currencies, nil
 }
 
-func getTransactionTypesFromDB(db *pgx.Conn) ([]string, error) {
+func getTransactionTypesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'transaction_type'::regtype order by enumsortorder;`
-	rows, err := db.Query(context.Background(), query)
+	rows, err := db.Query(ctx, query)
 	if err != nil {
 		return []string{}, UnableToReadTransactionTypesError
 	}
@@ -102,9 +102,9 @@ func getTransactionTypesFromDB(db *pgx.Conn) ([]string, error) {
 	return transactionTypes, nil
 }
 
-func getCategoriesFromDB(db *pgx.Conn) ([]string, error) {
+func getCategoriesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'category_type'::regtype order by enumsortorder;`
-	rows, err := db.Query(context.Background(), query)
+	rows, err := db.Query(ctx, query)
 	if err != nil {
 		return []string{}, UnableToReadCategoriesError
 	}

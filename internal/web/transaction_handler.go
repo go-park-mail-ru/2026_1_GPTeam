@@ -17,12 +17,14 @@ import (
 type TransactionHandler struct {
 	transactionApp application.TransactionUseCase
 	enumsApp       application.EnumsUseCase
+	accountApp     application.AccountUseCase
 }
 
-func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsApp application.EnumsUseCase) *TransactionHandler {
+func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsApp application.EnumsUseCase, accountUseCase application.AccountUseCase) *TransactionHandler {
 	return &TransactionHandler{
 		transactionApp: transactionApp,
 		enumsApp:       enumsApp,
+		accountApp:     accountUseCase,
 	}
 }
 
@@ -44,27 +46,7 @@ func (obj *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var validationErrors []web_helpers.FieldError
-	err = validators.ValidateTransactionTitle(body.Title)
-	if err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", err.Error()))
-	}
-	err = validators.ValidateTransactionDescription(body.Description)
-	if err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("description", err.Error()))
-	}
-	err = validators.ValidateTransactionValue(body.Value)
-	if err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("value", err.Error()))
-	}
-	err = validators.ValidateTransactionType(body.Type, obj.enumsApp.GetTransactionTypes())
-	if err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("type", err.Error()))
-	}
-	err = validators.ValidateTransactionCategory(body.Category, obj.enumsApp.GetCategoryTypes())
-	if err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("category", err.Error()))
-	}
+	validationErrors := validators.ValidateTransaction(body, obj.enumsApp.GetTransactionTypes(), obj.enumsApp.GetCategoryTypes())
 	if len(validationErrors) > 0 {
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -82,6 +64,11 @@ func (obj *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Description:     body.Description,
 		CreatedAt:       time.Now(),
 		TransactionDate: body.TransactionDate,
+	}
+	if !obj.accountApp.IsUserAuthorOfAccount(r.Context(), authUser.Id, transaction.AccountId) {
+		response := web_helpers.NewForbiddenErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
 	}
 	id, err := obj.transactionApp.Create(r.Context(), transaction)
 	if err != nil {

@@ -44,7 +44,9 @@ func main() {
 		}
 	}()
 
-	enumsPostgres, err := repository.NewEnumsPostgres(conn)
+	enumsCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, conn)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -53,6 +55,7 @@ func main() {
 	budgetPostgres := repository.NewBudgetPostgres(conn)
 	jwtPostgres := repository.NewJwtPostgres(conn)
 	transactionPostgres := repository.NewTransactionPostgres(conn)
+	accountPostgres := repository.NewAccountPostgres(conn)
 
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres)
@@ -64,12 +67,13 @@ func main() {
 	authService := auth.NewJwtAuthService(jwt)
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
+	accountApp := application.NewAccount(accountPostgres)
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
 	userHandler := web.NewUserHandler(userApp)
-	authHandler := web.NewAuthHandler(authService, userApp)
+	authHandler := web.NewAuthHandler(authService, userApp, accountApp)
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
-	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp)
+	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 
 	mux := http.NewServeMux()
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))

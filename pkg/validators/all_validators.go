@@ -108,28 +108,28 @@ func ValidateEndDate(startDate time.Time, endDate time.Time) error {
 	return nil
 }
 
-func ValidateTransactionValue(value float64) error {
+func validateTransactionValue(value float64) error {
 	if value <= 0 {
 		return ValueIsNegativeError
 	}
 	return nil
 }
 
-func ValidateTransactionType(transactionType string, allowedTypes []string) error {
+func validateTransactionType(transactionType string, allowedTypes []string) error {
 	if !slices.Contains(allowedTypes, transactionType) {
 		return TransactionTypeNotAllowedError
 	}
 	return nil
 }
 
-func ValidateTransactionCategory(category string, allowedCategories []string) error {
+func validateTransactionCategory(category string, allowedCategories []string) error {
 	if !slices.Contains(allowedCategories, category) {
 		return TransactionCategoryNotAllowedError
 	}
 	return nil
 }
 
-func ValidateTransactionTitle(title string) error {
+func validateTransactionTitle(title string) error {
 	if len(title) == 0 {
 		return TransactionTitleEmptyError
 	}
@@ -139,7 +139,7 @@ func ValidateTransactionTitle(title string) error {
 	return nil
 }
 
-func ValidateTransactionDescription(description string) error {
+func validateTransactionDescription(description string) error {
 	if len(description) == 0 {
 		return TransactionDescriptionEmptyError
 	}

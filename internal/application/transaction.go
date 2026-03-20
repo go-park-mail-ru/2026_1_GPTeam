@@ -21,7 +21,6 @@ func NewTransaction(repo repository.TransactionRepository) *Transaction {
 }
 
 func (obj *Transaction) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
-	transaction.AccountId = 1 // ToDo: это заглушка, так как счета надо будет делать позже -> надо самостоятельно сделать себе счёт с id=1
 	id, err := obj.repository.Create(ctx, transaction)
 	return id, err
 }
