@@ -16,6 +16,7 @@ type UserUseCase interface {
 	GetById(ctx context.Context, id int) (models.UserModel, error)
 	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserModel, error)
 	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
+	UpdateLastLogin(ctx context.Context, userId int) error
 }
 
 type User struct {
@@ -96,4 +97,13 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 		BalanceCurrency: "RUB",
 	}
 	return user, true
+}
+
+func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
+	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
+	if err != nil {
+		fmt.Printf("невозможно обновить время последнего входа для пользователя %d: %v\n", userId, err)
+		return err
+	}
+	return nil
 }

@@ -148,6 +148,11 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
+	if err := obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id); err != nil {
+		fmt.Printf("failed to update last_login for user %d: %v\n", storedUser.Id, err)
+	}
+
 	user := web_helpers.User{
 		Username:        storedUser.Username,
 		Email:           storedUser.Email,
