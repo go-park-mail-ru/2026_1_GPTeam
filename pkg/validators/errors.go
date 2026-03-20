@@ -12,11 +12,22 @@ var (
 
 	EmailError = fmt.Errorf("некорректный адрес электронной почты")
 
-	CurrencyNotAllowed = fmt.Errorf("валюта не поддерживается")
+	CurrencyNotAllowedError = fmt.Errorf("валюта не поддерживается")
 
 	TargetIsNegativeError = fmt.Errorf("планируемый бюджет не может быть меньше 0")
 	TargetIsBigError      = fmt.Errorf("значение не может быть больше 1e18")
 
 	StartDateInPastError = fmt.Errorf("дата начала не может быть в прошлом")
 	EndDateInPastError   = fmt.Errorf("дата окончания должна быть позже даты начала")
+
+	ValueIsNegativeError = fmt.Errorf("значение не может быть меньше нуля")
+
+	TransactionTypeNotAllowedError = fmt.Errorf("тип транзакции не поддерживается")
+
+	TransactionCategoryNotAllowedError = fmt.Errorf("категория транзакции не поддерживается")
+
+	TransactionTitleEmptyError = fmt.Errorf("заголовок пустой")
+	TransactionTitleLongError  = fmt.Errorf("заголовок не может быть длиннее 255 символов")
+
+	TransactionDescriptionEmptyError = fmt.Errorf("описание пустое")
 )

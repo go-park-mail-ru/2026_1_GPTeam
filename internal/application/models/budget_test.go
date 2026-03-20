@@ -70,7 +70,7 @@ func TestGetBudgetByID(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:   "несуществующий ID",
+			name:   "несуществующий Id",
 			id:     999999,
 			wantOK: false,
 		},

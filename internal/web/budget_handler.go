@@ -17,10 +17,14 @@ import (
 
 type BudgetHandler struct {
 	budgetApp application.BudgetUseCase
+	enumsApp  application.EnumsUseCase
 }
 
-func NewBudgetHandler(useCase application.BudgetUseCase) *BudgetHandler {
-	return &BudgetHandler{budgetApp: useCase}
+func NewBudgetHandler(useCase application.BudgetUseCase, enumsApp application.EnumsUseCase) *BudgetHandler {
+	return &BudgetHandler{
+		budgetApp: useCase,
+		enumsApp:  enumsApp,
+	}
 }
 
 func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +44,7 @@ func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	response := web_helpers.NewBudgetsIDsResponse(ids)
+	response := web_helpers.NewBudgetsIdsResponse(ids)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -131,7 +135,7 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if body.Currency == "" {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", "Поле обязательно для заполнения"))
 	}
-	err := validators.ValidateCurrency(body.Currency, obj.budgetApp.GetAllowedCurrencies())
+	err := validators.ValidateCurrency(body.Currency, obj.enumsApp.GetCurrencyCodes())
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", err.Error()))
 	}

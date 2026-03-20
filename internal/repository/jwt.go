@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type JwtRepository interface {
@@ -29,19 +28,7 @@ func NewJwtPostgres(db *pgx.Conn) *JwtPostgres {
 
 func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenModel) error {
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
-	pk := pgtype.Text{
-		String: token.Uuid,
-		Valid:  true,
-	}
-	userID := pgtype.Int4{
-		Int32: int32(token.UserId),
-		Valid: true,
-	}
-	expiredAt := pgtype.Timestamp{
-		Time:  token.ExpiredAt,
-		Valid: true,
-	}
-	_, err := obj.db.Exec(ctx, query, pk, userID, expiredAt)
+	_, err := obj.db.Exec(ctx, query, token.Uuid, token.UserId, token.ExpiredAt)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		switch pgErr.Code {
@@ -88,9 +75,11 @@ func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 
 func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error) {
 	query := `select user_id, expired_at from jwt where uuid = $1;`
-	var userId pgtype.Int4
-	var expiredAt pgtype.Timestamp
-	err := obj.db.QueryRow(ctx, query, uuid).Scan(&userId, &expiredAt)
+	token := models.RefreshTokenModel{
+		Uuid:     uuid,
+		DeviceId: "",
+	}
+	err := obj.db.QueryRow(ctx, query, uuid).Scan(&token.UserId, &token.ExpiredAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.RefreshTokenModel{}, NothingInTableError
@@ -99,11 +88,6 @@ func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTok
 		}
 		fmt.Printf("Unable to get token: %v\n", err)
 		return models.RefreshTokenModel{}, err
-	}
-	token := models.RefreshTokenModel{
-		UserId:    int(userId.Int32),
-		ExpiredAt: expiredAt.Time,
-		DeviceId:  "",
 	}
 	return token, nil
 }

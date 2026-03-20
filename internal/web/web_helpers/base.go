@@ -67,7 +67,7 @@ func NewLogoutSuccessResponse() LogoutSuccessResponse {
 }
 
 type AuthUser struct {
-	ID        int       `json:"id"`
+	Id        int       `json:"id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	LastLogin time.Time `json:"last_login,omitempty"`
@@ -75,13 +75,10 @@ type AuthUser struct {
 }
 
 type User struct {
-	Username        string    `json:"username"`
-	Email           string    `json:"email"`
-	CreatedAt       time.Time `json:"created_at"`
-	LastLogin       time.Time `json:"last_login,omitempty"`
-	AvatarUrl       string    `json:"avatar_url"`
-	Balance         float64   `json:"balance"`
-	BalanceCurrency string    `json:"currency"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+	AvatarUrl string    `json:"avatar_url"`
 }
 
 type BudgetRequest struct {
@@ -135,20 +132,20 @@ func NewBalanceResponse(balance float64, currency string, income float64, expens
 	}
 }
 
-type BudgetsIDsResponse struct {
+type BudgetsIdsResponse struct {
 	SimpleResponse
 	Len int   `json:"len"`
-	IDs []int `json:"ids"`
+	Ids []int `json:"ids"`
 }
 
-func NewBudgetsIDsResponse(ids []int) BudgetsIDsResponse {
-	return BudgetsIDsResponse{
+func NewBudgetsIdsResponse(ids []int) BudgetsIdsResponse {
+	return BudgetsIdsResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
 			Message: "Ok",
 		},
 		Len: len(ids),
-		IDs: ids,
+		Ids: ids,
 	}
 }
 
@@ -242,14 +239,14 @@ func NewNotFoundErrorResponse(message string) NotFoundErrorResponse {
 type ServerErrorResponse struct {
 	Code      int    `json:"code"`
 	Message   string `json:"message"`
-	RequestID string `json:"request_id"`
+	RequestId string `json:"request_id"`
 }
 
-func NewServerErrorResponse(requestID string) ServerErrorResponse {
+func NewServerErrorResponse(requestId string) ServerErrorResponse {
 	return ServerErrorResponse{
 		Code:      http.StatusInternalServerError,
 		Message:   "Внутренняя ошибка сервера",
-		RequestID: requestID,
+		RequestId: requestId,
 	}
 }
 
@@ -292,16 +289,16 @@ func NewBudgetUpdateSuccessResponse() BudgetUpdateSuccessResponse {
 
 type BudgetCreateSuccessResponse struct {
 	SimpleResponse
-	BudgetID int `json:"budget_id"`
+	BudgetId int `json:"budget_id"`
 }
 
-func NewBudgetCreateSuccessResponse(budgetID int) BudgetCreateSuccessResponse {
+func NewBudgetCreateSuccessResponse(budgetId int) BudgetCreateSuccessResponse {
 	return BudgetCreateSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
 			Message: "Бюджет успешно создан",
 		},
-		BudgetID: budgetID,
+		BudgetId: budgetId,
 	}
 }
 
@@ -317,5 +314,62 @@ func NewBudgetGetSuccessResponse(budget BudgetRequest) BudgetGetSuccessResponse 
 			Message: "Бюджет успешно получен",
 		},
 		Budget: budget,
+	}
+}
+
+type CurrencyCodesResponse struct {
+	SimpleResponse
+	CurrencyCodes []string `json:"currency_codes"`
+}
+
+func NewCurrencyCodesResponse(codes []string) CurrencyCodesResponse {
+	return CurrencyCodesResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		CurrencyCodes: codes,
+	}
+}
+
+type TransactionsIdsResponse struct {
+	SimpleResponse
+	Len int   `json:"len"`
+	Ids []int `json:"ids"`
+}
+
+func NewTransactionsIdsResponse(ids []int) TransactionsIdsResponse {
+	return TransactionsIdsResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Len: len(ids),
+		Ids: ids,
+	}
+}
+
+type TransactionRequest struct {
+	AccountId       int       `json:"account_id"`
+	Value           float64   `json:"value"`
+	Type            string    `json:"type"`
+	Category        string    `json:"category"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description"`
+	TransactionDate time.Time `json:"transaction_date"`
+}
+
+type TransactionCreateSuccessResponse struct {
+	SimpleResponse
+	TransactionId int `json:"transaction_id"`
+}
+
+func NewTransactionCreateSuccessResponse(id int) *TransactionCreateSuccessResponse {
+	return &TransactionCreateSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		TransactionId: id,
 	}
 }

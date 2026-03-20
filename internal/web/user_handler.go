@@ -43,13 +43,10 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userResponse := web_helpers.User{
-		Username:        authUser.Username,
-		Email:           authUser.Email,
-		CreatedAt:       authUser.CreatedAt,
-		LastLogin:       authUser.LastLogin,
-		AvatarUrl:       authUser.AvatarUrl,
-		Balance:         0,
-		BalanceCurrency: "RUB",
+		Username:  authUser.Username,
+		Email:     authUser.Email,
+		CreatedAt: authUser.CreatedAt,
+		AvatarUrl: authUser.AvatarUrl,
 	}
 	response := web_helpers.NewLoginSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)

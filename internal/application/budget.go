@@ -14,7 +14,6 @@ type BudgetUseCase interface {
 	GetById(ctx context.Context, id int, user models.UserModel) (models.BudgetModel, error)
 	GetBudgetsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
 	IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool
-	GetAllowedCurrencies() []string
 }
 
 type Budget struct {
@@ -55,8 +54,4 @@ func (obj *Budget) GetBudgetsOfUser(ctx context.Context, user models.UserModel) 
 
 func (obj *Budget) IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool {
 	return user.Id == budget.Author
-}
-
-func (obj *Budget) GetAllowedCurrencies() []string {
-	return obj.repository.GetCurrencies()
 }

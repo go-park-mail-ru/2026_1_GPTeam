@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
@@ -17,12 +18,14 @@ import (
 type AuthHandler struct {
 	authService auth.AuthenticationService
 	userApp     application.UserUseCase
+	accountApp  application.AccountUseCase
 }
 
-func NewAuthHandler(auth auth.AuthenticationService, userUseCase application.UserUseCase) *AuthHandler {
+func NewAuthHandler(auth auth.AuthenticationService, userUseCase application.UserUseCase, accountUseCase application.AccountUseCase) *AuthHandler {
 	return &AuthHandler{
 		authService: auth,
 		userApp:     userUseCase,
+		accountApp:  accountUseCase,
 	}
 }
 
@@ -116,13 +119,56 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
-		response.Message = err.Error()
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	accountModel := models.AccountModel{
+		Name:      "base",
+		Balance:   0,
+		Currency:  "RUB",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	accountId, err := obj.accountApp.Create(r.Context(), accountModel)
+	if err != nil {
+		if errors.Is(err, repository.AccountDuplicatedDataError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Такой счёт уже существует"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.ConstraintError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Введены некорректные данные"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	err = obj.accountApp.LinkAccountAndUser(r.Context(), accountId, authUser.Id)
+	if err != nil {
+		if errors.Is(err, repository.ConstraintError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Введены некорректные данные"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.AccountForeignKeyError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Счёта не существует"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	response := web_helpers.NewSignupSuccessResponse(authUser)
-	obj.authService.GenerateNewAuth(r.Context(), w, authUser.ID)
+	obj.authService.GenerateNewAuth(r.Context(), w, authUser.Id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -154,13 +200,10 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := web_helpers.User{
-		Username:        storedUser.Username,
-		Email:           storedUser.Email,
-		LastLogin:       time.Now(),
-		CreatedAt:       storedUser.CreatedAt,
-		AvatarUrl:       storedUser.AvatarUrl,
-		Balance:         0,
-		BalanceCurrency: "RUB",
+		Username:  storedUser.Username,
+		Email:     storedUser.Email,
+		CreatedAt: storedUser.CreatedAt,
+		AvatarUrl: storedUser.AvatarUrl,
 	}
 	response := web_helpers.NewLoginSuccessResponse(user)
 	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)
