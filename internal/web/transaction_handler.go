@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
@@ -28,7 +29,27 @@ func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsA
 	}
 }
 
-func (obj *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
+// /transactions — GET (список) и POST (создать)
+func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		obj.getTransactions(w, r)
+	case http.MethodPost:
+		obj.create(w, r)
+	}
+}
+
+// /transactions/{id} — GET (детали) и DELETE (удалить)
+func (obj *TransactionHandler) Transaction(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		obj.detail(w, r)
+	case http.MethodDelete:
+		obj.delete(w, r)
+	}
+}
+
+func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user")
 	authUser, ok := user.(models.UserModel)
 	if !ok {
@@ -74,7 +95,7 @@ func (obj *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, repository.DuplicatedDataError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
-			response.Message = "Такой бюджет уже существует"
+			response.Message = "Такой транзакция уже существует"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
@@ -99,7 +120,7 @@ func (obj *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
-func (obj *TransactionHandler) GetTransactions(w http.ResponseWriter, r *http.Request) {
+func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user")
 	authUser, ok := user.(models.UserModel)
 	if !ok {
@@ -121,5 +142,85 @@ func (obj *TransactionHandler) GetTransactions(w http.ResponseWriter, r *http.Re
 		return
 	}
 	response := web_helpers.NewTransactionsIdsResponse(ids)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(models.UserModel)
+	if !ok {
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	transactionId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
+		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	id, err := obj.transactionApp.Delete(r.Context(), transactionId, authUser.Id)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, application.ForbiddenError) {
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	response := web_helpers.NewTransactionDeleteSuccessResponse(id)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(models.UserModel)
+	if !ok {
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	transactionId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
+		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	transaction, err := obj.transactionApp.Detail(r.Context(), transactionId, authUser.Id)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, application.ForbiddenError) {
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	response := web_helpers.NewTransactionDetailSuccessResponse(transaction)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

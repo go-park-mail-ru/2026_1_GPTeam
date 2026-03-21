@@ -14,6 +14,8 @@ import (
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
 	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
+	Delete(ctx context.Context, transactionId int) (int, error)
+	Detail(ctx context.Context, transactionId int) (models.TransactionModel, error)
 }
 
 type TransactionPostgres struct {
@@ -49,7 +51,7 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 }
 
 func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
-	query := `select id from transaction where user_id = $1;`
+	query := `select id from transaction where user_id = $1 and deleted_at is null;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userId)
 	if err != nil {
@@ -74,4 +76,33 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		return []int{}, NothingInTableError
 	}
 	return ids, nil
+}
+
+func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (int, error) {
+	query := `UPDATE transaction SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id;`
+	var id int
+	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, NothingInTableError
+		}
+		return 0, err
+	}
+	return id, nil
+}
+
+func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
+	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date from transaction where id = $1 and deleted_at is null;`
+	transaction := models.TransactionModel{
+		Id: transactionId,
+	}
+
+	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.TransactionModel{}, NothingInTableError
+		}
+		return models.TransactionModel{}, err
+	}
+	return transaction, nil
 }

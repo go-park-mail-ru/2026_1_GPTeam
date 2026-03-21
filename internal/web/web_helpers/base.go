@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
 
 type SimpleResponse struct {
@@ -371,5 +373,59 @@ func NewTransactionCreateSuccessResponse(id int) *TransactionCreateSuccessRespon
 			Message: "Ok",
 		},
 		TransactionId: id,
+	}
+}
+
+type TransactionDeleteSuccessResponse struct {
+	SimpleResponse
+	TransactionId int `json:"transaction_id"`
+}
+
+func NewTransactionDeleteSuccessResponse(id int) *TransactionDeleteSuccessResponse {
+	return &TransactionDeleteSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		TransactionId: id,
+	}
+}
+
+type TransactionResponse struct {
+	Id              int       `json:"id"`
+	UserId          int       `json:"user_id"`
+	AccountId       int       `json:"account_id"`
+	Value           float64   `json:"value"`
+	Type            string    `json:"type"`
+	Category        string    `json:"category"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description"`
+	CreatedAt       time.Time `json:"created_at"`
+	TransactionDate time.Time `json:"transaction_date"`
+}
+
+type TransactionDetailSuccessResponse struct {
+	SimpleResponse
+	Transaction TransactionResponse `json:"transaction"`
+}
+
+func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *TransactionDetailSuccessResponse {
+	return &TransactionDetailSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Transaction: TransactionResponse{
+			Id:              transaction.Id,
+			UserId:          transaction.UserId,
+			AccountId:       transaction.AccountId,
+			Value:           transaction.Value,
+			Type:            transaction.Type,
+			Category:        transaction.Category,
+			Title:           transaction.Title,
+			Description:     transaction.Description,
+			CreatedAt:       transaction.CreatedAt,
+			TransactionDate: transaction.TransactionDate,
+		},
 	}
 }
