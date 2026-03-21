@@ -17,6 +17,7 @@ type UserUseCase interface {
 	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserModel, error)
 	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
 	UpdateLastLogin(ctx context.Context, userId int) error
+	Update(ctx context.Context, userInfo models.UserModel) (models.UserModel, error)
 }
 
 type User struct {
@@ -103,4 +104,19 @@ func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
 		return err
 	}
 	return nil
+}
+
+func (obj *User) Update(ctx context.Context, userInfo models.UserModel) (models.UserModel, error) {
+	if userInfo.Password != "" {
+		bytes, err := bcrypt.GenerateFromPassword([]byte(userInfo.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return models.UserModel{}, HashPasswordError
+		}
+		userInfo.Password = string(bytes)
+	}
+	updatedUser, err := obj.repository.Update(ctx, userInfo)
+	if err != nil {
+		return models.UserModel{}, err
+	}
+	return updatedUser, nil
 }

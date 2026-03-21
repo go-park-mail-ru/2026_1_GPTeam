@@ -19,6 +19,7 @@ type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (models.UserModel, error)
 	GetByEmail(ctx context.Context, email string) (models.UserModel, error)
 	UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error
+	Update(ctx context.Context, userInfo models.UserModel) (models.UserModel, error)
 }
 
 type UserPostgres struct {
@@ -125,4 +126,39 @@ func (obj *UserPostgres) UpdateLastLogin(ctx context.Context, userId int, lastLo
 		return err
 	}
 	return nil
+}
+
+func (obj *UserPostgres) Update(ctx context.Context, userInfo models.UserModel) (models.UserModel, error) {
+	query := `update "user" set username = CASE WHEN $1 = '' THEN username ELSE $1 END, password = CASE WHEN $2 = '' THEN password ELSE $2 END, email = CASE WHEN $3 = '' THEN email ELSE $3 END, avatar_url = CASE WHEN $4 = '' THEN avatar_url ELSE $4 END, updated_at = $5 where id = $6 returning id, username, password, email, created_at, last_login, avatar_url, updated_at, active;`
+	var id pgtype.Int4
+	var username pgtype.Text
+	var password pgtype.Text
+	var email pgtype.Text
+	var createdAt pgtype.Timestamp
+	var lastLogin pgtype.Timestamp
+	var avatarUrl pgtype.Text
+	var updatedAt pgtype.Timestamp
+	var active pgtype.Bool
+	err := obj.db.QueryRow(ctx, query, userInfo.Username, userInfo.Password, userInfo.Email, userInfo.AvatarUrl, time.Now(), userInfo.Id).Scan(&id, &username, &password, &email, &createdAt, &lastLogin, &avatarUrl, &updatedAt, &active)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.UserModel{}, NothingInTableError
+		}
+		return models.UserModel{}, err
+	}
+	user := models.UserModel{
+		Id:        int(id.Int32),
+		Username:  username.String,
+		Password:  password.String,
+		Email:     email.String,
+		CreatedAt: createdAt.Time,
+		LastLogin: lastLogin.Time,
+		AvatarUrl: avatarUrl.String,
+		UpdatedAt: updatedAt.Time,
+		Active:    active.Bool,
+	}
+	if !lastLogin.Valid {
+		user.LastLogin = time.Time{}
+	}
+	return user, nil
 }

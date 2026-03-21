@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
 
 func WriteResponseJSON(w http.ResponseWriter, code int, response any) {
@@ -14,6 +16,19 @@ func WriteResponseJSON(w http.ResponseWriter, code int, response any) {
 	if err != nil {
 		fmt.Println(err)
 	}
+}
+
+func GetAuthUser(r *http.Request) (models.UserModel, bool) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(models.UserModel)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
+	}
+	return authUser, ok
+}
+
+func ReadRequestJSON(r *http.Request, request any) error {
+	return json.NewDecoder(r.Body).Decode(request)
 }
 
 func SetCORS(w http.ResponseWriter) {
