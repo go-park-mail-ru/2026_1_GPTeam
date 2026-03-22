@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/base"
+	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/middleware"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
 	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/storage"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,8 +32,8 @@ var once sync.Once
 func SetupStorage() {
 	once.Do(func() {
 		_ = jwt.NewRefreshTokenStore("secret123", "0")
-		storage.NewUserStore()
-		storage.AddUser(storage.UserInfo{
+		models.NewUserStore()
+		models.AddUser(models2.UserModel{
 			Id:              0,
 			Username:        testUsername,
 			Password:        testPassword,
@@ -43,7 +44,7 @@ func SetupStorage() {
 			Balance:         100.5,
 			BalanceCurrency: "RUB",
 		})
-		storage.NewBudgetStore()
+		models.NewBudgetStore()
 	})
 }
 
@@ -169,11 +170,11 @@ func TestSignup(t *testing.T) {
 			body:         []byte(`не валидный json`),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusBadRequest, resp.Code)
 				require.Equal(t, "Неверный формат запроса", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "", Message: "Не удалось прочитать тело запроса"},
 				}, resp.Errors)
 			},
@@ -184,11 +185,11 @@ func TestSignup(t *testing.T) {
 			body:         testhelper.MustJSON(t, map[string]string{"username": "", "password": "", "email": "", "confirm_password": ""}),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusBadRequest, resp.Code)
 				require.Equal(t, "Неверный формат запроса", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "username", Message: "Поле обязательно для заполнения"},
 					{Field: "password", Message: "Поле обязательно для заполнения"},
 					{Field: "email", Message: "Поле обязательно для заполнения"},
@@ -202,11 +203,11 @@ func TestSignup(t *testing.T) {
 			body:         testhelper.MustJSON(t, map[string]string{"username": testUsername, "password": testPassword, "email": "new@email.com", "confirm_password": testPassword}),
 			expectedCode: http.StatusConflict,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusConflict, resp.Code)
 				require.Equal(t, "Пользователь с таким логином уже существует", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "username", Message: "Пользователь с таким логином уже существует"},
 				}, resp.Errors)
 			},
@@ -217,11 +218,11 @@ func TestSignup(t *testing.T) {
 			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email@example.com", "confirm_password": testPassword}),
 			expectedCode: http.StatusConflict,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusConflict, resp.Code)
 				require.Equal(t, "Пользователь с таким email уже существует", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "email", Message: "Пользователь с таким email уже существует"},
 				}, resp.Errors)
 			},
@@ -232,11 +233,11 @@ func TestSignup(t *testing.T) {
 			body:         testhelper.MustJSON(t, map[string]string{"username": "admin2", "password": testPassword, "email": "email2@example.com", "confirm_password": "Adm1n123456"}),
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.SignupErrorResponse
+				var resp web_helpers.SignupErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusBadRequest, resp.Code)
 				require.Equal(t, "Ошибка валидации", resp.Message)
-				require.Equal(t, []base.FieldError{
+				require.Equal(t, []web_helpers.FieldError{
 					{Field: "password", Message: "Пароли не совпадают"},
 					{Field: "confirm_password", Message: "Пароли не совпадают"},
 				}, resp.Errors)
@@ -337,7 +338,7 @@ func TestRefreshWithInvalidToken(t *testing.T) {
 		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(jwt.AccessTokenExpirationTime),
+		Expires:  time.Now().Add(jwt2.AccessTokenExpirationTime),
 	})
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -423,7 +424,7 @@ func TestBalance(t *testing.T) {
 			withAuth:     true,
 			expectedCode: http.StatusOK,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.BalanceResponse
+				var resp web_helpers.BalanceResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, http.StatusOK, resp.Code)
 				require.Equal(t, 100.5, resp.Balance)
@@ -514,9 +515,9 @@ func TestGetBudget(t *testing.T) {
 	handler.ServeHTTP(wCreate, reqCreate)
 	require.Equal(t, http.StatusOK, wCreate.Code)
 
-	var createResp base.BudgetCreateSuccessResponse
+	var createResp web_helpers.BudgetCreateSuccessResponse
 	require.NoError(t, json.NewDecoder(wCreate.Body).Decode(&createResp))
-	budgetID := createResp.BudgetID
+	budgetID := createResp.BudgetId
 
 	cases := []struct {
 		name         string
@@ -525,8 +526,8 @@ func TestGetBudget(t *testing.T) {
 		expectedCode int
 	}{
 		{"без авторизации", "0", false, http.StatusUnauthorized},
-		{"несуществующий ID", "999", true, http.StatusNotFound},
-		{"невалидный ID", "abc", true, http.StatusNotFound},
+		{"несуществующий Id", "999", true, http.StatusNotFound},
+		{"невалидный Id", "abc", true, http.StatusNotFound},
 		{"существующий бюджет", fmt.Sprintf("%d", budgetID), true, http.StatusOK},
 	}
 
@@ -595,14 +596,14 @@ func TestCreateBudget(t *testing.T) {
 			withAuth:     true,
 			expectedCode: http.StatusBadRequest,
 			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp base.BudgetErrorResponse
+				var resp web_helpers.BudgetErrorResponse
 				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 				require.Equal(t, "Ошибка валидации", resp.Message)
 				fieldNames := make([]string, 0, len(resp.Errors))
 				for _, e := range resp.Errors {
 					fieldNames = append(fieldNames, e.Field)
 				}
-				require.ElementsMatch(t, []string{"title", "description", "target", "currency", "currency", "start_at"}, fieldNames)
+				require.ElementsMatch(t, []string{"title", "description", "target", "target", "currency", "currency", "start_at"}, fieldNames)
 			},
 		},
 		{
@@ -656,9 +657,9 @@ func TestDeleteBudget(t *testing.T) {
 	handler.ServeHTTP(wCreate, reqCreate)
 	require.Equal(t, http.StatusOK, wCreate.Code)
 
-	var createResp base.BudgetCreateSuccessResponse
+	var createResp web_helpers.BudgetCreateSuccessResponse
 	require.NoError(t, json.NewDecoder(wCreate.Body).Decode(&createResp))
-	budgetID := fmt.Sprintf("%d", createResp.BudgetID)
+	budgetID := fmt.Sprintf("%d", createResp.BudgetId)
 
 	cases := []struct {
 		name         string
@@ -667,7 +668,7 @@ func TestDeleteBudget(t *testing.T) {
 		expectedCode int
 	}{
 		{"без авторизации", budgetID, false, http.StatusUnauthorized},
-		{"невалидный ID", "abc", true, http.StatusNotFound},
+		{"невалидный Id", "abc", true, http.StatusNotFound},
 		{"несуществующий бюджет", "999", true, http.StatusNotFound},
 		{"успешное удаление", budgetID, true, http.StatusOK},
 		{"повторное удаление", budgetID, true, http.StatusNotFound},
@@ -718,7 +719,7 @@ func TestHandlersNoUserInContext(t *testing.T) {
 func TestHandlersEmptyPathID(t *testing.T) {
 	SetupStorage()
 
-	user := storage.UserInfo{
+	user := models2.UserModel{
 		Id:       0,
 		Username: testUsername,
 	}

@@ -180,4 +180,6 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/go,goland+all,visualstudiocode,linux,windows
 /.env
 *.pem
+/db/migrations/run-tern.ps1
 *coverage
+*.log
