@@ -13,7 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/joho/godotenv"
 )
@@ -32,30 +32,25 @@ func main() {
 	name := os.Getenv("POSTGRES_DB")
 	dbUrl := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, name)
 
-	conn, err := pgx.Connect(context.Background(), dbUrl)
+	pool, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
 		fmt.Printf("Unable to connect to database: %v\n", err)
 		return
 	}
-	defer func() {
-		err = conn.Close(context.Background())
-		if err != nil {
-			fmt.Printf("Unable to close connection: %v\n", err)
-		}
-	}()
+	defer pool.Close()
 
 	enumsCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, conn)
+	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, pool)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	userPostgres := repository.NewUserPostgres(conn)
-	budgetPostgres := repository.NewBudgetPostgres(conn)
-	jwtPostgres := repository.NewJwtPostgres(conn)
-	transactionPostgres := repository.NewTransactionPostgres(conn)
-	accountPostgres := repository.NewAccountPostgres(conn)
+	userPostgres := repository.NewUserPostgres(pool)
+	budgetPostgres := repository.NewBudgetPostgres(pool)
+	jwtPostgres := repository.NewJwtPostgres(pool)
+	transactionPostgres := repository.NewTransactionPostgres(pool)
+	accountPostgres := repository.NewAccountPostgres(pool)
 
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres)
@@ -80,7 +75,7 @@ func main() {
 	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.RefreshToken)))
 	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.SignUp)))
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Login)))
-	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Profile)))
+	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPut)(http.HandlerFunc(userHandler.ProfileHandler)))
 	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Balance)))
 	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudgets)))
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
@@ -89,8 +84,6 @@ func main() {
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/transactions", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(transactionHandler.Transactions)))
 	mux.Handle("/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete)(http.HandlerFunc(transactionHandler.Transaction)))
-	mux.Handle("/profile/update", middleware.MethodValidationMiddleware(http.MethodPut)(http.HandlerFunc(userHandler.UpdateProfile)))
-
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)

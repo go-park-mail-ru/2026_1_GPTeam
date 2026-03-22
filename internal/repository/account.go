@@ -3,12 +3,11 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AccountRepository interface {
@@ -18,10 +17,10 @@ type AccountRepository interface {
 }
 
 type AccountPostgres struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
-func NewAccountPostgres(db *pgx.Conn) *AccountPostgres {
+func NewAccountPostgres(db *pgxpool.Pool) *AccountPostgres {
 	return &AccountPostgres{db: db}
 }
 
@@ -41,7 +40,6 @@ func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountMo
 		}
 	}
 	if err != nil {
-		fmt.Printf("Unable to create account: %v\n", err)
 		return -1, err
 	}
 	return id, nil
@@ -63,7 +61,6 @@ func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId in
 		}
 	}
 	if err != nil {
-		fmt.Printf("Unable to link account and user: %v\n", err)
 		return -1, err
 	}
 	return id, nil
@@ -75,12 +72,11 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 	if err != nil {
 		return []int{}, UnableToGetAccountUserIdsError
 	}
-	var ids []int
 	defer rows.Close()
+	var ids []int
 	for rows.Next() {
 		var id int
-		err = rows.Scan(&id)
-		if err != nil {
+		if err = rows.Scan(&id); err != nil {
 			return []int{}, UnableToGetAccountUserIdsError
 		}
 		ids = append(ids, id)

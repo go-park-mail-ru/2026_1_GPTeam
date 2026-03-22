@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -28,20 +27,24 @@ func NewUser(repository repository.UserRepository) *User {
 	return &User{repository: repository}
 }
 
+func strPtr(s string) *string {
+	return &s
+}
+
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper (на будущее, так как надо сделать поддержку старых перцов и плавную миграцию на новый перец)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost)
 	if err != nil {
-		fmt.Printf("unable to hash password: %v\n", err)
 		return web_helpers.AuthUser{}, HashPasswordError
 	}
+	hashedPassword := string(bytes)
 	userModel := models.UserModel{
 		Id:        0,
-		Username:  userRequest.Username,
-		Password:  string(bytes),
-		Email:     userRequest.Email,
+		Username:  strPtr(userRequest.Username),
+		Password:  strPtr(hashedPassword),
+		Email:     strPtr(userRequest.Email),
 		CreatedAt: time.Now(),
 		LastLogin: time.Time{},
-		AvatarUrl: "",
+		AvatarUrl: strPtr(""),
 		UpdatedAt: time.Now(),
 		Active:    true,
 	}
@@ -51,8 +54,8 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 	}
 	user := web_helpers.AuthUser{
 		Id:        id,
-		Username:  userModel.Username,
-		Email:     userModel.Email,
+		Username:  *userModel.Username,
+		Email:     *userModel.Email,
 		LastLogin: userModel.LastLogin,
 		CreatedAt: userModel.CreatedAt,
 	}
@@ -60,11 +63,7 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 }
 
 func (obj *User) GetById(ctx context.Context, id int) (models.UserModel, error) {
-	user, err := obj.repository.GetById(ctx, id)
-	if err != nil {
-		return models.UserModel{}, err
-	}
-	return user, nil
+	return obj.repository.GetById(ctx, id)
 }
 
 func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserModel, error) {
@@ -72,7 +71,7 @@ func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBod
 	if err != nil {
 		return models.UserModel{}, err
 	}
-	err = bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(*storedUser.Password), []byte(user.Password))
 	if err != nil {
 		return models.UserModel{}, err
 	}
@@ -85,14 +84,13 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 	}
 	storedUser, err := obj.repository.GetById(ctx, userId)
 	if err != nil {
-		fmt.Printf("Error while getting user by id: %v\n", err)
 		return web_helpers.User{}, false
 	}
 	user := web_helpers.User{
-		Username:  storedUser.Username,
-		Email:     storedUser.Email,
+		Username:  *storedUser.Username,
+		Email:     *storedUser.Email,
 		CreatedAt: storedUser.CreatedAt,
-		AvatarUrl: storedUser.AvatarUrl,
+		AvatarUrl: *storedUser.AvatarUrl,
 	}
 	return user, true
 }
@@ -100,23 +98,19 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
 	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
 	if err != nil {
-		fmt.Printf("невозможно обновить время последнего входа для пользователя %d: %v\n", userId, err)
 		return err
 	}
 	return nil
 }
 
 func (obj *User) Update(ctx context.Context, userInfo models.UserModel) (models.UserModel, error) {
-	if userInfo.Password != "" {
-		bytes, err := bcrypt.GenerateFromPassword([]byte(userInfo.Password), bcrypt.DefaultCost)
+	if userInfo.Password != nil {
+		bytes, err := bcrypt.GenerateFromPassword([]byte(*userInfo.Password), bcrypt.DefaultCost)
 		if err != nil {
 			return models.UserModel{}, HashPasswordError
 		}
-		userInfo.Password = string(bytes)
+		hashedPassword := string(bytes)
+		userInfo.Password = &hashedPassword
 	}
-	updatedUser, err := obj.repository.Update(ctx, userInfo)
-	if err != nil {
-		return models.UserModel{}, err
-	}
-	return updatedUser, nil
+	return obj.repository.Update(ctx, userInfo)
 }

@@ -431,10 +431,10 @@ func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *T
 }
 
 type UpdateUserProfileRequest struct {
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-	AvatarUrl string `json:"avatar_url"`
+	Username  *string `json:"username"`
+	Email     *string `json:"email"`
+	Password  *string `json:"password"`
+	AvatarUrl *string `json:"avatar_url"`
 }
 
 type BadRequestErrorResponse SimpleResponse
