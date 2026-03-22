@@ -29,7 +29,7 @@ func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsA
 	}
 }
 
-// /transactions — GET (список) и POST (создать)
+// Transactions /transactions — GET (список) и POST (создать)
 func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -39,13 +39,15 @@ func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// /transactions/{id} — GET (детали) и DELETE (удалить)
+// Transaction /transactions/{id} — GET (детали), DELETE (удалить), POST (обновить)
 func (obj *TransactionHandler) Transaction(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		obj.detail(w, r)
 	case http.MethodDelete:
 		obj.delete(w, r)
+	case http.MethodPost:
+		obj.update(w, r)
 	}
 }
 
@@ -142,6 +144,76 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 		return
 	}
 	response := web_helpers.NewTransactionsIdsResponse(ids)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user")
+	authUser, ok := user.(models.UserModel)
+	if !ok {
+		fmt.Printf("user is a %T\n", user)
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	idStr := r.PathValue("id")
+	transactionId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
+		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	transaction, err := obj.transactionApp.Detail(r.Context(), transactionId, authUser.Id)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, application.ForbiddenError) {
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	var body web_helpers.TransactionRequest
+	err = json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	validationErrors := validators.ValidateTransaction(body, obj.enumsApp.GetTransactionTypes(), obj.enumsApp.GetCategoryTypes())
+	if len(validationErrors) > 0 {
+		response := web_helpers.NewValidationErrorResponse(validationErrors)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	transaction.AccountId = body.AccountId
+	transaction.Value = body.Value
+	transaction.Type = body.Type
+	transaction.Category = body.Category
+	transaction.Title = body.Title
+	transaction.Description = body.Description
+	transaction.TransactionDate = body.TransactionDate
+	err = obj.transactionApp.Update(r.Context(), transaction)
+	if err != nil {
+		if errors.Is(err, repository.IncorrectRowsAffectedError) {
+			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	response := web_helpers.NewTransactionUpdateSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 

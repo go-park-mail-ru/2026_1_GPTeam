@@ -13,4 +13,6 @@ type TransactionModel struct {
 	Description     string
 	CreatedAt       time.Time
 	TransactionDate time.Time
+	DeletedAt       time.Time
+	UpdatedAt       time.Time
 }

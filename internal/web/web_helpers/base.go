@@ -429,3 +429,12 @@ func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *T
 		},
 	}
 }
+
+type TransactionUpdateSuccessResponse SimpleResponse
+
+func NewTransactionUpdateSuccessResponse() TransactionUpdateSuccessResponse {
+	return TransactionUpdateSuccessResponse{
+		Code:    http.StatusOK,
+		Message: "Транзакция успешно обновлена",
+	}
+}
