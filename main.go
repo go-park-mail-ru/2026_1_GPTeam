@@ -14,11 +14,23 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	"github.com/jackc/pgx/v5"
-
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func main() {
+	loggerConfig := zap.NewDevelopmentConfig()
+	logFile, err := os.OpenFile("backend.log", os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		fmt.Println("Error opening log file")
+		return
+	}
+	logWriter := zapcore.AddSync(logFile)
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.TimeKey = "time"
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	logCore := zapcore.NewTee()
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("Error loading .env file")
