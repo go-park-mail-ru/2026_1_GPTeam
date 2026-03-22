@@ -6,6 +6,6 @@ create trigger update_timestamp
 
 ---- create above / drop below ----
 
-alter table transaction drop column if exists updated_at;
-
 drop trigger if exists update_timestamp on transaction;
+
+alter table transaction drop column if exists updated_at;

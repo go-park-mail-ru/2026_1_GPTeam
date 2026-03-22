@@ -179,6 +179,11 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	if !obj.accountApp.IsUserAuthorOfAccount(r.Context(), authUser.Id, body.AccountId) {
+		response := web_helpers.NewForbiddenErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
 
 	err = obj.transactionApp.Update(r.Context(), transactionId, authUser.Id, body)
 	if err != nil {
@@ -189,6 +194,19 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, application.ForbiddenError) {
 			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.TransactionAccountForeignKeyError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+				web_helpers.NewFieldError("account", "Такого аккаунта нет"),
+			})
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.ConstraintError) || errors.Is(err, repository.DuplicatedDataError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = err.Error()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}

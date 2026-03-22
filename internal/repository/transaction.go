@@ -80,11 +80,27 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 }
 
 func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel) error {
-	query := `update transaction set (user_id, account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7, $8) where id = $9;`
+	query := `update transaction set (user_id, account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7, $8) where id = $9 and deleted_at is null;`
 	res, err := obj.db.Exec(ctx, query, transaction.UserId, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate, transaction.Id)
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if ok {
+		switch pgErr.Code {
+		case pgerrcode.ForeignKeyViolation:
+			return TransactionAccountForeignKeyError
+		case pgerrcode.CheckViolation:
+			return ConstraintError
+		case pgerrcode.UniqueViolation:
+			return DuplicatedDataError
+		default:
+			return pgErr
+		}
+	}
 	if err != nil {
 		fmt.Printf("Unable to update transaction: %v\n", err)
 		return err
+	}
+	if res.RowsAffected() == 0 {
+		return NothingInTableError
 	}
 	if res.RowsAffected() != 1 {
 		return IncorrectRowsAffectedError
