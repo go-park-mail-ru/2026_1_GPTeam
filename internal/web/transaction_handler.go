@@ -165,22 +165,6 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	transaction, err := obj.transactionApp.Detail(r.Context(), transactionId, authUser.Id)
-	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
-			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
-			web_helpers.WriteResponseJSON(w, response.Code, response)
-			return
-		}
-		if errors.Is(err, application.ForbiddenError) {
-			response := web_helpers.NewForbiddenErrorResponse()
-			web_helpers.WriteResponseJSON(w, response.Code, response)
-			return
-		}
-		response := web_helpers.NewServerErrorResponse("req_id")
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-		return
-	}
 
 	var body web_helpers.TransactionRequest
 	err = json.NewDecoder(r.Body).Decode(&body)
@@ -195,17 +179,16 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	transaction.AccountId = body.AccountId
-	transaction.Value = body.Value
-	transaction.Type = body.Type
-	transaction.Category = body.Category
-	transaction.Title = body.Title
-	transaction.Description = body.Description
-	transaction.TransactionDate = body.TransactionDate
-	err = obj.transactionApp.Update(r.Context(), transaction)
+
+	err = obj.transactionApp.Update(r.Context(), transactionId, authUser.Id, body)
 	if err != nil {
-		if errors.Is(err, repository.IncorrectRowsAffectedError) {
+		if errors.Is(err, repository.IncorrectRowsAffectedError) || errors.Is(err, repository.NothingInTableError) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, application.ForbiddenError) {
+			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}

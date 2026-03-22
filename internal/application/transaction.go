@@ -5,12 +5,13 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 )
 
 type TransactionUseCase interface {
 	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
 	GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
-	Update(ctx context.Context, transaction models.TransactionModel) error
+	Update(ctx context.Context, transactionId int, userId int, body web_helpers.TransactionRequest) error
 	Delete(ctx context.Context, transactionId int, userId int) (int, error)
 	Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error)
 	IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error)
@@ -34,8 +35,19 @@ func (obj *Transaction) GetTransactionIdsOfUser(ctx context.Context, user models
 	return ids, err
 }
 
-func (obj *Transaction) Update(ctx context.Context, transaction models.TransactionModel) error {
-	err := obj.repository.Update(ctx, transaction)
+func (obj *Transaction) Update(ctx context.Context, transactionId int, userId int, body web_helpers.TransactionRequest) error {
+	transaction, err := obj.Detail(ctx, transactionId, userId)
+	if err != nil {
+		return err
+	}
+	transaction.AccountId = body.AccountId
+	transaction.Value = body.Value
+	transaction.Type = body.Type
+	transaction.Category = body.Category
+	transaction.Title = body.Title
+	transaction.Description = body.Description
+	transaction.TransactionDate = body.TransactionDate
+	err = obj.repository.Update(ctx, transaction)
 	return err
 }
 
