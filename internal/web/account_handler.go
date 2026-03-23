@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
@@ -22,14 +23,22 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	accountId, err := obj.accountApp.GetAccountIdByUserId(r.Context(), authUser.Id)
 	if err != nil {
-		response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
+		if errors.Is(err, application.ErrAccountNotFound) {
+			response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+
+		response := web_helpers.NewInternalServerErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	web_helpers.WriteResponseJSON(w, http.StatusOK, map[string]interface{}{
-		"code":       200,
+		"code":       http.StatusOK,
 		"account_id": accountId,
 	})
 }
