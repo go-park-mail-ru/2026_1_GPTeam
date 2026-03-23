@@ -13,43 +13,29 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func main() {
-	logFile, err := os.OpenFile("backend.log", os.O_CREATE|os.O_WRONLY, 0666)
+	err := logger.InitLogger()
 	if err != nil {
-		fmt.Println("Error opening log file")
+		fmt.Println("Error initializing logger: ", err)
 		return
 	}
 	defer func() {
-		err = logFile.Close()
+		err = logger.Close()
 		if err != nil {
-			fmt.Printf("Error closing log file: %v\n", err)
+			fmt.Println("Error closing logger: ", err)
 		}
 	}()
-	logWriter := zapcore.AddSync(logFile)
-	logEncoderConfig := zap.NewProductionEncoderConfig()
-	logEncoderConfig.TimeKey = "time"
-	logEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	logCore := zapcore.NewTee(
-		zapcore.NewCore(zapcore.NewJSONEncoder(logEncoderConfig), logWriter, zap.DebugLevel),
-		zapcore.NewCore(zapcore.NewConsoleEncoder(logEncoderConfig), zapcore.AddSync(os.Stdout), zap.InfoLevel),
-	)
-	logger := zap.New(logCore, zap.AddCaller())
-	defer func() {
-		err = logger.Sync()
-		if err != nil {
-			fmt.Printf("Error syncing logger: %v\n", err)
-		}
-	}()
+	log := logger.GetLogger()
 
 	err = godotenv.Load()
 	if err != nil {
-		fmt.Println("Error loading .env file")
+		log.Fatal("Error loading .env file")
 		return
 	}
 
@@ -62,7 +48,7 @@ func main() {
 
 	conn, err := pgx.Connect(context.Background(), dbUrl)
 	if err != nil {
-		fmt.Printf("Unable to connect to database: %v\n", err)
+		log.Fatal("Error connecting to database: ", zap.Error(err))
 		return
 	}
 	defer func() {
@@ -75,7 +61,7 @@ func main() {
 	userPostgres := repository.NewUserPostgres(conn)
 	budgetPostgres, err := repository.NewBudgetPostgres(conn)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal("Error connecting to budget database: ", zap.Error(err))
 		return
 	}
 	jwtPostgres := repository.NewJwtPostgres(conn)
