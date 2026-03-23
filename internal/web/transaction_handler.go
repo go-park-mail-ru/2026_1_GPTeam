@@ -137,10 +137,8 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 }
 
 func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user")
-	authUser, ok := user.(models.UserModel)
+	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		fmt.Printf("user is a %T\n", user)
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -156,7 +154,7 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body web_helpers.TransactionRequest
-	err = json.NewDecoder(r.Body).Decode(&body)
+	err = web_helpers.ReadRequestJSON(r, &body)
 	if err != nil {
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
