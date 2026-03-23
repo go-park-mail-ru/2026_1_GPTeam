@@ -83,7 +83,7 @@ func ValidateTargetBudget(target int) error {
 	if target <= 0 {
 		return TargetIsNegativeError
 	}
-	if target > 1e18 {
+	if target > 1e12 {
 		return TargetIsBigError
 	}
 	return nil
