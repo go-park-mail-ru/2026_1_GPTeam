@@ -438,3 +438,67 @@ func NewTransactionUpdateSuccessResponse() TransactionUpdateSuccessResponse {
 		Message: "Транзакция успешно обновлена",
 	}
 }
+
+type UpdateUserProfileRequest struct {
+	Username  *string `json:"username"`
+	Email     *string `json:"email"`
+	Password  *string `json:"password"`
+	AvatarUrl *string `json:"avatar_url"`
+}
+
+type BadRequestErrorResponse SimpleResponse
+
+func NewBadRequestErrorResponse() BadRequestErrorResponse {
+	return BadRequestErrorResponse{
+		Code:    http.StatusBadRequest,
+		Message: "Некорректный запрос",
+	}
+}
+
+type InternalServerErrorResponse SimpleResponse
+
+func NewInternalServerErrorResponse() InternalServerErrorResponse {
+	return InternalServerErrorResponse{
+		Code:    http.StatusInternalServerError,
+		Message: "Внутренняя ошибка сервера",
+	}
+}
+
+type UpdateProfileSuccessResponse struct {
+	SimpleResponse
+	User User `json:"user"`
+}
+
+func NewUpdateProfileSuccessResponse(user User) UpdateProfileSuccessResponse {
+	return UpdateProfileSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Профиль успешно обновлён",
+		},
+		User: user,
+	}
+}
+
+type ProfileSuccessResponse struct {
+	SimpleResponse
+	User User `json:"user"`
+}
+
+func NewProfileSuccessResponse(user User) ProfileSuccessResponse {
+	return ProfileSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Профиль получен",
+		},
+		User: user,
+	}
+}
+
+type EnumListResponse struct {
+	Code  int      `json:"code"`
+	Items []string `json:"items"`
+}
+
+func NewEnumListResponse(items []string) EnumListResponse {
+	return EnumListResponse{Code: 200, Items: items}
+}

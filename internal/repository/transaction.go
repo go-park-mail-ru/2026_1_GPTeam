@@ -3,12 +3,12 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type TransactionRepository interface {
@@ -20,10 +20,10 @@ type TransactionRepository interface {
 }
 
 type TransactionPostgres struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
-func NewTransactionPostgres(db *pgx.Conn) *TransactionPostgres {
+func NewTransactionPostgres(db *pgxpool.Pool) *TransactionPostgres {
 	return &TransactionPostgres{db: db}
 }
 
@@ -45,7 +45,6 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		}
 	}
 	if err != nil {
-		fmt.Printf("Unable to create transaction: %v\n", err)
 		return -1, err
 	}
 	return id, nil

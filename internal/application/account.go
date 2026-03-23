@@ -12,6 +12,7 @@ type AccountUseCase interface {
 	Create(ctx context.Context, account models.AccountModel) (int, error)
 	LinkAccountAndUser(ctx context.Context, accountId int, userId int) error
 	IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool
+	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
 }
 
 type Account struct {
@@ -25,6 +26,10 @@ func NewAccount(repo repository.AccountRepository) *Account {
 func (obj *Account) Create(ctx context.Context, account models.AccountModel) (int, error) {
 	id, err := obj.repository.Create(ctx, account)
 	return id, err
+}
+
+func (obj *Account) GetAccountIdByUserId(ctx context.Context, userId int) (int, error) {
+	return obj.repository.GetAccountIdByUserId(ctx, userId)
 }
 
 func (obj *Account) LinkAccountAndUser(ctx context.Context, accountId int, userId int) error {
