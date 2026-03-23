@@ -1,10 +1,13 @@
 package validators
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 func ValidateUsername(username string) error {
@@ -108,40 +111,49 @@ func ValidateEndDate(startDate time.Time, endDate time.Time) error {
 	return nil
 }
 
-func validateTransactionValue(value float64) error {
-	if value <= 0 {
-		return ValueIsNegativeError
-	}
-	return nil
-}
-
-func validateTransactionType(transactionType string, allowedTypes []string) error {
-	if !slices.Contains(allowedTypes, transactionType) {
-		return TransactionTypeNotAllowedError
-	}
-	return nil
-}
-
-func validateTransactionCategory(category string, allowedCategories []string) error {
-	if !slices.Contains(allowedCategories, category) {
-		return TransactionCategoryNotAllowedError
-	}
-	return nil
-}
-
 func validateTransactionTitle(title string) error {
-	if len(title) == 0 {
-		return TransactionTitleEmptyError
+	title = strings.TrimSpace(title)
+	if utf8.RuneCountInString(title) == 0 {
+		return errors.New("название не может быть пустым")
 	}
-	if len(title) > 255 {
-		return TransactionTitleLongError
+	if utf8.RuneCountInString(title) > 255 {
+		return errors.New("название не должно превышать 255 символов")
 	}
 	return nil
 }
 
 func validateTransactionDescription(description string) error {
-	if len(description) == 0 {
-		return TransactionDescriptionEmptyError
+	description = strings.TrimSpace(description)
+	if utf8.RuneCountInString(description) == 0 {
+		return errors.New("описание не может быть пустым")
 	}
 	return nil
+}
+
+func validateTransactionValue(value float64) error {
+	if value <= 0 {
+		return errors.New("сумма должна быть больше 0")
+	}
+	if value > 1_000_000_000 {
+		return errors.New("сумма не может превышать 1 000 000 000")
+	}
+	return nil
+}
+
+func validateTransactionType(transactionType string, allowedTypes []string) error {
+	for _, t := range allowedTypes {
+		if t == transactionType {
+			return nil
+		}
+	}
+	return errors.New("недопустимый тип транзакции")
+}
+
+func validateTransactionCategory(category string, allowedCategories []string) error {
+	for _, c := range allowedCategories {
+		if c == category {
+			return nil
+		}
+	}
+	return errors.New("недопустимая категория")
 }

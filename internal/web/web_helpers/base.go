@@ -484,3 +484,12 @@ func NewProfileSuccessResponse(user User) ProfileSuccessResponse {
 		User: user,
 	}
 }
+
+type EnumListResponse struct {
+	Code  int      `json:"code"`
+	Items []string `json:"items"`
+}
+
+func NewEnumListResponse(items []string) EnumListResponse {
+	return EnumListResponse{Code: 200, Items: items}
+}

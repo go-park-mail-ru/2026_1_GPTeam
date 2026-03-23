@@ -20,3 +20,15 @@ func (obj *EnumsHandler) CurrencyCodes(w http.ResponseWriter, r *http.Request) {
 	response := web_helpers.NewCurrencyCodesResponse(codes)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
+
+func (obj *EnumsHandler) TransactionTypes(w http.ResponseWriter, r *http.Request) {
+	types := obj.enumApp.GetTransactionTypes()
+	response := web_helpers.NewEnumListResponse(types)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *EnumsHandler) CategoryTypes(w http.ResponseWriter, r *http.Request) {
+	categories := obj.enumApp.GetCategoryTypes()
+	response := web_helpers.NewEnumListResponse(categories)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}

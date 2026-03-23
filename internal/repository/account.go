@@ -14,6 +14,7 @@ type AccountRepository interface {
 	Create(ctx context.Context, account models.AccountModel) (int, error)
 	LinkAccountAndUser(ctx context.Context, accountId int, userId int) (int, error)
 	GetIdsByUserAndAccount(ctx context.Context, userId int, accountId int) ([]int, error)
+	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
 }
 
 type AccountPostgres struct {
@@ -82,4 +83,14 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int) (int, error) {
+	query := `SELECT account_id FROM account_user WHERE user_id = $1 LIMIT 1`
+	var accountId int
+	err := obj.db.QueryRow(ctx, query, userId).Scan(&accountId)
+	if err != nil {
+		return 0, err
+	}
+	return accountId, nil
 }
