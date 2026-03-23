@@ -80,9 +80,9 @@ func TestValidateCurrency(t *testing.T) {
 		Currency string
 		err      error
 	}{
-		{"Incorrect", "abc", validators2.CurrencyNotAllowed},
-		{"Incorrect", "ABC", validators2.CurrencyNotAllowed},
-		{"Incorrect", "GBP", validators2.CurrencyNotAllowed},
+		{"Incorrect", "abc", validators2.CurrencyNotAllowedError},
+		{"Incorrect", "ABC", validators2.CurrencyNotAllowedError},
+		{"Incorrect", "GBP", validators2.CurrencyNotAllowedError},
 		{"Correct", "RUB", nil},
 		{"Correct", "USD", nil},
 		{"Correct", "EUR", nil},
