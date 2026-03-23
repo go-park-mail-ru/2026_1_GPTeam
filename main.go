@@ -48,16 +48,20 @@ func main() {
 
 	pool, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
-		log.Fatal("Error connecting to database: ", zap.Error(err))
+		log.Fatal("Failed to create pool: ", zap.Error(err))
 		return
 	}
 	defer pool.Close()
+	err = pool.Ping(context.Background())
+	if err != nil {
+		log.Fatal("Failed to connect to database: ", zap.Error(err))
+	}
 
 	enumsCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, pool)
 	if err != nil {
-		log.Fatal("Error connecting to budget database: ", zap.Error(err))
+		log.Fatal("Error get data from enums table: ", zap.Error(err))
 		return
 	}
 	userPostgres := repository.NewUserPostgres(pool)
