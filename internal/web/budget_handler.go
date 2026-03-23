@@ -1,9 +1,7 @@
 package web
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -28,15 +26,12 @@ func NewBudgetHandler(useCase application.BudgetUseCase, enumsApp application.En
 }
 
 func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user")
-	authUser, ok := user.(models.UserModel)
+	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		fmt.Printf("user is a %T\n", user)
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	ids, err := obj.budgetApp.GetBudgetsOfUser(r.Context(), authUser)
 	if err != nil {
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
@@ -49,15 +44,12 @@ func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user")
-	authUser, ok := user.(models.UserModel)
+	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		fmt.Printf("user is a %T\n", user)
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	idStr := r.PathValue("id")
 	if idStr == "" {
 		response := web_helpers.NewNotFoundErrorResponse("Не указан ID бюджета")
@@ -70,7 +62,6 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	budget, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
 	if err != nil {
 		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
@@ -88,7 +79,6 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	result := web_helpers.BudgetRequest{
 		Title:       budget.Title,
 		Description: budget.Description,
@@ -104,24 +94,20 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user")
-	authUser, ok := user.(models.UserModel)
+	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		fmt.Printf("user is a %T\n", user)
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	var body web_helpers.BudgetRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
 		response := web_helpers.NewBudgetErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []web_helpers.FieldError{
 			web_helpers.NewFieldError("", "Не удалось прочитать тело запроса"),
 		})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	var validationErrors []web_helpers.FieldError
 	if body.Title == "" {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", "Поле обязательно для заполнения"))
@@ -135,20 +121,16 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if body.Currency == "" {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", "Поле обязательно для заполнения"))
 	}
-	err := validators.ValidateCurrency(body.Currency, obj.enumsApp.GetCurrencyCodes())
-	if err != nil {
+	if err := validators.ValidateCurrency(body.Currency, obj.enumsApp.GetCurrencyCodes()); err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", err.Error()))
 	}
-	err = validators.ValidateTargetBudget(body.Target)
-	if err != nil {
+	if err := validators.ValidateTargetBudget(body.Target); err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("target", err.Error()))
 	}
-	err = validators.ValidateStartDate(body.StartAt)
-	if err != nil {
+	if err := validators.ValidateStartDate(body.StartAt); err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("start_at", err.Error()))
 	}
-	err = validators.ValidateEndDate(body.StartAt, body.EndAt)
-	if err != nil {
+	if err := validators.ValidateEndDate(body.StartAt, body.EndAt); err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("end_at", err.Error()))
 	}
 	if len(validationErrors) > 0 {
@@ -156,7 +138,6 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	budget := models.BudgetModel{
 		Title:       body.Title,
 		Description: body.Description,
@@ -192,15 +173,12 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user")
-	authUser, ok := user.(models.UserModel)
+	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		fmt.Printf("user is a %T\n", user)
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	idStr := r.PathValue("id")
 	if idStr == "" {
 		response := web_helpers.NewNotFoundErrorResponse("Не указан ID бюджета")
@@ -213,9 +191,7 @@ func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
-	err = obj.budgetApp.Delete(r.Context(), budgetId, authUser)
-	if err != nil {
+	if err = obj.budgetApp.Delete(r.Context(), budgetId, authUser); err != nil {
 		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -230,7 +206,6 @@ func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	response := web_helpers.NewBudgetDeleteSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

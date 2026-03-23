@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -11,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type BudgetRepository interface {
@@ -21,13 +21,11 @@ type BudgetRepository interface {
 }
 
 type BudgetPostgres struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
-func NewBudgetPostgres(db *pgx.Conn) *BudgetPostgres {
-	return &BudgetPostgres{
-		db: db,
-	}
+func NewBudgetPostgres(db *pgxpool.Pool) *BudgetPostgres {
+	return &BudgetPostgres{db: db}
 }
 
 func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
@@ -50,7 +48,6 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 		}
 	}
 	if err != nil {
-		fmt.Printf("Unable to create budget: %v\n", err)
 		return -1, err
 	}
 	return id, nil
@@ -59,15 +56,12 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author, active from budget where id = $1 and active = true;`
 	var endAt pgtype.Timestamptz
-	budget := models.BudgetModel{
-		Id: id,
-	}
+	budget := models.BudgetModel{Id: id}
 	err := obj.db.QueryRow(ctx, query, id).Scan(&budget.Title, &budget.Description, &budget.CreatedAt, &budget.StartAt, &endAt, &budget.UpdatedAt, &budget.Actual, &budget.Target, &budget.Currency, &budget.Author, &budget.Active)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.BudgetModel{}, NothingInTableError
 		}
-		fmt.Printf("Unable to get budget: %v\n", err)
 		return models.BudgetModel{}, err
 	}
 	budget.EndAt = endAt.Time
@@ -108,8 +102,5 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
 	query := `update budget set active = false where id = $1;`
 	_, err := obj.db.Exec(ctx, query, id)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

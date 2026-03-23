@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type EnumsRepository interface {
@@ -15,7 +15,7 @@ type EnumsRepository interface {
 }
 
 type EnumsPostgres struct {
-	db               *pgx.Conn
+	db               *pgxpool.Pool
 	mu               sync.RWMutex
 	currencyCodes    []string
 	transactionTypes []string
@@ -40,7 +40,7 @@ func (obj *EnumsPostgres) GetCategoryTypesFromDB() []string {
 	return obj.categoryTypes
 }
 
-func NewEnumsPostgres(ctx context.Context, db *pgx.Conn) (*EnumsPostgres, error) {
+func NewEnumsPostgres(ctx context.Context, db *pgxpool.Pool) (*EnumsPostgres, error) {
 	currencyCodes, err := getCurrenciesFromDB(ctx, db)
 	if err != nil {
 		return &EnumsPostgres{}, err
@@ -64,7 +64,7 @@ func NewEnumsPostgres(ctx context.Context, db *pgx.Conn) (*EnumsPostgres, error)
 	}, nil
 }
 
-func getCurrenciesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
+func getCurrenciesFromDB(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {
@@ -74,8 +74,7 @@ func getCurrenciesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
 	var currencies []string
 	for rows.Next() {
 		var code string
-		err = rows.Scan(&code)
-		if err != nil {
+		if err = rows.Scan(&code); err != nil {
 			return []string{}, UnableToReadCurrenciesError
 		}
 		currencies = append(currencies, code)
@@ -83,7 +82,7 @@ func getCurrenciesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
 	return currencies, nil
 }
 
-func getTransactionTypesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
+func getTransactionTypesFromDB(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'transaction_type'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {
@@ -92,17 +91,16 @@ func getTransactionTypesFromDB(ctx context.Context, db *pgx.Conn) ([]string, err
 	defer rows.Close()
 	var transactionTypes []string
 	for rows.Next() {
-		var transactionType string
-		err = rows.Scan(&transactionType)
-		if err != nil {
+		var t string
+		if err = rows.Scan(&t); err != nil {
 			return []string{}, UnableToReadTransactionTypesError
 		}
-		transactionTypes = append(transactionTypes, transactionType)
+		transactionTypes = append(transactionTypes, t)
 	}
 	return transactionTypes, nil
 }
 
-func getCategoriesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
+func getCategoriesFromDB(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'category_type'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {
@@ -111,12 +109,11 @@ func getCategoriesFromDB(ctx context.Context, db *pgx.Conn) ([]string, error) {
 	defer rows.Close()
 	var categories []string
 	for rows.Next() {
-		var category string
-		err = rows.Scan(&category)
-		if err != nil {
+		var c string
+		if err = rows.Scan(&c); err != nil {
 			return []string{}, UnableToReadCategoriesError
 		}
-		categories = append(categories, category)
+		categories = append(categories, c)
 	}
 	return categories, nil
 }

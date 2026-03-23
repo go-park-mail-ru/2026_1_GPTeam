@@ -3,12 +3,12 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type TransactionRepository interface {
@@ -19,10 +19,10 @@ type TransactionRepository interface {
 }
 
 type TransactionPostgres struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
-func NewTransactionPostgres(db *pgx.Conn) *TransactionPostgres {
+func NewTransactionPostgres(db *pgxpool.Pool) *TransactionPostgres {
 	return &TransactionPostgres{db: db}
 }
 
@@ -44,7 +44,6 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		}
 	}
 	if err != nil {
-		fmt.Printf("Unable to create transaction: %v\n", err)
 		return -1, err
 	}
 	return id, nil
@@ -93,11 +92,12 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 
 func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
 	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date from transaction where id = $1 and deleted_at is null;`
-	transaction := models.TransactionModel{
-		Id: transactionId,
-	}
-
-	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate)
+	transaction := models.TransactionModel{Id: transactionId}
+	err := obj.db.QueryRow(ctx, query, transactionId).Scan(
+		&transaction.UserId, &transaction.AccountId, &transaction.Value,
+		&transaction.Type, &transaction.Category, &transaction.Title,
+		&transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.TransactionModel{}, NothingInTableError
