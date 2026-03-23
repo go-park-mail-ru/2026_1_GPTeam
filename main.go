@@ -20,18 +20,34 @@ import (
 )
 
 func main() {
-	loggerConfig := zap.NewDevelopmentConfig()
 	logFile, err := os.OpenFile("backend.log", os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		fmt.Println("Error opening log file")
 		return
 	}
+	defer func() {
+		err = logFile.Close()
+		if err != nil {
+			fmt.Printf("Error closing log file: %v\n", err)
+		}
+	}()
 	logWriter := zapcore.AddSync(logFile)
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.TimeKey = "time"
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	logCore := zapcore.NewTee()
-	err := godotenv.Load()
+	logEncoderConfig := zap.NewProductionEncoderConfig()
+	logEncoderConfig.TimeKey = "time"
+	logEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	logCore := zapcore.NewTee(
+		zapcore.NewCore(zapcore.NewJSONEncoder(logEncoderConfig), logWriter, zap.DebugLevel),
+		zapcore.NewCore(zapcore.NewConsoleEncoder(logEncoderConfig), zapcore.AddSync(os.Stdout), zap.InfoLevel),
+	)
+	logger := zap.New(logCore, zap.AddCaller())
+	defer func() {
+		err = logger.Sync()
+		if err != nil {
+			fmt.Printf("Error syncing logger: %v\n", err)
+		}
+	}()
+
+	err = godotenv.Load()
 	if err != nil {
 		fmt.Println("Error loading .env file")
 		return
