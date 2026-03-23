@@ -20,11 +20,20 @@ func WriteResponseJSON(w http.ResponseWriter, code int, response any) {
 
 func GetAuthUser(r *http.Request) (models.UserModel, bool) {
 	user := r.Context().Value("user")
-	authUser, ok := user.(models.UserModel)
-	if !ok {
-		fmt.Printf("user is a %T\n", user)
+	if user == nil {
+		return models.UserModel{}, false
 	}
-	return authUser, ok
+
+	if authUser, ok := user.(models.UserModel); ok {
+		return authUser, true
+	}
+
+	if authUserPtr, ok := user.(*models.UserModel); ok && authUserPtr != nil {
+		return *authUserPtr, true
+	}
+
+	fmt.Printf("user is a %T\n", user)
+	return models.UserModel{}, false
 }
 
 func ReadRequestJSON(r *http.Request, request any) error {
@@ -34,6 +43,7 @@ func ReadRequestJSON(r *http.Request, request any) error {
 func SetCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("FRONT_URL"))
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	// ДОБАВЛЯЕМ PATCH СЮДА:
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, PATCH")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Origin, Cache-Control, X-Requested-With")
 }

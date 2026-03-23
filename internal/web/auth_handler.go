@@ -187,10 +187,10 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := web_helpers.User{
-		Username:  *storedUser.Username,
-		Email:     *storedUser.Email,
+		Username:  storedUser.Username,
+		Email:     storedUser.Email,
 		CreatedAt: storedUser.CreatedAt,
-		AvatarUrl: *storedUser.AvatarUrl,
+		AvatarUrl: storedUser.AvatarUrl,
 	}
 	response := web_helpers.NewLoginSuccessResponse(user)
 	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)

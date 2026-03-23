@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -40,7 +41,7 @@ func (obj *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		obj.Profile(w, r)
-	case http.MethodPut:
+	case http.MethodPatch:
 		obj.UpdateProfile(w, r)
 	}
 }
@@ -64,10 +65,10 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userResponse := web_helpers.User{
-		Username:  *authUser.Username,
-		Email:     *authUser.Email,
+		Username:  authUser.Username,
+		Email:     authUser.Email,
 		CreatedAt: authUser.CreatedAt,
-		AvatarUrl: *authUser.AvatarUrl,
+		AvatarUrl: authUser.AvatarUrl,
 	}
 	response := web_helpers.NewProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -94,24 +95,25 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userModel := models.UserModel{
+	updateProfile := models.UpdateUserProfile{
 		Id:        authUser.Id,
 		Username:  req.Username,
 		Email:     req.Email,
 		Password:  req.Password,
 		AvatarUrl: req.AvatarUrl,
+		UpdatedAt: time.Now(),
 	}
-	updatedUser, err := obj.userApp.Update(r.Context(), userModel)
+	updatedUser, err := obj.userApp.Update(r.Context(), updateProfile)
 	if err != nil {
 		response := web_helpers.NewInternalServerErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	userResponse := web_helpers.User{
-		Username:  *updatedUser.Username,
-		Email:     *updatedUser.Email,
+		Username:  updatedUser.Username,
+		Email:     updatedUser.Email,
 		CreatedAt: updatedUser.CreatedAt,
-		AvatarUrl: *updatedUser.AvatarUrl,
+		AvatarUrl: updatedUser.AvatarUrl,
 	}
 	response := web_helpers.NewUpdateProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)

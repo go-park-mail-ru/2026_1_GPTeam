@@ -15,11 +15,11 @@ import (
 
 type UserRepository interface {
 	Create(ctx context.Context, userInfo models.UserModel) (int, error)
-	GetById(ctx context.Context, id int) (models.UserModel, error)
-	GetByUsername(ctx context.Context, username string) (models.UserModel, error)
-	GetByEmail(ctx context.Context, email string) (models.UserModel, error)
+	GetByID(ctx context.Context, id int) (*models.UserModel, error)
+	GetByUsername(ctx context.Context, username string) (*models.UserModel, error)
+	GetByEmail(ctx context.Context, email string) (*models.UserModel, error)
 	UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error
-	Update(ctx context.Context, userInfo models.UserModel) (models.UserModel, error)
+	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 }
 
 type UserPostgres struct {
@@ -52,67 +52,67 @@ func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) 
 	return id, nil
 }
 
-func (obj *UserPostgres) GetById(ctx context.Context, id int) (models.UserModel, error) {
-	query := `select username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where id = $1;`
+func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel, error) {
+	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where id = $1;`
 	var lastLogin pgtype.Timestamp
 	user := models.UserModel{Id: id}
 	err := obj.db.QueryRow(ctx, query, id).Scan(
-		&user.Username, &user.Password, &user.Email,
+		&user.Id, &user.Username, &user.Password, &user.Email,
 		&user.CreatedAt, &lastLogin, &user.AvatarUrl,
 		&user.UpdatedAt, &user.Active,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserModel{}, NothingInTableError
+			return nil, NothingInTableError
 		}
-		return models.UserModel{}, err
+		return nil, err
 	}
 	if lastLogin.Valid {
 		user.LastLogin = lastLogin.Time
 	}
-	return user, nil
+	return &user, nil
 }
 
-func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (models.UserModel, error) {
-	query := `select id, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where username = $1;`
+func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*models.UserModel, error) {
+	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where username = $1;`
 	var lastLogin pgtype.Timestamp
-	user := models.UserModel{Username: &username}
+	user := models.UserModel{}
 	err := obj.db.QueryRow(ctx, query, username).Scan(
-		&user.Id, &user.Password, &user.Email,
+		&user.Id, &user.Username, &user.Password, &user.Email,
 		&user.CreatedAt, &lastLogin, &user.AvatarUrl,
 		&user.UpdatedAt, &user.Active,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserModel{}, NothingInTableError
+			return nil, NothingInTableError
 		}
-		return models.UserModel{}, err
+		return nil, err
 	}
 	if lastLogin.Valid {
 		user.LastLogin = lastLogin.Time
 	}
-	return user, nil
+	return &user, nil
 }
 
-func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (models.UserModel, error) {
-	query := `select id, username, password, created_at, last_login, avatar_url, updated_at, active from "user" where email = $1;`
+func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (*models.UserModel, error) {
+	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where email = $1;`
 	var lastLogin pgtype.Timestamp
-	user := models.UserModel{Email: &email}
+	user := models.UserModel{}
 	err := obj.db.QueryRow(ctx, query, email).Scan(
-		&user.Id, &user.Username, &user.Password,
+		&user.Id, &user.Username, &user.Password, &user.Email,
 		&user.CreatedAt, &lastLogin, &user.AvatarUrl,
 		&user.UpdatedAt, &user.Active,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserModel{}, NothingInTableError
+			return nil, NothingInTableError
 		}
-		return models.UserModel{}, err
+		return nil, err
 	}
 	if lastLogin.Valid {
 		user.LastLogin = lastLogin.Time
 	}
-	return user, nil
+	return &user, nil
 }
 
 func (obj *UserPostgres) UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error {
@@ -121,28 +121,19 @@ func (obj *UserPostgres) UpdateLastLogin(ctx context.Context, userId int, lastLo
 	return err
 }
 
-func (obj *UserPostgres) Update(ctx context.Context, userInfo models.UserModel) (models.UserModel, error) {
-	query := `
-		UPDATE "user"
-		SET
-			username   = COALESCE($1, username),
-			password   = COALESCE($2, password),
-			email      = COALESCE($3, email),
-			avatar_url = COALESCE($4, avatar_url),
-			updated_at = $5
-		WHERE id = $6
-		RETURNING id, username, password, email, created_at, last_login, avatar_url, updated_at, active`
+func (obj *UserPostgres) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
+	query := `UPDATE "user" SET username   = COALESCE($1, username), password   = COALESCE($2, password), email      = COALESCE($3, email), avatar_url = COALESCE($4, avatar_url), updated_at = $5 WHERE id = $6 RETURNING id, username, password, email, created_at, last_login, avatar_url, updated_at, active`
 
 	var lastLogin pgtype.Timestamp
 	var user models.UserModel
 	err := obj.db.QueryRow(
 		ctx, query,
-		userInfo.Username,
-		userInfo.Password,
-		userInfo.Email,
-		userInfo.AvatarUrl,
-		time.Now(),
-		userInfo.Id,
+		profile.Username,
+		profile.Password,
+		profile.Email,
+		profile.AvatarUrl,
+		profile.UpdatedAt,
+		profile.Id,
 	).Scan(
 		&user.Id,
 		&user.Username,
@@ -156,12 +147,12 @@ func (obj *UserPostgres) Update(ctx context.Context, userInfo models.UserModel) 
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.UserModel{}, NothingInTableError
+			return nil, NothingInTableError
 		}
-		return models.UserModel{}, err
+		return nil, err
 	}
 	if lastLogin.Valid {
 		user.LastLogin = lastLogin.Time
 	}
-	return user, nil
+	return &user, nil
 }
