@@ -39,14 +39,14 @@ func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// Transaction /transactions/{id} — GET (детали), DELETE (удалить), POST (обновить)
+// Transaction /transactions/{id} — GET (детали), DELETE (удалить), PUT (обновить)
 func (obj *TransactionHandler) Transaction(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		obj.detail(w, r)
 	case http.MethodDelete:
 		obj.delete(w, r)
-	case http.MethodPost:
+	case http.MethodPut:
 		obj.update(w, r)
 	}
 }
@@ -197,14 +197,7 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.TransactionAccountForeignKeyError) {
-			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
-				web_helpers.NewFieldError("account", "Такого аккаунта нет"),
-			})
-			web_helpers.WriteResponseJSON(w, response.Code, response)
-			return
-		}
-		if errors.Is(err, repository.ConstraintError) || errors.Is(err, repository.DuplicatedDataError) {
+		if errors.Is(err, repository.ConstraintError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = err.Error()
 			web_helpers.WriteResponseJSON(w, response.Code, response)

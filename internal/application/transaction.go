@@ -14,7 +14,7 @@ type TransactionUseCase interface {
 	Update(ctx context.Context, transactionId int, userId int, body web_helpers.TransactionRequest) error
 	Delete(ctx context.Context, transactionId int, userId int) (int, error)
 	Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error)
-	IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error)
+	IsUserAuthorOfTransaction(user models.UserModel, transaction models.TransactionModel) bool
 }
 
 type Transaction struct {
@@ -77,6 +77,6 @@ func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId in
 	return transaction, nil
 }
 
-func (obj *Transaction) IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error) {
-	return transaction.UserId == user.Id, nil
+func (obj *Transaction) IsUserAuthorOfTransaction(user models.UserModel, transaction models.TransactionModel) bool {
+	return transaction.UserId == user.Id
 }
