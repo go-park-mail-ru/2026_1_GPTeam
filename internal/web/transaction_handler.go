@@ -172,7 +172,18 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = obj.transactionApp.Update(r.Context(), transactionId, authUser.Id, body)
+	transaction := models.TransactionModel{
+		Id:              transactionId,
+		UserId:          authUser.Id,
+		AccountId:       body.AccountId,
+		Value:           body.Value,
+		Type:            body.Type,
+		Category:        body.Category,
+		Title:           body.Title,
+		Description:     body.Description,
+		TransactionDate: body.TransactionDate,
+	}
+	err = obj.transactionApp.Update(r.Context(), transaction)
 	if err != nil {
 		if errors.Is(err, repository.IncorrectRowsAffectedError) || errors.Is(err, repository.NothingInTableError) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
