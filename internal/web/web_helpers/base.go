@@ -262,6 +262,13 @@ func NewMethodError() MethodError {
 	}
 }
 
+func NewBadRequestErrorResponse(message string) SimpleResponse {
+	return SimpleResponse{
+		Code:    http.StatusBadRequest,
+		Message: message,
+	}
+}
+
 type BudgetErrorResponse RequestWithErrors
 
 func NewBudgetErrorResponse(code int, message string, errors []FieldError) BudgetErrorResponse {
@@ -317,5 +324,20 @@ func NewBudgetGetSuccessResponse(budget BudgetRequest) BudgetGetSuccessResponse 
 			Message: "Бюджет успешно получен",
 		},
 		Budget: budget,
+	}
+}
+
+type AvatarUploadSuccessResponse struct {
+	SimpleResponse
+	AvatarUrl string `json:"avatar_url"`
+}
+
+func NewAvatarUploadSuccessResponse(avatarUrl string) AvatarUploadSuccessResponse {
+	return AvatarUploadSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Аватар успешно загружен",
+		},
+		AvatarUrl: avatarUrl,
 	}
 }

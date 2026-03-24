@@ -37,14 +37,14 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(5 << 20)
 	if err != nil {
-		response := web_helpers.NewServerErrorResponse("File too large")
+		response := web_helpers.NewBadRequestErrorResponse("File too large")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	file, header, err := r.FormFile("avatar")
 	if err != nil {
-		response := web_helpers.NewServerErrorResponse("Missing avatar file")
+		response := web_helpers.NewBadRequestErrorResponse("Missing avatar file")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -59,7 +59,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	fileType := http.DetectContentType(buff)
 	if fileType != "image/jpeg" && fileType != "image/png" {
-		response := web_helpers.NewServerErrorResponse("Only JPEG and PNG are allowed")
+		response := web_helpers.NewBadRequestErrorResponse("Only JPEG and PNG are allowed")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -87,7 +87,8 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	finalUrl := "/img/" + avatarName
-	web_helpers.WriteResponseJSON(w, http.StatusOK, map[string]string{"avatar_url": finalUrl})
+	response := web_helpers.NewAvatarUploadSuccessResponse(finalUrl)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {

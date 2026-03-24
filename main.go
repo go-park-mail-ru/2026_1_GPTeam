@@ -65,6 +65,8 @@ func main() {
 	authHandler := web.NewAuthHandler(authService, userApp)
 	budgetHandler := web.NewBudgetHandler(budgetApp)
 
+	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
+
 	mux := http.NewServeMux()
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.RefreshToken)))
@@ -76,15 +78,20 @@ func main() {
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
-	mux.Handle("/img/", http.StripPrefix("/img/", http.FileServer(http.Dir("./static"))))
+	mux.Handle("/img/", middleware.NoDirListing(fileServer))
 	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))
 
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
+	serport := os.Getenv("SERVER_PORT")
+	if serport == "" {
+		serport = "8081"
+	}
+	addr := ":" + serport
 	server := http.Server{
-		Addr:         ":8081",
+		Addr:         addr,
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,

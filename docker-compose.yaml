@@ -16,16 +16,19 @@ services:
       retries: 5
 
   migrations:
-    image: postgres:17
+    image: ghcr.io/jackc/tern:latest
+    container_name: gpteam-migrations
     volumes:
-      - ./db/migrations:/migrations  # Путь из твоей структуры
+      - ./db/migrations:/migrations
+    working_dir: /migrations
+    command: migrate
     depends_on:
       db:
         condition: service_healthy
-    entrypoint: >
-      bash -c "for f in /migrations/*.sql; do
-        echo \"Накатываю: \$$f\";
-        awk '/---- create above \\/ drop below ----/{exit} {print}' \$$f | psql -h db -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-name};
-      done"
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:-password}
+      # ВАЖНО: Внутри сети docker хост базы — это имя сервиса "db"
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=${POSTGRES_DB:-name}
