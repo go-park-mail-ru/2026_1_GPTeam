@@ -35,7 +35,7 @@ func main() {
 
 	err = godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file", zap.Error(err))
 		return
 	}
 
@@ -48,20 +48,20 @@ func main() {
 
 	pool, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
-		log.Fatal("Failed to create pool: ", zap.Error(err))
+		log.Fatal("Failed to create pool", zap.Error(err))
 		return
 	}
 	defer pool.Close()
 	err = pool.Ping(context.Background())
 	if err != nil {
-		log.Fatal("Failed to connect to database: ", zap.Error(err))
+		log.Fatal("Failed to connect to database", zap.Error(err))
 	}
 
 	enumsCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, pool)
 	if err != nil {
-		log.Fatal("Error get data from enums table: ", zap.Error(err))
+		log.Fatal("Error get data from enums table", zap.Error(err))
 		return
 	}
 	userPostgres := repository.NewUserPostgres(pool)
@@ -75,7 +75,7 @@ func main() {
 	userApp := application.NewUser(userPostgres)
 	jwt, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
-		log.Fatal("Error creating JWT use cases: ", zap.Error(err))
+		log.Fatal("Error creating JWT use cases", zap.Error(err))
 		return
 	}
 	authService := auth.NewJwtAuthService(jwt)
@@ -122,7 +122,7 @@ func main() {
 	log.Info("starting server at :8080")
 	err = server.ListenAndServe()
 	if err != nil {
-		log.Fatal("Error starting server: ", zap.Error(err))
+		log.Fatal("Error starting server", zap.Error(err))
 		return
 	}
 }

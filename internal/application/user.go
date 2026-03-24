@@ -7,6 +7,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -21,15 +23,21 @@ type UserUseCase interface {
 
 type User struct {
 	repository repository.UserRepository
+	log        *zap.Logger
 }
 
 func NewUser(repository repository.UserRepository) *User {
-	return &User{repository: repository}
+	return &User{
+		repository: repository,
+		log:        logger.GetLogger(),
+	}
 }
 
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
+	obj.log.Info("creating user", zap.String("username", userRequest.Username))
 	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost)
 	if err != nil {
+		obj.log.Warn("failed to hash password", zap.Error(err))
 		return web_helpers.AuthUser{}, HashPasswordError
 	}
 	hashedPassword := string(bytes)
@@ -59,16 +67,19 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 }
 
 func (obj *User) GetById(ctx context.Context, id int) (*models.UserModel, error) {
+	obj.log.Info("getting user by id", zap.Int("id", id))
 	return obj.repository.GetByID(ctx, id)
 }
 
 func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error) {
+	obj.log.Info("getting user by credentials", zap.String("username", user.Username), zap.String("password", user.Password))
 	storedUser, err := obj.repository.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return nil, err
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password))
 	if err != nil {
+		obj.log.Warn("user not found", zap.Error(err))
 		return nil, err
 	}
 	return storedUser, nil
@@ -76,6 +87,7 @@ func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBod
 
 func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool) {
 	if !isAuth {
+		obj.log.Warn("user is not authorized")
 		return web_helpers.User{}, false
 	}
 	storedUser, err := obj.repository.GetByID(ctx, userId)
@@ -92,6 +104,7 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 }
 
 func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
+	obj.log.Info("updating last login field", zap.Int("user_id", userId))
 	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
 	if err != nil {
 		return err
@@ -100,9 +113,11 @@ func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
 }
 
 func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
+	obj.log.Info("updating profile", zap.Int("user_id", profile.Id))
 	if profile.Password != nil {
 		bytes, err := bcrypt.GenerateFromPassword([]byte(*profile.Password), bcrypt.DefaultCost)
 		if err != nil {
+			obj.log.Warn("failed to hash password", zap.Error(err))
 			return nil, HashPasswordError
 		}
 		hashedPassword := string(bytes)
