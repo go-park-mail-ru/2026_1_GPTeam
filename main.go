@@ -69,18 +69,20 @@ func main() {
 	jwtPostgres := repository.NewJwtPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
 	accountPostgres := repository.NewAccountPostgres(pool)
+	log.Info("repositories initialized")
 
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres)
 	jwt, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal("Error creating JWT use cases: ", zap.Error(err))
 		return
 	}
 	authService := auth.NewJwtAuthService(jwt)
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
+	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
 	userHandler := web.NewUserHandler(userApp)
@@ -88,6 +90,7 @@ func main() {
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
+	log.Info("handlers initialized")
 
 	mux := http.NewServeMux()
 	mux.Handle("/account", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccount)))
@@ -116,10 +119,10 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	fmt.Println("starting server at :8080")
+	log.Info("starting server at :8080")
 	err = server.ListenAndServe()
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal("Error starting server: ", zap.Error(err))
 		return
 	}
 }
