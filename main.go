@@ -84,10 +84,11 @@ func main() {
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
 	mux.Handle("/transactions", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(transactionHandler.Transactions)))
-	mux.Handle("/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete)(http.HandlerFunc(transactionHandler.Transaction)))
+	mux.Handle("/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete, http.MethodPut)(http.HandlerFunc(transactionHandler.Transaction)))
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
+
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)

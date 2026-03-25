@@ -10,9 +10,10 @@ import (
 type TransactionUseCase interface {
 	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
 	GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
+	Update(ctx context.Context, transaction models.TransactionModel) error
 	Delete(ctx context.Context, transactionId int, userId int) (int, error)
 	Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error)
-	IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error)
+	IsUserAuthorOfTransaction(user models.UserModel, transaction models.TransactionModel) bool
 }
 
 type Transaction struct {
@@ -31,6 +32,11 @@ func (obj *Transaction) Create(ctx context.Context, transaction models.Transacti
 func (obj *Transaction) GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error) {
 	ids, err := obj.repository.GetIdsByUserId(ctx, user.Id)
 	return ids, err
+}
+
+func (obj *Transaction) Update(ctx context.Context, transaction models.TransactionModel) error {
+	err := obj.repository.Update(ctx, transaction)
+	return err
 }
 
 func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId int) (int, error) {
@@ -59,6 +65,6 @@ func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId in
 	return transaction, nil
 }
 
-func (obj *Transaction) IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) (bool, error) {
-	return transaction.UserId == user.Id, nil
+func (obj *Transaction) IsUserAuthorOfTransaction(user models.UserModel, transaction models.TransactionModel) bool {
+	return transaction.UserId == user.Id
 }

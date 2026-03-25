@@ -17,3 +17,4 @@ var UnableToReadCategoriesError = errors.New("unable to read categories from db"
 var AccountDuplicatedDataError = errors.New("duplicated account in table")
 var AccountForeignKeyError = errors.New("account id does not exist")
 var UnableToGetAccountUserIdsError = errors.New("unable to read ids from account_user")
+var IncorrectRowsAffectedError = errors.New("unexpected value of 'rows affected'")
