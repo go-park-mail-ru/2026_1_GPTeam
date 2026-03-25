@@ -7,15 +7,21 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
+	"go.uber.org/zap"
 )
 
 type UserHandler struct {
 	userApp application.UserUseCase
+	log     *zap.Logger
 }
 
 func NewUserHandler(useCase application.UserUseCase) *UserHandler {
-	return &UserHandler{userApp: useCase}
+	return &UserHandler{
+		userApp: useCase,
+		log:     logger.GetLogger(),
+	}
 }
 
 func validateUpdateProfileRequest(req web_helpers.UpdateUserProfileRequest) error {
@@ -47,19 +53,24 @@ func (obj *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
-	_, ok := web_helpers.GetAuthUser(r)
+	obj.log.Info("get balance request")
+	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
+		obj.log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	obj.log.Info("get balance success", zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewBalanceResponse(0.0, "RUB", 0, 0)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
+	obj.log.Info("get profile request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
+		obj.log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -70,13 +81,16 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: authUser.CreatedAt,
 		AvatarUrl: authUser.AvatarUrl,
 	}
+	obj.log.Info("get profile success", zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	obj.log.Info("update profile request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
+		obj.log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -84,12 +98,14 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	var req web_helpers.UpdateUserProfileRequest
 	if err := web_helpers.ReadRequestJSON(r, &req); err != nil {
+		obj.log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
 		response := web_helpers.NewBadRequestErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	if err := validateUpdateProfileRequest(req); err != nil {
+		obj.log.Warn("validation error while updating profile", zap.Int("user_id", authUser.Id), zap.Error(err))
 		response := web_helpers.NewBadRequestErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -105,6 +121,7 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	updatedUser, err := obj.userApp.Update(r.Context(), updateProfile)
 	if err != nil {
+		obj.log.Warn("failed to update profile", zap.Int("user_id", authUser.Id), zap.Error(err))
 		response := web_helpers.NewInternalServerErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -115,6 +132,7 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: updatedUser.CreatedAt,
 		AvatarUrl: updatedUser.AvatarUrl,
 	}
+	obj.log.Info("update profile success", zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewUpdateProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

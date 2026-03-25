@@ -10,13 +10,16 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
+	"go.uber.org/zap"
 )
 
 type TransactionHandler struct {
 	transactionApp application.TransactionUseCase
 	enumsApp       application.EnumsUseCase
 	accountApp     application.AccountUseCase
+	log            *zap.Logger
 }
 
 func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsApp application.EnumsUseCase, accountUseCase application.AccountUseCase) *TransactionHandler {
@@ -24,6 +27,7 @@ func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsA
 		transactionApp: transactionApp,
 		enumsApp:       enumsApp,
 		accountApp:     accountUseCase,
+		log:            logger.GetLogger(),
 	}
 }
 
@@ -46,20 +50,24 @@ func (obj *TransactionHandler) Transaction(w http.ResponseWriter, r *http.Reques
 }
 
 func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
+	obj.log.Info("create transaction request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
+		obj.log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	var body web_helpers.TransactionRequest
 	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
+		obj.log.Warn("failed to read body", zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	validationErrors := validators.ValidateTransaction(body, obj.enumsApp.GetTransactionTypes(), obj.enumsApp.GetCategoryTypes())
 	if len(validationErrors) > 0 {
+		obj.log.Warn("validation error while creating transaction", zap.Any("validationErrors", validationErrors))
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -77,12 +85,14 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 		TransactionDate: body.TransactionDate,
 	}
 	if !obj.accountApp.IsUserAuthorOfAccount(r.Context(), authUser.Id, transaction.AccountId) {
+		obj.log.Warn("user is not author of account", zap.Int("user_id", authUser.Id), zap.Int("account_id", transaction.AccountId))
 		response := web_helpers.NewForbiddenErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	id, err := obj.transactionApp.Create(r.Context(), transaction)
 	if err != nil {
+		obj.log.Warn("failed to create transaction", zap.Int("user_id", authUser.Id), zap.Error(err))
 		if errors.Is(err, repository.DuplicatedDataError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Такая транзакция уже существует"
@@ -106,19 +116,23 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	obj.log.Info("created transaction", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", id))
 	response := web_helpers.NewTransactionCreateSuccessResponse(id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Request) {
+	obj.log.Info("get transactions request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
+		obj.log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	ids, err := obj.transactionApp.GetTransactionIdsOfUser(r.Context(), authUser)
 	if err != nil {
+		obj.log.Warn("failed to get transaction ids", zap.Int("user_id", authUser.Id), zap.Error(err))
 		if errors.Is(err, repository.NothingInTableError) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакции не найдены")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -128,19 +142,23 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	obj.log.Info("get transaction ids success", zap.Int("user_id", authUser.Id), zap.Ints("transaction_ids", ids))
 	response := web_helpers.NewTransactionsIdsResponse(ids)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
+	obj.log.Info("delete transaction request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
+		obj.log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	transactionId, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
+		obj.log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
 		})
@@ -149,6 +167,7 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := obj.transactionApp.Delete(r.Context(), transactionId, authUser.Id)
 	if err != nil {
+		obj.log.Warn("failed to delete transaction", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId), zap.Error(err))
 		if errors.Is(err, repository.NothingInTableError) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -163,19 +182,23 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	obj.log.Info("transaction deleted success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
 	response := web_helpers.NewTransactionDeleteSuccessResponse(id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
+	obj.log.Info("get transaction request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
+		obj.log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	transactionId, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
+		obj.log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
 		})
@@ -184,6 +207,7 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 	}
 	transaction, err := obj.transactionApp.Detail(r.Context(), transactionId, authUser.Id)
 	if err != nil {
+		obj.log.Warn("failed to get transaction", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId), zap.Error(err))
 		if errors.Is(err, repository.NothingInTableError) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -198,6 +222,7 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	obj.log.Info("get transaction success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
 	response := web_helpers.NewTransactionDetailSuccessResponse(transaction)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
