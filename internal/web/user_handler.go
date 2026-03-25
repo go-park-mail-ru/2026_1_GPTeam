@@ -24,25 +24,6 @@ func NewUserHandler(useCase application.UserUseCase) *UserHandler {
 	}
 }
 
-func validateUpdateProfileRequest(req web_helpers.UpdateUserProfileRequest) error {
-	if req.Username != nil {
-		if err := validators.ValidateUsername(*req.Username); err != nil {
-			return err
-		}
-	}
-	if req.Email != nil {
-		if err := validators.ValidateEmail(*req.Email); err != nil {
-			return err
-		}
-	}
-	if req.Password != nil {
-		if err := validators.ValidatePassword(*req.Password); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (obj *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -117,11 +98,12 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateUpdateProfileRequest(req); err != nil {
+	validationErrors := validators.ValidateUpdateUser(req)
+	if len(validationErrors) > 0 {
 		obj.log.Warn("validation error while updating profile",
 			zap.Int("user_id", authUser.Id),
 			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
+			zap.Any("validationErrors", validationErrors))
 		response := web_helpers.NewBadRequestErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return

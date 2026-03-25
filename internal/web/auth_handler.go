@@ -75,42 +75,8 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	if body.Username == "" || body.Password == "" || body.Email == "" || body.ConfirmPassword == "" {
-		var fieldErrors []web_helpers.FieldError
-		if body.Username == "" {
-			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("username", "Поле обязательно для заполнения"))
-		}
-		if body.Password == "" {
-			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("password", "Поле обязательно для заполнения"))
-		}
-		if body.Email == "" {
-			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("email", "Поле обязательно для заполнения"))
-		}
-		if body.ConfirmPassword == "" {
-			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("confirm_password", "Поле обязательно для заполнения"))
-		}
-		obj.log.Warn("validation error",
-			zap.Any("fieldErrors", fieldErrors),
-			zap.String("request_id", r.Context().Value("request_id").(string)))
-		response := web_helpers.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-		return
-	}
 
-	validationErrors := make([]web_helpers.FieldError, 0)
-	if err := validators.ValidateUsername(body.Username); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("username", err.Error()))
-	}
-	if err := validators.ValidatePassword(body.Password); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", err.Error()))
-	}
-	if err := validators.ValidateEmail(body.Email); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("email", err.Error()))
-	}
-	if body.Password != body.ConfirmPassword {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", "Пароли не совпадают"))
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("confirm_password", "Пароли не совпадают"))
-	}
+	validationErrors := validators.ValidateSignUpUser(body)
 	if len(validationErrors) > 0 {
 		obj.log.Warn("validation error",
 			zap.Any("validationErrors", validationErrors),

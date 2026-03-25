@@ -22,7 +22,7 @@ func TestValidateUsername(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidateUsername(testCase.Username)
+			err := validators2.validateUsername(testCase.Username)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -45,7 +45,7 @@ func TestValidatePassword(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidatePassword(testCase.Password)
+			err := validators2.validatePassword(testCase.Password)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -68,7 +68,7 @@ func TestValidateEmail(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidateEmail(testCase.Email)
+			err := validators2.validateEmail(testCase.Email)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -91,7 +91,7 @@ func TestValidateCurrency(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidateCurrency(testCase.Currency, []string{
+			err := validators2.validateCurrency(testCase.Currency, []string{
 				"RUB", "USD", "EUR",
 			})
 			require.ErrorIs(t, err, testCase.err)
@@ -106,14 +106,14 @@ func TestValidateTargetBudget(t *testing.T) {
 		err    error
 	}{
 		{"Negative", -1, validators2.TargetIsNegativeError},
-		{"Big", 1e18 + 1, validators2.TargetIsBigError},
+		{"Big", 1e18 + 1, validators2.ValueIsBigError},
 		{"Correct", 1000, nil},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidateTargetBudget(testCase.Target)
+			err := validators2.validateTargetBudget(testCase.Target)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -132,7 +132,7 @@ func TestValidateStartDate(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidateStartDate(testCase.Start)
+			err := validators2.validateBudgetStartDate(testCase.Start)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -153,7 +153,7 @@ func TestValidateEndDate(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidateEndDate(testCase.Start, testCase.End)
+			err := validators2.validateBudgetEndDate(testCase.Start, testCase.End)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}

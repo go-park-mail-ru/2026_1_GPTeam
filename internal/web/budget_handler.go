@@ -152,31 +152,7 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	var validationErrors []web_helpers.FieldError
-	if body.Title == "" {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", "Поле обязательно для заполнения"))
-	}
-	if body.Description == "" {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("description", "Поле обязательно для заполнения"))
-	}
-	if body.Target == 0 {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("target", "Поле обязательно для заполнения"))
-	}
-	if body.Currency == "" {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", "Поле обязательно для заполнения"))
-	}
-	if err := validators.ValidateCurrency(body.Currency, obj.enumsApp.GetCurrencyCodes()); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", err.Error()))
-	}
-	if err := validators.ValidateTargetBudget(body.Target); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("target", err.Error()))
-	}
-	if err := validators.ValidateStartDate(body.StartAt); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("start_at", err.Error()))
-	}
-	if err := validators.ValidateEndDate(body.StartAt, body.EndAt); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("end_at", err.Error()))
-	}
+	validationErrors := validators.ValidateBudget(body, obj.enumsApp.GetCurrencyCodes())
 	if len(validationErrors) > 0 {
 		obj.log.Warn("validation error when budget creating",
 			zap.Int("user_id", authUser.Id),
