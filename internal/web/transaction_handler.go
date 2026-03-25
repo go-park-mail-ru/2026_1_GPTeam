@@ -124,7 +124,7 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -158,7 +158,7 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -210,7 +210,7 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -262,7 +262,7 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}

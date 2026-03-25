@@ -144,7 +144,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -178,7 +178,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -204,7 +204,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
