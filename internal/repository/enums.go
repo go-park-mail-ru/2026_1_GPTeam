@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type EnumsRepository interface {
@@ -41,18 +43,22 @@ func (obj *EnumsPostgres) GetCategoryTypesFromDB() []string {
 }
 
 func NewEnumsPostgres(ctx context.Context, db *pgxpool.Pool) (*EnumsPostgres, error) {
+	log := logger.GetLogger()
 	currencyCodes, err := getCurrenciesFromDB(ctx, db)
 	if err != nil {
+		log.Error("failed to get currency codes from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
 	fmt.Printf("Read currencies from db: %v\n", currencyCodes)
 	transactionTypes, err := getTransactionTypesFromDB(ctx, db)
 	if err != nil {
+		log.Error("failed to get transaction types from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
 	fmt.Printf("Read transaction types from db: %v\n", transactionTypes)
 	categoryTypes, err := getCategoriesFromDB(ctx, db)
 	if err != nil {
+		log.Error("failed to get categories from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
 	fmt.Printf("Read categories from db: %v\n", categoryTypes)
