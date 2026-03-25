@@ -111,6 +111,7 @@ func main() {
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
+	handler = middleware.RequestIdMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
 	server := http.Server{

@@ -53,24 +53,30 @@ func (obj *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("get balance request")
+	obj.log.Info("get balance request",
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized")
+		obj.log.Warn("user unauthorized",
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("get balance success", zap.Int("user_id", authUser.Id))
+	obj.log.Info("get balance success",
+		zap.Int("user_id", authUser.Id),
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	response := web_helpers.NewBalanceResponse(0.0, "RUB", 0, 0)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("get profile request")
+	obj.log.Info("get profile request",
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized")
+		obj.log.Warn("user unauthorized",
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -81,16 +87,20 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: authUser.CreatedAt,
 		AvatarUrl: authUser.AvatarUrl,
 	}
-	obj.log.Info("get profile success", zap.Int("user_id", authUser.Id))
+	obj.log.Info("get profile success",
+		zap.Int("user_id", authUser.Id),
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	response := web_helpers.NewProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("update profile request")
+	obj.log.Info("update profile request",
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized")
+		obj.log.Warn("user unauthorized",
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -98,14 +108,20 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	var req web_helpers.UpdateUserProfileRequest
 	if err := web_helpers.ReadRequestJSON(r, &req); err != nil {
-		obj.log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
+		obj.log.Warn("failed to read body",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		response := web_helpers.NewBadRequestErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	if err := validateUpdateProfileRequest(req); err != nil {
-		obj.log.Warn("validation error while updating profile", zap.Int("user_id", authUser.Id), zap.Error(err))
+		obj.log.Warn("validation error while updating profile",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		response := web_helpers.NewBadRequestErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -121,7 +137,10 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	updatedUser, err := obj.userApp.Update(r.Context(), updateProfile)
 	if err != nil {
-		obj.log.Warn("failed to update profile", zap.Int("user_id", authUser.Id), zap.Error(err))
+		obj.log.Warn("failed to update profile",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		response := web_helpers.NewInternalServerErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -132,7 +151,9 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: updatedUser.CreatedAt,
 		AvatarUrl: updatedUser.AvatarUrl,
 	}
-	obj.log.Info("update profile success", zap.Int("user_id", authUser.Id))
+	obj.log.Info("update profile success",
+		zap.Int("user_id", authUser.Id),
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	response := web_helpers.NewUpdateProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

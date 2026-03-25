@@ -30,53 +30,72 @@ func NewBudgetHandler(useCase application.BudgetUseCase, enumsApp application.En
 }
 
 func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("get budgets request")
+	obj.log.Info("get budgets request",
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized")
+		obj.log.Warn("user unauthorized",
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	ids, err := obj.budgetApp.GetBudgetsOfUser(r.Context(), authUser)
 	if err != nil {
-		obj.log.Warn("failed get budgets", zap.Int("user_id", authUser.Id), zap.Error(err))
+		obj.log.Warn("failed get budgets",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 		response.Message = err.Error()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("get budgets success", zap.Int("user_id", authUser.Id), zap.Ints("budget ids", ids))
+	obj.log.Info("get budgets success",
+		zap.Int("user_id", authUser.Id),
+		zap.Ints("budget ids", ids),
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	response := web_helpers.NewBudgetsIdsResponse(ids)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("get budget request")
+	obj.log.Info("get budget request",
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized")
+		obj.log.Warn("user unauthorized",
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	idStr := r.PathValue("id")
 	if idStr == "" {
-		obj.log.Warn("budget id required", zap.Int("user_id", authUser.Id))
+		obj.log.Warn("budget id required",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewNotFoundErrorResponse("Не указан ID бюджета")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	budgetId, err := strconv.Atoi(idStr)
 	if err != nil {
-		obj.log.Warn("budget id required", zap.Int("user_id", authUser.Id), zap.Error(err))
+		obj.log.Warn("budget id required",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		response := web_helpers.NewNotFoundErrorResponse("Неверный ID бюджета")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	budget, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
 	if err != nil {
-		obj.log.Warn("failed get budget", zap.Int("user_id", authUser.Id), zap.Int("budget_id", budgetId), zap.Error(err))
+		obj.log.Warn("failed get budget",
+			zap.Int("user_id", authUser.Id),
+			zap.Int("budget_id", budgetId),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -102,23 +121,31 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		Target:      int(budget.Target),
 		Currency:    budget.Currency,
 	}
-	obj.log.Info("get budget success", zap.Int("user_id", authUser.Id), zap.Int("budget_id", budgetId))
+	obj.log.Info("get budget success",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("budget_id", budgetId),
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	response := web_helpers.NewBudgetGetSuccessResponse(result)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("create budget request")
+	obj.log.Info("create budget request",
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized")
+		obj.log.Warn("user unauthorized",
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	var body web_helpers.BudgetRequest
 	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
-		obj.log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
+		obj.log.Warn("failed to read body",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		response := web_helpers.NewBudgetErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []web_helpers.FieldError{
 			web_helpers.NewFieldError("", "Не удалось прочитать тело запроса"),
 		})
@@ -151,7 +178,10 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("end_at", err.Error()))
 	}
 	if len(validationErrors) > 0 {
-		obj.log.Warn("validation error when budget creating", zap.Int("user_id", authUser.Id), zap.Any("validationErrors", validationErrors))
+		obj.log.Warn("validation error when budget creating",
+			zap.Int("user_id", authUser.Id),
+			zap.Any("validationErrors", validationErrors),
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewBudgetErrorResponse(http.StatusBadRequest, "Ошибка валидации", validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -169,7 +199,10 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := obj.budgetApp.Create(r.Context(), budget)
 	if err != nil {
-		obj.log.Warn("failed to create budget", zap.Int("user_id", authUser.Id), zap.Error(err))
+		obj.log.Warn("failed to create budget",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		if errors.Is(err, repository.DuplicatedDataError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Такой бюджет уже существует"
@@ -187,36 +220,50 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("budget created success", zap.Int("user_id", authUser.Id), zap.Int("budget_id", id))
+	obj.log.Info("budget created success",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("budget_id", id),
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	response := web_helpers.NewBudgetCreateSuccessResponse(id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("delete budget request")
+	obj.log.Info("delete budget request",
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized")
+		obj.log.Warn("user unauthorized",
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	idStr := r.PathValue("id")
 	if idStr == "" {
-		obj.log.Warn("id required", zap.Int("user_id", authUser.Id))
+		obj.log.Warn("id required",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewNotFoundErrorResponse("Не указан ID бюджета")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	budgetId, err := strconv.Atoi(idStr)
 	if err != nil {
-		obj.log.Warn("id required", zap.Int("user_id", authUser.Id), zap.Error(err))
+		obj.log.Warn("id required",
+			zap.Int("user_id", authUser.Id),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		response := web_helpers.NewNotFoundErrorResponse("Неверный ID бюджета")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	if err = obj.budgetApp.Delete(r.Context(), budgetId, authUser); err != nil {
-		obj.log.Warn("failed to delete budget", zap.Int("user_id", authUser.Id), zap.Int("budget_id", budgetId), zap.Error(err))
+		obj.log.Warn("failed to delete budget",
+			zap.Int("user_id", authUser.Id),
+			zap.Int("budget_id", budgetId),
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -231,7 +278,10 @@ func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("budget deleted success", zap.Int("user_id", authUser.Id), zap.Int("budget_id", budgetId))
+	obj.log.Info("budget deleted success",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("budget_id", budgetId),
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	response := web_helpers.NewBudgetDeleteSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

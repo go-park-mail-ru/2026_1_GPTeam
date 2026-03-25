@@ -30,25 +30,35 @@ func NewTransaction(repo repository.TransactionRepository) *Transaction {
 }
 
 func (obj *Transaction) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
-	obj.log.Info("creating transaction")
+	obj.log.Info("creating transaction",
+		zap.String("title", transaction.Title),
+		zap.String("request_id", ctx.Value("request_id").(string)))
 	id, err := obj.repository.Create(ctx, transaction)
 	return id, err
 }
 
 func (obj *Transaction) GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error) {
-	obj.log.Info("getting transaction ids of user", zap.Int("user_id", user.Id))
+	obj.log.Info("getting transaction ids of user",
+		zap.Int("user_id", user.Id),
+		zap.String("request_id", ctx.Value("request_id").(string)))
 	ids, err := obj.repository.GetIdsByUserId(ctx, user.Id)
 	return ids, err
 }
 
 func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId int) (int, error) {
-	obj.log.Info("deleting transaction", zap.Int("transaction_id", transactionId), zap.Int("user_id", userId))
+	obj.log.Info("deleting transaction",
+		zap.Int("transaction_id", transactionId),
+		zap.Int("user_id", userId),
+		zap.String("request_id", ctx.Value("request_id").(string)))
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return 0, err
 	}
 	if transaction.UserId != userId {
-		obj.log.Warn("user is not author of transaction", zap.Int("user_id", userId), zap.Int("transaction_id", transactionId))
+		obj.log.Warn("user is not author of transaction",
+			zap.Int("user_id", userId),
+			zap.Int("transaction_id", transactionId),
+			zap.String("request_id", ctx.Value("request_id").(string)))
 		return 0, ForbiddenError
 	}
 	id, err := obj.repository.Delete(ctx, transactionId)
@@ -59,19 +69,28 @@ func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId in
 }
 
 func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error) {
-	obj.log.Info("getting transaction detail info", zap.Int("transaction_id", transactionId), zap.Int("user_id", userId))
+	obj.log.Info("getting transaction detail info",
+		zap.Int("transaction_id", transactionId),
+		zap.Int("user_id", userId),
+		zap.String("request_id", ctx.Value("request_id").(string)))
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return models.TransactionModel{}, err
 	}
 	if transaction.UserId != userId {
-		obj.log.Warn("user is not author of transaction", zap.Int("user_id", userId), zap.Int("transaction_id", transactionId))
+		obj.log.Warn("user is not author of transaction",
+			zap.Int("user_id", userId),
+			zap.Int("transaction_id", transactionId),
+			zap.String("request_id", ctx.Value("request_id").(string)))
 		return models.TransactionModel{}, ForbiddenError
 	}
 	return transaction, nil
 }
 
 func (obj *Transaction) IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) bool {
-	obj.log.Info("checking if user author of transaction", zap.Int("user_id", user.Id), zap.Int("transaction_id", transaction.Id), zap.Bool("res", user.Id == transaction.UserId))
+	obj.log.Info("checking if user author of transaction",
+		zap.Int("user_id", user.Id),
+		zap.Int("transaction_id", transaction.Id),
+		zap.Bool("is_author", user.Id == transaction.UserId))
 	return transaction.UserId == user.Id
 }

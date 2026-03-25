@@ -23,10 +23,12 @@ func NewAccountHandler(accountApp application.AccountUseCase) *AccountHandler {
 }
 
 func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("get account request")
+	obj.log.Info("get account request",
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized")
+		obj.log.Warn("user unauthorized",
+			zap.String("request_id", r.Context().Value("request_id").(string)))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -34,7 +36,9 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	accountId, err := obj.accountApp.GetAccountIdByUserId(r.Context(), authUser.Id)
 	if err != nil {
-		obj.log.Warn("failed to get account", zap.Error(err))
+		obj.log.Warn("failed to get account",
+			zap.String("request_id", r.Context().Value("request_id").(string)),
+			zap.Error(err))
 		if errors.Is(err, application.ErrAccountNotFound) {
 			response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -45,7 +49,10 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("get account", zap.Int("account_id", accountId), zap.Int("user_id", authUser.Id))
+	obj.log.Info("get account",
+		zap.Int("account_id", accountId),
+		zap.Int("user_id", authUser.Id),
+		zap.String("request_id", r.Context().Value("request_id").(string)))
 	web_helpers.WriteResponseJSON(w, http.StatusOK, map[string]interface{}{
 		"code":       http.StatusOK,
 		"account_id": accountId,
