@@ -43,7 +43,6 @@ func ReadRequestJSON(r *http.Request, request any) error {
 func SetCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", os.Getenv("FRONT_URL"))
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	// ДОБАВЛЯЕМ PATCH СЮДА:
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, PATCH")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Origin, Cache-Control, X-Requested-With")
 }
