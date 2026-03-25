@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
@@ -112,10 +111,19 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 }
 
 func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel) error {
+	obj.log.Info("updating transaction in db",
+		zap.Int("transaction_id", transaction.Id),
+		zap.Int("user_id", transaction.UserId),
+		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
 	res, err := obj.db.Exec(ctx, query, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate, transaction.Id, transaction.UserId)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
+		obj.log.Error("failed to update transaction (db error)",
+			zap.Int("transaction_id", transaction.Id),
+			zap.Int("user_id", transaction.UserId),
+			zap.String("request_id", ctx.Value("request_id").(string)),
+			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
 			return TransactionAccountForeignKeyError
@@ -128,15 +136,31 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 		}
 	}
 	if err != nil {
-		fmt.Printf("Unable to update transaction: %v\n", err)
+		obj.log.Error("failed to update transaction (not db error)",
+			zap.Int("transaction_id", transaction.Id),
+			zap.Int("user_id", transaction.UserId),
+			zap.String("request_id", ctx.Value("request_id").(string)),
+			zap.Error(err))
 		return err
 	}
 	if res.RowsAffected() == 0 {
+		obj.log.Warn("failed to update transaction (no rows affected)",
+			zap.Int("transaction_id", transaction.Id),
+			zap.Int("user_id", transaction.UserId),
+			zap.String("request_id", ctx.Value("request_id").(string)))
 		return NothingInTableError
 	}
 	if res.RowsAffected() != 1 {
+		obj.log.Warn("failed to update transaction (too many rows affected)",
+			zap.Int("transaction_id", transaction.Id),
+			zap.Int("user_id", transaction.UserId),
+			zap.String("request_id", ctx.Value("request_id").(string)))
 		return IncorrectRowsAffectedError
 	}
+	obj.log.Info("update transaction query executed",
+		zap.Int("transaction_id", transaction.Id),
+		zap.Int("user_id", transaction.UserId),
+		zap.String("request_id", ctx.Value("request_id").(string)))
 	return nil
 }
 

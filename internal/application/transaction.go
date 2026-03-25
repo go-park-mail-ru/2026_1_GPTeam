@@ -47,6 +47,10 @@ func (obj *Transaction) GetTransactionIdsOfUser(ctx context.Context, user models
 }
 
 func (obj *Transaction) Update(ctx context.Context, transaction models.TransactionModel) error {
+	obj.log.Info("updating transaction",
+		zap.Int("transaction_id", transaction.Id),
+		zap.Int("user_id", transaction.UserId),
+		zap.String("request_id", ctx.Value("request_id").(string)))
 	err := obj.repository.Update(ctx, transaction)
 	return err
 }
@@ -93,7 +97,7 @@ func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId in
 	return transaction, nil
 }
 
-func (obj *Transaction) IsUserAuthorOfTransaction(transaction models.TransactionModel, user models.UserModel) bool {
+func (obj *Transaction) IsUserAuthorOfTransaction(user models.UserModel, transaction models.TransactionModel) bool {
 	obj.log.Info("checking if user author of transaction",
 		zap.Int("user_id", user.Id),
 		zap.Int("transaction_id", transaction.Id),
