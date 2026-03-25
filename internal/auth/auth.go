@@ -2,11 +2,12 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type AuthenticationService interface {
@@ -18,18 +19,24 @@ type AuthenticationService interface {
 
 type JwtAuthService struct {
 	jwt jwt_auth.JwtUseCase
+	log *zap.Logger
 }
 
 const TokenName = "token"
 const RefreshTokenName = "refresh_token"
 
 func NewJwtAuthService(useCase jwt_auth.JwtUseCase) *JwtAuthService {
-	return &JwtAuthService{jwt: useCase}
+	return &JwtAuthService{
+		jwt: useCase,
+		log: logger.GetLogger(),
+	}
 }
 
 func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userId int) {
+	obj.log.Info("generating new auth for user", zap.Int("user_id", userId))
 	token, err := obj.jwt.GenerateToken(userId)
 	if err != nil {
+		obj.log.Warn("auth token generation failed and user do not get any cookie", zap.Error(err))
 		return
 	}
 	cookie := &http.Cookie{
@@ -42,8 +49,10 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
+	obj.log.Info("set access token cookie", zap.Int("user_id", userId))
 	token, err = obj.jwt.GenerateRefreshToken(ctx, userId, "pass")
 	if err != nil {
+		obj.log.Warn("refresh token generation failed and user do not get refresh cookie", zap.Error(err))
 		return
 	}
 	cookie = &http.Cookie{
@@ -56,22 +65,26 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
+	obj.log.Info("set refresh token cookie", zap.Int("user_id", userId))
 }
 
 func (obj *JwtAuthService) GetAuthCookie(r *http.Request) (*http.Cookie, error) {
+	obj.log.Info("checking if access cookie exists")
 	cookie, err := r.Cookie(TokenName)
 	return cookie, err
 }
 
 func (obj *JwtAuthService) GetRefreshToken(r *http.Request) (*http.Cookie, error) {
+	obj.log.Info("checking if refresh token exists")
 	cookie, err := r.Cookie(RefreshTokenName)
 	return cookie, err
 }
 
 func (obj *JwtAuthService) IsAuth(r *http.Request) (bool, int) {
+	obj.log.Info("checking if user authenticated")
 	cookie, err := obj.GetAuthCookie(r)
 	if err != nil {
-		fmt.Println(err)
+		obj.log.Warn("user is not authenticated", zap.Error(err))
 		return false, -1
 	}
 	token := cookie.Value
@@ -80,14 +93,15 @@ func (obj *JwtAuthService) IsAuth(r *http.Request) (bool, int) {
 }
 
 func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	obj.log.Info("clear old token cookie")
 	cookie, err := obj.GetRefreshToken(r)
 	if err != nil {
-		fmt.Println(err)
+		obj.log.Warn("get refresh token error", zap.Error(err))
 	} else {
 		refreshToken := cookie.Value
 		err = obj.jwt.DeleteRefreshToken(ctx, refreshToken)
 		if err != nil {
-			fmt.Println(err)
+			obj.log.Warn("delete refresh token error", zap.Error(err))
 		}
 	}
 
@@ -101,6 +115,7 @@ func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, 
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
+	obj.log.Info("set empty old token cookie")
 	cookie = &http.Cookie{
 		Name:     RefreshTokenName,
 		Value:    "",
@@ -111,17 +126,20 @@ func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, 
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
+	obj.log.Info("set empty old refresh token cookie")
 }
 
 func (obj *JwtAuthService) Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, int) {
+	obj.log.Info("refresh token cookie")
 	cookie, err := obj.GetRefreshToken(r)
 	if err != nil {
-		fmt.Println(err)
+		obj.log.Warn("get refresh token error", zap.Error(err))
 		return false, -1
 	}
 	token := cookie.Value
 	isValid, userId := obj.jwt.CheckRefreshToken(ctx, token)
 	if !isValid {
+		obj.log.Warn("refresh token invalid", zap.Error(err))
 		return false, -1
 	}
 	obj.ClearOld(ctx, w, r)
