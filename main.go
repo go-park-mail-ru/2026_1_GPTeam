@@ -96,7 +96,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	fmt.Println("starting server at :8081")
+	fmt.Println("starting server at :8080")
 	err = server.ListenAndServe()
 	if err != nil {
 		fmt.Println(err)
