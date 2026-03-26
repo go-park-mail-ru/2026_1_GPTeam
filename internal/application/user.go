@@ -17,9 +17,11 @@ import (
 
 type UserUseCase interface {
 	Create(ctx context.Context, user web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error)
-	GetById(ctx context.Context, id int) (models.UserModel, error)
-	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserModel, error)
+	GetById(ctx context.Context, id int) (*models.UserModel, error)
+	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error)
 	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
+	UpdateLastLogin(ctx context.Context, userId int) error
+	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
 }
 
@@ -34,13 +36,13 @@ func NewUser(repository repository.UserRepository) *User {
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper (на будущее, так как надо сделать поддержку старых перцов и плавную миграцию на новый перец)
 	if err != nil {
-		fmt.Printf("unable to hash password: %v\n", err)
 		return web_helpers.AuthUser{}, HashPasswordError
 	}
+	hashedPassword := string(bytes)
 	userModel := models.UserModel{
 		Id:        0,
 		Username:  userRequest.Username,
-		Password:  string(bytes),
+		Password:  hashedPassword,
 		Email:     userRequest.Email,
 		CreatedAt: time.Now(),
 		LastLogin: time.Time{},
@@ -53,7 +55,7 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 		return web_helpers.AuthUser{}, err
 	}
 	user := web_helpers.AuthUser{
-		ID:        id,
+		Id:        id,
 		Username:  userModel.Username,
 		Email:     userModel.Email,
 		LastLogin: userModel.LastLogin,
@@ -82,22 +84,18 @@ func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, e
 	return avatarUrl, nil
 }
 
-func (obj *User) GetById(ctx context.Context, id int) (models.UserModel, error) {
-	user, err := obj.repository.GetById(ctx, id)
-	if err != nil {
-		return models.UserModel{}, err
-	}
-	return user, nil
+func (obj *User) GetById(ctx context.Context, id int) (*models.UserModel, error) {
+	return obj.repository.GetByID(ctx, id)
 }
 
-func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (models.UserModel, error) {
+func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error) {
 	storedUser, err := obj.repository.GetByUsername(ctx, user.Username)
 	if err != nil {
-		return models.UserModel{}, err
+		return nil, err
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password))
 	if err != nil {
-		return models.UserModel{}, err
+		return nil, err
 	}
 	return storedUser, nil
 }
@@ -106,19 +104,35 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 	if !isAuth {
 		return web_helpers.User{}, false
 	}
-	storedUser, err := obj.repository.GetById(ctx, userId)
+	storedUser, err := obj.repository.GetByID(ctx, userId)
 	if err != nil {
-		fmt.Printf("Error while getting user by id: %v\n", err)
 		return web_helpers.User{}, false
 	}
 	user := web_helpers.User{
-		Username:        storedUser.Username,
-		Email:           storedUser.Email,
-		LastLogin:       storedUser.LastLogin,
-		CreatedAt:       storedUser.CreatedAt,
-		AvatarUrl:       storedUser.AvatarUrl,
-		Balance:         0,
-		BalanceCurrency: "RUB",
+		Username:  storedUser.Username,
+		Email:     storedUser.Email,
+		CreatedAt: storedUser.CreatedAt,
+		AvatarUrl: storedUser.AvatarUrl,
 	}
 	return user, true
+}
+
+func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
+	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
+	if profile.Password != nil {
+		bytes, err := bcrypt.GenerateFromPassword([]byte(*profile.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, HashPasswordError
+		}
+		hashedPassword := string(bytes)
+		profile.Password = &hashedPassword
+	}
+	return obj.repository.Update(ctx, profile)
 }

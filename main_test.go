@@ -517,7 +517,7 @@ func TestGetBudget(t *testing.T) {
 
 	var createResp web_helpers.BudgetCreateSuccessResponse
 	require.NoError(t, json.NewDecoder(wCreate.Body).Decode(&createResp))
-	budgetID := createResp.BudgetID
+	budgetID := createResp.BudgetId
 
 	cases := []struct {
 		name         string
@@ -526,8 +526,8 @@ func TestGetBudget(t *testing.T) {
 		expectedCode int
 	}{
 		{"без авторизации", "0", false, http.StatusUnauthorized},
-		{"несуществующий ID", "999", true, http.StatusNotFound},
-		{"невалидный ID", "abc", true, http.StatusNotFound},
+		{"несуществующий Id", "999", true, http.StatusNotFound},
+		{"невалидный Id", "abc", true, http.StatusNotFound},
 		{"существующий бюджет", fmt.Sprintf("%d", budgetID), true, http.StatusOK},
 	}
 
@@ -659,7 +659,7 @@ func TestDeleteBudget(t *testing.T) {
 
 	var createResp web_helpers.BudgetCreateSuccessResponse
 	require.NoError(t, json.NewDecoder(wCreate.Body).Decode(&createResp))
-	budgetID := fmt.Sprintf("%d", createResp.BudgetID)
+	budgetID := fmt.Sprintf("%d", createResp.BudgetId)
 
 	cases := []struct {
 		name         string
@@ -668,7 +668,7 @@ func TestDeleteBudget(t *testing.T) {
 		expectedCode int
 	}{
 		{"без авторизации", budgetID, false, http.StatusUnauthorized},
-		{"невалидный ID", "abc", true, http.StatusNotFound},
+		{"невалидный Id", "abc", true, http.StatusNotFound},
 		{"несуществующий бюджет", "999", true, http.StatusNotFound},
 		{"успешное удаление", budgetID, true, http.StatusOK},
 		{"повторное удаление", budgetID, true, http.StatusNotFound},

@@ -1,8 +1,10 @@
 package models
 
-import (
-	"time"
-)
+import "time"
+
+type ContextKey string
+
+const UserContextKey ContextKey = "user"
 
 type UserModel struct {
 	Id        int
@@ -14,4 +16,13 @@ type UserModel struct {
 	AvatarUrl string
 	UpdatedAt time.Time
 	Active    bool
+}
+
+type UpdateUserProfile struct {
+	Id        int
+	Username  *string
+	Email     *string
+	Password  *string
+	AvatarUrl *string
+	UpdatedAt time.Time
 }

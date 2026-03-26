@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
 
 type SimpleResponse struct {
@@ -67,7 +69,7 @@ func NewLogoutSuccessResponse() LogoutSuccessResponse {
 }
 
 type AuthUser struct {
-	ID        int       `json:"id"`
+	Id        int       `json:"id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	LastLogin time.Time `json:"last_login,omitempty"`
@@ -75,13 +77,10 @@ type AuthUser struct {
 }
 
 type User struct {
-	Username        string    `json:"username"`
-	Email           string    `json:"email"`
-	CreatedAt       time.Time `json:"created_at"`
-	LastLogin       time.Time `json:"last_login,omitempty"`
-	AvatarUrl       string    `json:"avatar_url"`
-	Balance         float64   `json:"balance"`
-	BalanceCurrency string    `json:"currency"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+	AvatarUrl string    `json:"avatar_url"`
 }
 
 type BudgetRequest struct {
@@ -135,20 +134,20 @@ func NewBalanceResponse(balance float64, currency string, income float64, expens
 	}
 }
 
-type BudgetsIDsResponse struct {
+type BudgetsIdsResponse struct {
 	SimpleResponse
 	Len int   `json:"len"`
-	IDs []int `json:"ids"`
+	Ids []int `json:"ids"`
 }
 
-func NewBudgetsIDsResponse(ids []int) BudgetsIDsResponse {
-	return BudgetsIDsResponse{
+func NewBudgetsIdsResponse(ids []int) BudgetsIdsResponse {
+	return BudgetsIdsResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
 			Message: "Ok",
 		},
 		Len: len(ids),
-		IDs: ids,
+		Ids: ids,
 	}
 }
 
@@ -242,14 +241,14 @@ func NewNotFoundErrorResponse(message string) NotFoundErrorResponse {
 type ServerErrorResponse struct {
 	Code      int    `json:"code"`
 	Message   string `json:"message"`
-	RequestID string `json:"request_id"`
+	RequestId string `json:"request_id"`
 }
 
-func NewServerErrorResponse(requestID string) ServerErrorResponse {
+func NewServerErrorResponse(requestId string) ServerErrorResponse {
 	return ServerErrorResponse{
 		Code:      http.StatusInternalServerError,
 		Message:   "Внутренняя ошибка сервера",
-		RequestID: requestID,
+		RequestId: requestId,
 	}
 }
 
@@ -299,16 +298,16 @@ func NewBudgetUpdateSuccessResponse() BudgetUpdateSuccessResponse {
 
 type BudgetCreateSuccessResponse struct {
 	SimpleResponse
-	BudgetID int `json:"budget_id"`
+	BudgetId int `json:"budget_id"`
 }
 
-func NewBudgetCreateSuccessResponse(budgetID int) BudgetCreateSuccessResponse {
+func NewBudgetCreateSuccessResponse(budgetId int) BudgetCreateSuccessResponse {
 	return BudgetCreateSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
 			Message: "Бюджет успешно создан",
 		},
-		BudgetID: budgetID,
+		BudgetId: budgetId,
 	}
 }
 
@@ -325,6 +324,190 @@ func NewBudgetGetSuccessResponse(budget BudgetRequest) BudgetGetSuccessResponse 
 		},
 		Budget: budget,
 	}
+}
+
+type CurrencyCodesResponse struct {
+	SimpleResponse
+	CurrencyCodes []string `json:"currency_codes"`
+}
+
+func NewCurrencyCodesResponse(codes []string) CurrencyCodesResponse {
+	return CurrencyCodesResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		CurrencyCodes: codes,
+	}
+}
+
+type TransactionsIdsResponse struct {
+	SimpleResponse
+	Len int   `json:"len"`
+	Ids []int `json:"ids"`
+}
+
+func NewTransactionsIdsResponse(ids []int) TransactionsIdsResponse {
+	return TransactionsIdsResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Len: len(ids),
+		Ids: ids,
+	}
+}
+
+type TransactionRequest struct {
+	AccountId       int       `json:"account_id"`
+	Value           float64   `json:"value"`
+	Type            string    `json:"type"`
+	Category        string    `json:"category"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description"`
+	TransactionDate time.Time `json:"transaction_date"`
+}
+
+type TransactionCreateSuccessResponse struct {
+	SimpleResponse
+	TransactionId int `json:"transaction_id"`
+}
+
+func NewTransactionCreateSuccessResponse(id int) *TransactionCreateSuccessResponse {
+	return &TransactionCreateSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		TransactionId: id,
+	}
+}
+
+type TransactionDeleteSuccessResponse struct {
+	SimpleResponse
+	TransactionId int `json:"transaction_id"`
+}
+
+func NewTransactionDeleteSuccessResponse(id int) *TransactionDeleteSuccessResponse {
+	return &TransactionDeleteSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		TransactionId: id,
+	}
+}
+
+type TransactionResponse struct {
+	Id              int       `json:"id"`
+	UserId          int       `json:"user_id"`
+	AccountId       int       `json:"account_id"`
+	Value           float64   `json:"value"`
+	Type            string    `json:"type"`
+	Category        string    `json:"category"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description"`
+	CreatedAt       time.Time `json:"created_at"`
+	TransactionDate time.Time `json:"transaction_date"`
+}
+
+type TransactionDetailSuccessResponse struct {
+	SimpleResponse
+	Transaction TransactionResponse `json:"transaction"`
+}
+
+func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *TransactionDetailSuccessResponse {
+	return &TransactionDetailSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Transaction: TransactionResponse{
+			Id:              transaction.Id,
+			UserId:          transaction.UserId,
+			AccountId:       transaction.AccountId,
+			Value:           transaction.Value,
+			Type:            transaction.Type,
+			Category:        transaction.Category,
+			Title:           transaction.Title,
+			Description:     transaction.Description,
+			CreatedAt:       transaction.CreatedAt,
+			TransactionDate: transaction.TransactionDate,
+		},
+	}
+}
+
+type TransactionUpdateSuccessResponse SimpleResponse
+
+func NewTransactionUpdateSuccessResponse() TransactionUpdateSuccessResponse {
+	return TransactionUpdateSuccessResponse{
+		Code:    http.StatusOK,
+		Message: "Транзакция успешно обновлена",
+	}
+}
+
+type UpdateUserProfileRequest struct {
+	Username  *string `json:"username"`
+	Email     *string `json:"email"`
+	Password  *string `json:"password"`
+	AvatarUrl *string `json:"avatar_url"`
+}
+
+type BadRequestErrorResponse SimpleResponse
+
+func NewBadRequestErrorResponse() BadRequestErrorResponse {
+	return BadRequestErrorResponse{
+		Code:    http.StatusBadRequest,
+		Message: "Некорректный запрос",
+	}
+}
+
+type InternalServerErrorResponse SimpleResponse
+
+func NewInternalServerErrorResponse() InternalServerErrorResponse {
+	return InternalServerErrorResponse{
+		Code:    http.StatusInternalServerError,
+		Message: "Внутренняя ошибка сервера",
+	}
+}
+
+type UpdateProfileSuccessResponse struct {
+	SimpleResponse
+	User User `json:"user"`
+}
+
+func NewUpdateProfileSuccessResponse(user User) UpdateProfileSuccessResponse {
+	return UpdateProfileSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Профиль успешно обновлён",
+		},
+		User: user,
+	}
+}
+
+type ProfileSuccessResponse struct {
+	SimpleResponse
+	User User `json:"user"`
+}
+
+func NewProfileSuccessResponse(user User) ProfileSuccessResponse {
+	return ProfileSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Профиль получен",
+		},
+		User: user,
+	}
+}
+
+type EnumListResponse struct {
+	Code  int      `json:"code"`
+	Items []string `json:"items"`
+}
+
+func NewEnumListResponse(items []string) EnumListResponse {
+	return EnumListResponse{Code: 200, Items: items}
 }
 
 type AvatarUploadSuccessResponse struct {
