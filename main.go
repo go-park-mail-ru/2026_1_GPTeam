@@ -87,7 +87,7 @@ func main() {
 
 	serport := os.Getenv("SERVER_PORT")
 	if serport == "" {
-		serport = "8081"
+		serport = "8080"
 	}
 	addr := ":" + serport
 	server := http.Server{

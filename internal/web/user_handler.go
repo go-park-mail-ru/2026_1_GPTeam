@@ -37,14 +37,14 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(5 << 20)
 	if err != nil {
-		response := web_helpers.NewBadRequestErrorResponse("File too large")
+		response := web_helpers.NewBadRequestErrorResponse("Слишком большой файл")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	file, header, err := r.FormFile("avatar")
 	if err != nil {
-		response := web_helpers.NewBadRequestErrorResponse("Missing avatar file")
+		response := web_helpers.NewBadRequestErrorResponse("Нет файла аватара")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -52,20 +52,20 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	buff := make([]byte, 512)
 	if _, err = file.Read(buff); err != nil {
-		response := web_helpers.NewServerErrorResponse("Read error")
+		response := web_helpers.NewServerErrorResponse("Ошибка чтения")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	fileType := http.DetectContentType(buff)
 	if fileType != "image/jpeg" && fileType != "image/png" {
-		response := web_helpers.NewBadRequestErrorResponse("Only JPEG and PNG are allowed")
+		response := web_helpers.NewBadRequestErrorResponse("Допустимы только форматы JPEG и PNG")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	if _, err = file.Seek(0, 0); err != nil {
-		response := web_helpers.NewServerErrorResponse("Internal error")
+		response := web_helpers.NewServerErrorResponse("Внутренняя ошибка")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -81,7 +81,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	ext := filepath.Ext(header.Filename)
 	avatarName, err := obj.userApp.UploadAvatar(r.Context(), authUser.Id, file, ext)
 	if err != nil {
-		response := web_helpers.NewServerErrorResponse("Could not save avatar")
+		response := web_helpers.NewServerErrorResponse("Не удалось сохранить аватар")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
