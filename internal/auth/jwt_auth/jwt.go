@@ -51,27 +51,23 @@ func NewJwt(repository repository.JwtRepository, secret string, version string) 
 }
 
 func (obj *Jwt) parseToken(tokenStr string) (*jwt.Token, error) {
-	obj.log.Info("parsing token",
-		zap.String("token", tokenStr))
+	obj.log.Info("parsing token")
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			obj.log.Error("unexpected signing method",
-				zap.String("token", tokenStr))
+			obj.log.Error("unexpected signing method")
 			return nil, WrongSigningMethodError
 		}
 		return obj.GetJWTSecret(), nil
 	})
 	if err != nil {
-		obj.log.Error("failed to parse token",
-			zap.String("token", tokenStr))
+		obj.log.Error("failed to parse token")
 		return &jwt.Token{}, err
 	}
 	return token, nil
 }
 
 func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
-	obj.log.Info("checking token",
-		zap.String("token", tokenStr))
+	obj.log.Info("checking token")
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		return false, -1
@@ -79,29 +75,25 @@ func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		obj.log.Warn("invalid token (unable to claim payload)",
-			zap.String("token", tokenStr))
+		obj.log.Warn("invalid token (unable to claim payload)")
 		return false, -1
 	}
 
 	version, ok := claims["version"].(string)
 	if !ok {
-		obj.log.Warn("invalid token (unable to claim version)",
-			zap.String("token", tokenStr))
+		obj.log.Warn("invalid token (unable to claim version)")
 		return false, -1
 	}
 	curVersion := obj.GetVersion()
 	if version != curVersion {
-		obj.log.Error("invalid token (invalid version)",
-			zap.String("token", tokenStr))
+		obj.log.Error("invalid token (invalid version)")
 		return false, -1
 	}
 
 	userIdFloat, ok := claims["user_id"].(float64)
 	userId := int(userIdFloat)
 	if !ok {
-		obj.log.Error("invalid token (unable to claim user_id)",
-			zap.String("token", tokenStr))
+		obj.log.Error("invalid token (unable to claim user_id)")
 		return false, -1
 	}
 	return true, userId
@@ -109,7 +101,6 @@ func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
 
 func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int) {
 	obj.log.Info("checking refresh token",
-		zap.String("token", tokenStr),
 		zap.String("request_id", ctx.Value("request_id").(string)))
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
@@ -119,7 +110,6 @@ func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, i
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
 		obj.log.Warn("invalid token (unable to claim payload)",
-			zap.String("token", tokenStr),
 			zap.String("request_id", ctx.Value("request_id").(string)))
 		return false, -1
 	}
@@ -127,14 +117,12 @@ func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, i
 	version, ok := claims["version"].(string)
 	if !ok {
 		obj.log.Warn("invalid token (unable to claim version)",
-			zap.String("token", tokenStr),
 			zap.String("request_id", ctx.Value("request_id").(string)))
 		return false, -1
 	}
 	curVersion := obj.GetVersion()
 	if version != curVersion {
 		obj.log.Error("invalid token (invalid version)",
-			zap.String("token", tokenStr),
 			zap.String("request_id", ctx.Value("request_id").(string)))
 		return false, -1
 	}
@@ -142,7 +130,6 @@ func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, i
 	tokenId, ok := claims["id"].(string)
 	if !ok {
 		obj.log.Warn("invalid token (unable to claim token_id)",
-			zap.String("token", tokenStr),
 			zap.String("request_id", ctx.Value("request_id").(string)))
 		return false, -1
 	}
@@ -151,7 +138,6 @@ func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, i
 	userId := int(userIdFloat)
 	if !ok {
 		obj.log.Warn("invalid token (unable to claim user_id)",
-			zap.String("token", tokenStr),
 			zap.String("request_id", ctx.Value("request_id").(string)))
 		return false, -1
 	}
@@ -159,14 +145,12 @@ func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, i
 	storedToken, err := obj.repository.Get(ctx, tokenId)
 	if err != nil {
 		obj.log.Error("failed to get token from db",
-			zap.String("token", tokenStr),
 			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
 		return false, -1
 	}
 	if storedToken.UserId != userId {
 		obj.log.Error("invalid token (invalid userId)",
-			zap.String("token", tokenStr),
 			zap.String("request_id", ctx.Value("request_id").(string)))
 		return false, -1
 	}
@@ -249,12 +233,10 @@ func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userId int, deviceId s
 
 func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
 	obj.log.Info("deleting refresh token",
-		zap.String("token", tokenStr),
 		zap.String("request_id", ctx.Value("request_id").(string)))
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		obj.log.Error("failed to parse token",
-			zap.String("token", tokenStr),
 			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
 		return err
@@ -264,14 +246,12 @@ func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
 		id, ok := claims["id"].(string)
 		if !ok {
 			obj.log.Error("invalid token (unable to claim token_id)",
-				zap.String("token", tokenStr),
 				zap.String("request_id", ctx.Value("request_id").(string)))
 			return InvalidTokenId
 		}
 		err = obj.repository.DeleteByUuid(ctx, id)
 		if err != nil {
 			obj.log.Error("failed to delete refresh token from db",
-				zap.String("token_id", id),
 				zap.String("request_id", ctx.Value("request_id").(string)),
 				zap.Error(err))
 			return err

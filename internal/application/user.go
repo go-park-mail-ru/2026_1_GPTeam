@@ -80,7 +80,6 @@ func (obj *User) GetById(ctx context.Context, id int) (*models.UserModel, error)
 func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error) {
 	obj.log.Info("getting user by credentials",
 		zap.String("username", user.Username),
-		zap.String("password", user.Password),
 		zap.String("request_id", ctx.Value("request_id").(string)))
 	storedUser, err := obj.repository.GetByUsername(ctx, user.Username)
 	if err != nil {
