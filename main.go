@@ -85,13 +85,8 @@ func main() {
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
-	serport := os.Getenv("SERVER_PORT")
-	if serport == "" {
-		serport = "8080"
-	}
-	addr := ":" + serport
 	server := http.Server{
-		Addr:         addr,
+		Addr:         ":8080",
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
