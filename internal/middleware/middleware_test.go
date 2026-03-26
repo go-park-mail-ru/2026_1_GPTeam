@@ -3,63 +3,22 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
-	"time"
 
-	models2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
-	jwt2 "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/jwt"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/models"
-	testhelper "github.com/go-park-mail-ru/2026_1_GPTeam/pkg"
-
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+
+	usermocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	authmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/mocks"
 )
-
-const (
-	testUsername = "middlewareAdmin"
-	testPassword = "Adm1n123"
-	testUserID   = "0"
-)
-
-var once sync.Once
-
-func setupStorage() {
-	once.Do(func() {
-		_ = jwt.NewRefreshTokenStore("secret123", "v1")
-		models.NewUserStore()
-		models.AddUser(models2.UserModel{
-			Id:        0,
-			Username:  testUsername,
-			Password:  testPassword,
-			Email:     "middleware@test.com",
-			CreatedAt: time.Now(),
-			LastLogin: time.Now(),
-		})
-	})
-}
 
 func okHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
-}
-
-func makeAccessCookie(t *testing.T, userID string) *http.Cookie {
-	t.Helper()
-	tokenStr, err := jwt.GenerateToken(userID)
-	require.NoError(t, err)
-	return &http.Cookie{
-		Name:     auth.TokenName,
-		Value:    tokenStr,
-		Path:     "/",
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(jwt2.AccessTokenExpirationTime),
-	}
 }
 
 func TestCORSMiddleware_SetsHeaders(t *testing.T) {
@@ -87,10 +46,9 @@ func TestCORSMiddleware_SetsHeaders(t *testing.T) {
 			handler := CORSMiddleware(next)
 			req := httptest.NewRequest(method, "/some/path", nil)
 			w := httptest.NewRecorder()
-
 			handler.ServeHTTP(w, req)
 
-			require.True(t, called, "next должен вызываться для метода %s", method)
+			require.True(t, called)
 			require.Equal(t, http.StatusOK, w.Code)
 			require.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
 			require.NotEmpty(t, w.Header().Get("Access-Control-Allow-Methods"))
@@ -111,46 +69,45 @@ func TestCORSMiddleware_OptionsDoesNotCallNext(t *testing.T) {
 	handler := CORSMiddleware(next)
 	req := httptest.NewRequest(http.MethodOptions, "/", nil)
 	w := httptest.NewRecorder()
-
 	handler.ServeHTTP(w, req)
 
-	require.False(t, called, "next не должен вызываться при OPTIONS")
+	require.False(t, called)
 	require.NotEqual(t, http.StatusTeapot, w.Code)
 }
 
-func TestMethodValidationMiddleware_MultipleAllowedMethods(t *testing.T) {
+func TestMethodValidationMiddleware_AllowedMethods(t *testing.T) {
 	t.Parallel()
 
 	handler := MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(okHandler))
 
-	t.Run("GET разрешён", func(t *testing.T) {
-		t.Parallel()
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, req)
-		require.Equal(t, http.StatusOK, w.Code)
-	})
+	cases := []struct {
+		name         string
+		method       string
+		expectedCode int
+	}{
+		{"GET разрешён", http.MethodGet, http.StatusOK},
+		{"POST разрешён", http.MethodPost, http.StatusOK},
+		{"DELETE не разрешён", http.MethodDelete, http.StatusMethodNotAllowed},
+		{"PUT не разрешён", http.MethodPut, http.StatusMethodNotAllowed},
+		{"PATCH не разрешён", http.MethodPatch, http.StatusMethodNotAllowed},
+	}
 
-	t.Run("POST разрешён", func(t *testing.T) {
-		t.Parallel()
-		req := httptest.NewRequest(http.MethodPost, "/", nil)
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, req)
-		require.Equal(t, http.StatusOK, w.Code)
-	})
-
-	t.Run("DELETE не разрешён", func(t *testing.T) {
-		t.Parallel()
-		req := httptest.NewRequest(http.MethodDelete, "/", nil)
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, req)
-		require.Equal(t, http.StatusMethodNotAllowed, w.Code)
-
-		var resp map[string]any
-		require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-		require.EqualValues(t, http.StatusMethodNotAllowed, resp["code"])
-		require.NotEmpty(t, resp["message"])
-	})
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			req := httptest.NewRequest(c.method, "/", nil)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+			require.Equal(t, c.expectedCode, w.Code)
+			if c.expectedCode == http.StatusMethodNotAllowed {
+				var resp map[string]any
+				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+				require.EqualValues(t, http.StatusMethodNotAllowed, resp["code"])
+				require.NotEmpty(t, resp["message"])
+			}
+		})
+	}
 }
 
 func TestMethodValidationMiddleware_DisallowedMethod_Returns405(t *testing.T) {
@@ -175,11 +132,9 @@ func TestMethodValidationMiddleware_DisallowedMethod_Returns405(t *testing.T) {
 			handler := MethodValidationMiddleware(c.allowed)(http.HandlerFunc(okHandler))
 			req := httptest.NewRequest(c.sent, "/", nil)
 			w := httptest.NewRecorder()
-
 			handler.ServeHTTP(w, req)
 
 			require.Equal(t, http.StatusMethodNotAllowed, w.Code)
-
 			var resp map[string]any
 			require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 			require.EqualValues(t, http.StatusMethodNotAllowed, resp["code"])
@@ -188,189 +143,123 @@ func TestMethodValidationMiddleware_DisallowedMethod_Returns405(t *testing.T) {
 	}
 }
 
+func TestPanicMiddleware_RecoversPanic(t *testing.T) {
+	t.Parallel()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("test panic")
+	})
+
+	handler := PanicMiddleware(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	require.EqualValues(t, http.StatusInternalServerError, resp["code"])
+}
+
+func TestPanicMiddleware_NoPanic(t *testing.T) {
+	t.Parallel()
+
+	handler := PanicMiddleware(http.HandlerFunc(okHandler))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestAuthMiddleware(t *testing.T) {
 	t.Parallel()
-	setupStorage()
 
-	validCookie := makeAccessCookie(t, testUserID)
-
-	tokenNonNumeric, err := jwt.GenerateToken("not-a-number")
-	require.NoError(t, err)
-	cookieNonNumeric := &http.Cookie{
-		Name:     auth.TokenName,
-		Value:    tokenNonNumeric,
-		Path:     "/",
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(jwt2.AccessTokenExpirationTime),
-	}
-
-	tokenUnknown, err := jwt.GenerateToken("9999")
-	require.NoError(t, err)
-	cookieUnknown := &http.Cookie{
-		Name:     auth.TokenName,
-		Value:    tokenUnknown,
-		Path:     "/",
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(jwt2.AccessTokenExpirationTime),
+	testUser := &models.UserModel{
+		Id:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
 	}
 
 	cases := []struct {
-		name       string
-		method     string
-		path       string
-		cookie     *http.Cookie
-		assertFunc func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any)
+		name         string
+		path         string
+		method       string
+		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase)
+		expectedCode int
+		checkCtx     bool
 	}{
 		{
-			name:   "публичный путь / без токена",
-			method: http.MethodGet,
-			path:   "/",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusOK, w.Code)
-				require.Nil(t, gotCtxUser)
-			},
-		},
-		{
-			name:   "публичный путь /login без токена",
-			method: http.MethodGet,
-			path:   "/login",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusOK, w.Code)
-				require.Nil(t, gotCtxUser)
-			},
-		},
-		{
-			name:   "публичный путь /signup без токена",
-			method: http.MethodGet,
-			path:   "/signup",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusOK, w.Code)
-				require.Nil(t, gotCtxUser)
-			},
-		},
-		{
-			name:   "публичный путь /auth/login без токена",
-			method: http.MethodPost,
+			name:   "/auth/login — публичный путь",
 			path:   "/auth/login",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusOK, w.Code)
-				require.Nil(t, gotCtxUser)
+			method: http.MethodPost,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
 			},
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:   "публичный путь /auth/refresh без токена",
-			method: http.MethodPost,
+			name:   "/auth/refresh — публичный путь",
 			path:   "/auth/refresh",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusOK, w.Code)
-				require.Nil(t, gotCtxUser)
+			method: http.MethodPost,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
 			},
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:   "публичный путь /auth/other без токена",
-			method: http.MethodPost,
-			path:   "/auth/other",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusOK, w.Code)
-				require.Nil(t, gotCtxUser)
+			name:   "/enums/types — публичный путь",
+			path:   "/enums/types",
+			method: http.MethodGet,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
 			},
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:   "/auth/logout без токена → 401",
-			method: http.MethodPost,
+			name:   "/auth/logout — без токена → 401",
 			path:   "/auth/logout",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusUnauthorized, w.Code)
-				require.Equal(t, "application/json", w.Header().Get("Content-Type"))
-				var resp map[string]any
-				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-				require.EqualValues(t, http.StatusUnauthorized, resp["code"])
-				require.NotEmpty(t, resp["message"])
+			method: http.MethodPost,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+				authSvc.EXPECT().IsAuth(gomock.Any()).Return(false, -1)
 			},
+			expectedCode: http.StatusUnauthorized,
 		},
 		{
-			name:   "/profile/balance без токена → 401",
+			name:   "/profile — без токена → 401",
+			path:   "/profile",
 			method: http.MethodGet,
-			path:   "/profile/balance",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusUnauthorized, w.Code)
-				var resp map[string]any
-				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-				require.EqualValues(t, http.StatusUnauthorized, resp["code"])
-				require.NotEmpty(t, resp["message"])
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+				authSvc.EXPECT().IsAuth(gomock.Any()).Return(false, -1)
 			},
+			expectedCode: http.StatusUnauthorized,
 		},
 		{
-			name:   "/get_budgets без токена → 401",
+			name:   "/profile — токен валиден, пользователь не найден → 401",
+			path:   "/profile",
 			method: http.MethodGet,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+				authSvc.EXPECT().IsAuth(gomock.Any()).Return(true, 1)
+				userApp.EXPECT().GetById(gomock.Any(), 1).Return(nil, errors.New("not found"))
+			},
+			expectedCode: http.StatusUnauthorized,
+		},
+		{
+			name:   "/profile — валидный токен → 200, пользователь в контексте",
+			path:   "/profile",
+			method: http.MethodGet,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+				authSvc.EXPECT().IsAuth(gomock.Any()).Return(true, 1)
+				userApp.EXPECT().GetById(gomock.Any(), 1).Return(testUser, nil)
+			},
+			expectedCode: http.StatusOK,
+			checkCtx:     true,
+		},
+		{
+			name:   "/get_budgets — без токена → 401",
 			path:   "/get_budgets",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusUnauthorized, w.Code)
-			},
-		},
-		{
-			name:   "/budget без токена → 401 с JSON телом",
 			method: http.MethodGet,
-			path:   "/budget",
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusUnauthorized, w.Code)
-				require.Equal(t, "application/json", w.Header().Get("Content-Type"))
-				var resp map[string]any
-				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-				require.EqualValues(t, http.StatusUnauthorized, resp["code"])
-				require.NotEmpty(t, resp["message"])
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+				authSvc.EXPECT().IsAuth(gomock.Any()).Return(false, -1)
 			},
-		},
-		{
-			name:   "невалидный токен → 401",
-			method: http.MethodGet,
-			path:   "/profile/balance",
-			cookie: &http.Cookie{
-				Name:     auth.TokenName,
-				Value:    "totally.invalid.token",
-				Path:     "/",
-				Secure:   true,
-				HttpOnly: true,
-				SameSite: http.SameSiteLaxMode,
-			},
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusUnauthorized, w.Code)
-			},
-		},
-		{
-			name:   "токен с нечисловым userID → 401",
-			method: http.MethodGet,
-			path:   "/profile/balance",
-			cookie: cookieNonNumeric,
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusUnauthorized, w.Code)
-			},
-		},
-		{
-			name:   "валидный токен неизвестного пользователя → 401",
-			method: http.MethodGet,
-			path:   "/profile/balance",
-			cookie: cookieUnknown,
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusUnauthorized, w.Code)
-			},
-		},
-		{
-			name:   "валидный токен → пользователь добавлен в контекст",
-			method: http.MethodGet,
-			path:   "/profile/balance",
-			cookie: validCookie,
-			assertFunc: func(t *testing.T, w *httptest.ResponseRecorder, r *http.Request, gotCtxUser any) {
-				require.Equal(t, http.StatusOK, w.Code)
-				require.NotNil(t, gotCtxUser)
-				user, ok := gotCtxUser.(models2.UserModel)
-				require.True(t, ok)
-				require.Equal(t, testUsername, user.Username)
-			},
+			expectedCode: http.StatusUnauthorized,
 		},
 	}
 
@@ -379,29 +268,55 @@ func TestAuthMiddleware(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			authSvc := authmocks.NewMockAuthenticationService(ctrl)
+			userApp := usermocks.NewMockUserUseCase(ctrl)
+			c.setupMocks(authSvc, userApp)
+
 			var gotCtxUser any
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotCtxUser = r.Context().Value("user")
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := AuthMiddleware(next)
+			handler := AuthMiddleware(next, authSvc, userApp)
 			req := httptest.NewRequest(c.method, c.path, nil)
-			if c.cookie != nil {
-				req.AddCookie(c.cookie)
-			}
 			w := httptest.NewRecorder()
-
 			handler.ServeHTTP(w, req)
 
-			c.assertFunc(t, w, req, gotCtxUser)
+			require.Equal(t, c.expectedCode, w.Code)
+
+			if c.expectedCode == http.StatusUnauthorized {
+				var resp map[string]any
+				require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+				require.EqualValues(t, http.StatusUnauthorized, resp["code"])
+				require.NotEmpty(t, resp["message"])
+			}
+
+			if c.checkCtx {
+				require.NotNil(t, gotCtxUser)
+				user, ok := gotCtxUser.(*models.UserModel)
+				require.True(t, ok)
+				require.Equal(t, testUser.Username, user.Username)
+			}
 		})
 	}
 }
 
-func TestAuthMiddleware_PreservesExistingContextValues(t *testing.T) {
+func TestAuthMiddleware_PreservesContext(t *testing.T) {
 	t.Parallel()
-	setupStorage()
+
+	testUser := &models.UserModel{Id: 1, Username: "testuser"}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	authSvc := authmocks.NewMockAuthenticationService(ctrl)
+	userApp := usermocks.NewMockUserUseCase(ctrl)
+	authSvc.EXPECT().IsAuth(gomock.Any()).Return(true, 1)
+	userApp.EXPECT().GetById(gomock.Any(), 1).Return(testUser, nil)
 
 	type ctxKey string
 	const existingKey ctxKey = "existing"
@@ -412,37 +327,53 @@ func TestAuthMiddleware_PreservesExistingContextValues(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := AuthMiddleware(next)
-	req := httptest.NewRequest(http.MethodGet, "/profile/balance", nil)
+	handler := AuthMiddleware(next, authSvc, userApp)
+	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
 	req = req.WithContext(context.WithValue(req.Context(), existingKey, "hello"))
-	req.AddCookie(makeAccessCookie(t, testUserID))
 	w := httptest.NewRecorder()
-
 	handler.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, "hello", gotExisting, "существующие значения контекста должны сохраняться")
+	require.Equal(t, "hello", gotExisting)
 }
 
 func TestAuthAndMethodMiddlewareComposition(t *testing.T) {
 	t.Parallel()
-	setupStorage()
 
-	_ = testhelper.MustJSON
-
-	mux := http.NewServeMux()
-	mux.Handle("/profile/balance", MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(okHandler)))
-	composed := AuthMiddleware(mux)
+	testUser := &models.UserModel{Id: 1, Username: "testuser"}
 
 	cases := []struct {
 		name         string
 		method       string
-		withToken    bool
+		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase)
 		expectedCode int
 	}{
-		{"GET без токена → 401", http.MethodGet, false, http.StatusUnauthorized},
-		{"POST с токеном → 405", http.MethodPost, true, http.StatusMethodNotAllowed},
-		{"GET с токеном → 200", http.MethodGet, true, http.StatusOK},
+		{
+			name:   "GET без токена → 401",
+			method: http.MethodGet,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+				authSvc.EXPECT().IsAuth(gomock.Any()).Return(false, -1)
+			},
+			expectedCode: http.StatusUnauthorized,
+		},
+		{
+			name:   "POST с токеном → 405",
+			method: http.MethodPost,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+				authSvc.EXPECT().IsAuth(gomock.Any()).Return(true, 1)
+				userApp.EXPECT().GetById(gomock.Any(), 1).Return(testUser, nil)
+			},
+			expectedCode: http.StatusMethodNotAllowed,
+		},
+		{
+			name:   "GET с токеном → 200",
+			method: http.MethodGet,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+				authSvc.EXPECT().IsAuth(gomock.Any()).Return(true, 1)
+				userApp.EXPECT().GetById(gomock.Any(), 1).Return(testUser, nil)
+			},
+			expectedCode: http.StatusOK,
+		},
 	}
 
 	for _, c := range cases {
@@ -450,12 +381,21 @@ func TestAuthAndMethodMiddlewareComposition(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := httptest.NewRequest(c.method, "/profile/balance", nil)
-			if c.withToken {
-				req.AddCookie(makeAccessCookie(t, testUserID))
-			}
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			authSvc := authmocks.NewMockAuthenticationService(ctrl)
+			userApp := usermocks.NewMockUserUseCase(ctrl)
+			c.setupMocks(authSvc, userApp)
+
+			mux := http.NewServeMux()
+			mux.Handle("/profile", MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(okHandler)))
+			handler := AuthMiddleware(mux, authSvc, userApp)
+
+			req := httptest.NewRequest(c.method, "/profile", nil)
 			w := httptest.NewRecorder()
-			composed.ServeHTTP(w, req)
+			handler.ServeHTTP(w, req)
+
 			require.Equal(t, c.expectedCode, w.Code)
 		})
 	}

@@ -21,7 +21,7 @@ type BudgetRepository interface {
 }
 
 type BudgetPostgres struct {
-	db *pgxpool.Pool
+	db DB
 }
 
 func NewBudgetPostgres(db *pgxpool.Pool) *BudgetPostgres {

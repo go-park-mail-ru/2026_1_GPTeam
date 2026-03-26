@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	validators2 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 	"github.com/stretchr/testify/require"
 )
@@ -58,10 +59,10 @@ func TestValidateEmail(t *testing.T) {
 		err   error
 	}{
 		{"Incorrect length", "", validators2.EmailError},
-		{"Incorrect email", "abc", validators2.EmailError},
-		{"Incorrect email", "abc@", validators2.EmailError},
-		{"Incorrect email", "abc@abc", validators2.EmailError},
-		{"Incorrect email", "abc@abc.1", validators2.EmailError},
+		{"Incorrect email without at", "abc", validators2.EmailError},
+		{"Incorrect email with at", "abc@", validators2.EmailError},
+		{"Incorrect email without dot", "abc@abc", validators2.EmailError},
+		{"Incorrect email with digit tld", "abc@abc.1", validators2.EmailError},
 		{"Correct email", "abc@example.com", nil},
 	}
 
@@ -80,12 +81,12 @@ func TestValidateCurrency(t *testing.T) {
 		Currency string
 		err      error
 	}{
-		{"Incorrect", "abc", validators2.CurrencyNotAllowedError},
-		{"Incorrect", "ABC", validators2.CurrencyNotAllowedError},
-		{"Incorrect", "GBP", validators2.CurrencyNotAllowedError},
-		{"Correct", "RUB", nil},
-		{"Correct", "USD", nil},
-		{"Correct", "EUR", nil},
+		{"Incorrect lowercase", "abc", validators2.CurrencyNotAllowedError},
+		{"Incorrect uppercase not in list", "ABC", validators2.CurrencyNotAllowedError},
+		{"Incorrect GBP not allowed", "GBP", validators2.CurrencyNotAllowedError},
+		{"Correct RUB", "RUB", nil},
+		{"Correct USD", "USD", nil},
+		{"Correct EUR", "EUR", nil},
 	}
 
 	for _, testCase := range testCases {
@@ -106,7 +107,8 @@ func TestValidateTargetBudget(t *testing.T) {
 		err    error
 	}{
 		{"Negative", -1, validators2.TargetIsNegativeError},
-		{"Big", 1e18 + 1, validators2.TargetIsBigError},
+		{"Zero", 0, validators2.TargetIsZeroError},
+		{"Big", 1_000_000_000_001, validators2.TargetIsBigError},
 		{"Correct", 1000, nil},
 	}
 
@@ -155,6 +157,81 @@ func TestValidateEndDate(t *testing.T) {
 			t.Parallel()
 			err := validators2.ValidateEndDate(testCase.Start, testCase.End)
 			require.ErrorIs(t, err, testCase.err)
+		})
+	}
+}
+
+func TestValidateTransaction(t *testing.T) {
+	allowed := []string{"income", "expense"}
+	categories := []string{"food", "salary"}
+
+	testCases := []struct {
+		Name   string
+		Body   web_helpers.TransactionRequest
+		errLen int
+	}{
+		{
+			"All correct",
+			web_helpers.TransactionRequest{
+				Title:       "Test",
+				Description: "Desc",
+				Value:       100,
+				Type:        "income",
+				Category:    "salary",
+			},
+			0,
+		},
+		{
+			"Empty title",
+			web_helpers.TransactionRequest{
+				Title:       "",
+				Description: "Desc",
+				Value:       100,
+				Type:        "income",
+				Category:    "salary",
+			},
+			1,
+		},
+		{
+			"Negative value",
+			web_helpers.TransactionRequest{
+				Title:       "Test",
+				Description: "Desc",
+				Value:       -1,
+				Type:        "income",
+				Category:    "salary",
+			},
+			1,
+		},
+		{
+			"Invalid type and category",
+			web_helpers.TransactionRequest{
+				Title:       "Test",
+				Description: "Desc",
+				Value:       100,
+				Type:        "wrong",
+				Category:    "wrong",
+			},
+			2,
+		},
+		{
+			"All wrong",
+			web_helpers.TransactionRequest{
+				Title:       "",
+				Description: "",
+				Value:       -1,
+				Type:        "wrong",
+				Category:    "wrong",
+			},
+			5,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			t.Parallel()
+			errs := validators2.ValidateTransaction(testCase.Body, allowed, categories)
+			require.Len(t, errs, testCase.errLen)
 		})
 	}
 }

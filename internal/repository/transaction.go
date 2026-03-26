@@ -21,7 +21,7 @@ type TransactionRepository interface {
 }
 
 type TransactionPostgres struct {
-	db *pgxpool.Pool
+	db DB
 }
 
 func NewTransactionPostgres(db *pgxpool.Pool) *TransactionPostgres {

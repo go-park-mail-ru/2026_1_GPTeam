@@ -18,7 +18,7 @@ type AccountRepository interface {
 }
 
 type AccountPostgres struct {
-	db *pgxpool.Pool
+	db DB
 }
 
 func NewAccountPostgres(db *pgxpool.Pool) *AccountPostgres {
