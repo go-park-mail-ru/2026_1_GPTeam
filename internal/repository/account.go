@@ -32,8 +32,6 @@ func NewAccountPostgres(db *pgxpool.Pool) *AccountPostgres {
 }
 
 func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountModel) (int, error) {
-	obj.log.Info("creating account in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `insert into account (name, balance, currency, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) returning id;`
 	var id int
 	err := obj.db.QueryRow(ctx, query, account.Name, account.Balance, account.Currency, account.CreatedAt, account.UpdatedAt).Scan(&id)
@@ -63,8 +61,6 @@ func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountMo
 }
 
 func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId int, userId int) (int, error) {
-	obj.log.Info("linking account and user in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `insert into account_user (account_id, user_id) VALUES ($1, $2) returning id;`
 	var id int
 	err := obj.db.QueryRow(ctx, query, accountId, userId).Scan(&id)
@@ -94,8 +90,6 @@ func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId in
 }
 
 func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId int, accountId int) ([]int, error) {
-	obj.log.Info("getting account_user ids by user & account in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `select id from account_user where user_id = $1 and account_id = $2`
 	rows, err := obj.db.Query(ctx, query, userId, accountId)
 	if err != nil {
@@ -122,8 +116,6 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 }
 
 func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int) (int, error) {
-	obj.log.Info("getting account_id by user in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `SELECT account_id FROM account_user WHERE user_id = $1 LIMIT 1`
 	var accountId int
 	err := obj.db.QueryRow(ctx, query, userId).Scan(&accountId)

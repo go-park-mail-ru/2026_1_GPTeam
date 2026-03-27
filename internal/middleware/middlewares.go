@@ -92,10 +92,16 @@ func PanicMiddleware(next http.Handler) http.Handler {
 		log := logger.GetLogger()
 		defer func() {
 			if err := recover(); err != nil {
-				log.Error("[panic middleware] panic",
-					zap.String("request_id", r.Context().Value("request_id").(string)),
-					zap.Any("err", err))
-				response := web_helpers.NewServerErrorResponse("")
+				requestId, ok := r.Context().Value("request_id").(string)
+				if !ok {
+					log.Error("[panic middleware] panic",
+						zap.Any("err", err))
+				} else {
+					log.Error("[panic middleware] panic",
+						zap.String("request_id", requestId),
+						zap.Any("err", err))
+				}
+				response := web_helpers.NewServerErrorResponse(requestId)
 				web_helpers.WriteResponseJSON(w, response.Code, response)
 			}
 		}()

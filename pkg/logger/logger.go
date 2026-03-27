@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -13,13 +14,13 @@ var once sync.Once
 var logger *zap.Logger
 var mu sync.RWMutex
 var file *os.File
+var initErr error
 
 func InitLogger() error {
-	var err error
 	once.Do(func() {
-		file, err = os.OpenFile("backend.log", os.O_CREATE|os.O_WRONLY, 0666)
-		if err != nil {
-			err = fmt.Errorf("error opening log file: %w", err)
+		file, initErr = os.OpenFile("backend.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if initErr != nil {
+			initErr = fmt.Errorf("error opening log file: %w", initErr)
 			return
 		}
 		fileWriter := zapcore.AddSync(file)
@@ -33,24 +34,28 @@ func InitLogger() error {
 		)
 		logger = zap.New(logCore, zap.AddCaller())
 	})
-	return err
+	return initErr
 }
 
 func GetLogger() *zap.Logger {
 	mu.RLock()
 	defer mu.RUnlock()
+	if logger == nil {
+		return zap.NewNop()
+	}
 	return logger
 }
 
 func Close() error {
 	mu.Lock()
 	defer mu.Unlock()
-	var err error
+	var multiErr error
 	if logger != nil {
-		err = logger.Sync()
+		errLogger := logger.Sync()
 		logger = nil
-		err = file.Close()
+		errFile := file.Close()
 		file = nil
+		multiErr = errors.Join(errLogger, errFile)
 	}
-	return err
+	return multiErr
 }

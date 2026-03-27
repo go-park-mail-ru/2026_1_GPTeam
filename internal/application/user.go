@@ -34,9 +34,6 @@ func NewUser(repository repository.UserRepository) *User {
 }
 
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
-	obj.log.Info("creating user",
-		zap.String("username", userRequest.Username),
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost)
 	if err != nil {
 		obj.log.Warn("failed to hash password",
@@ -71,16 +68,10 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 }
 
 func (obj *User) GetById(ctx context.Context, id int) (*models.UserModel, error) {
-	obj.log.Info("getting user by id",
-		zap.Int("id", id),
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return obj.repository.GetByID(ctx, id)
 }
 
 func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error) {
-	obj.log.Info("getting user by credentials",
-		zap.String("username", user.Username),
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	storedUser, err := obj.repository.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return nil, err
@@ -96,9 +87,6 @@ func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBod
 }
 
 func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool) {
-	obj.log.Info("checking user by id",
-		zap.Int("user_id", userId),
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	if !isAuth {
 		obj.log.Warn("user is not authorized",
 			zap.Int("user_id", userId),
@@ -107,10 +95,6 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 	}
 	storedUser, err := obj.repository.GetByID(ctx, userId)
 	if err != nil {
-		obj.log.Warn("user not found in db",
-			zap.Int("user_id", userId),
-			zap.String("request_id", ctx.Value("request_id").(string)),
-			zap.Error(err))
 		return web_helpers.User{}, false
 	}
 	user := web_helpers.User{
@@ -123,9 +107,6 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 }
 
 func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
-	obj.log.Info("updating last login field",
-		zap.Int("user_id", userId),
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
 	if err != nil {
 		return err
@@ -134,9 +115,6 @@ func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
 }
 
 func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
-	obj.log.Info("updating profile",
-		zap.Int("user_id", profile.Id),
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	if profile.Password != nil {
 		bytes, err := bcrypt.GenerateFromPassword([]byte(*profile.Password), bcrypt.DefaultCost)
 		if err != nil {

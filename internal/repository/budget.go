@@ -35,8 +35,6 @@ func NewBudgetPostgres(db *pgxpool.Pool) *BudgetPostgres {
 }
 
 func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
-	obj.log.Info("creating budget in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `insert into budget (title, description, created_at, start_at, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id;`
 	var id int
 	endAt := pgtype.Timestamptz{
@@ -70,8 +68,6 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 }
 
 func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
-	obj.log.Info("getting budget by id in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author, active from budget where id = $1 and active = true;`
 	var endAt pgtype.Timestamptz
 	budget := models.BudgetModel{Id: id}
@@ -95,8 +91,6 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 }
 
 func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
-	obj.log.Info("getting budget ids by user in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `select id from budget where author = $1 and active = true;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userId)
@@ -138,8 +132,6 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 }
 
 func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
-	obj.log.Info("deleting budget by id in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `update budget set active = false where id = $1;`
 	_, err := obj.db.Exec(ctx, query, id)
 	if err != nil {

@@ -1,10 +1,9 @@
-package validators_test
+package validators
 
 import (
 	"testing"
 	"time"
 
-	validators2 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,15 +13,15 @@ func TestValidateUsername(t *testing.T) {
 		Username string
 		err      error
 	}{
-		{"Short length", "ab", validators2.UsernameShortError},
+		{"Short length", "ab", UsernameShortError},
 		{"Correct", "admin123", nil},
-		{"Incorrect", "admi_n", validators2.UsernameWrongSymbolsError},
+		{"Incorrect", "admi_n", UsernameWrongSymbolsError},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.validateUsername(testCase.Username)
+			err := validateUsername(testCase.Username)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -34,18 +33,18 @@ func TestValidatePassword(t *testing.T) {
 		Password string
 		err      error
 	}{
-		{"Short length", "ab", validators2.IncorrectPasswordError},
-		{"Has no upper", "admin123", validators2.IncorrectPasswordError},
-		{"Has no lower", "ADMIN123", validators2.IncorrectPasswordError},
-		{"Has no digit", "AdminAdmin", validators2.IncorrectPasswordError},
-		{"Has invalid symbols", "Admin123!", validators2.IncorrectPasswordError},
+		{"Short length", "ab", IncorrectPasswordError},
+		{"Has no upper", "admin123", IncorrectPasswordError},
+		{"Has no lower", "ADMIN123", IncorrectPasswordError},
+		{"Has no digit", "AdminAdmin", IncorrectPasswordError},
+		{"Has invalid symbols", "Admin123!", IncorrectPasswordError},
 		{"Correct", "Admin123", nil},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.validatePassword(testCase.Password)
+			err := validatePassword(testCase.Password)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -57,18 +56,18 @@ func TestValidateEmail(t *testing.T) {
 		Email string
 		err   error
 	}{
-		{"Incorrect length", "", validators2.EmailError},
-		{"Incorrect email", "abc", validators2.EmailError},
-		{"Incorrect email", "abc@", validators2.EmailError},
-		{"Incorrect email", "abc@abc", validators2.EmailError},
-		{"Incorrect email", "abc@abc.1", validators2.EmailError},
+		{"Incorrect length", "", EmailError},
+		{"Incorrect email", "abc", EmailError},
+		{"Incorrect email", "abc@", EmailError},
+		{"Incorrect email", "abc@abc", EmailError},
+		{"Incorrect email", "abc@abc.1", EmailError},
 		{"Correct email", "abc@example.com", nil},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.validateEmail(testCase.Email)
+			err := validateEmail(testCase.Email)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -80,9 +79,9 @@ func TestValidateCurrency(t *testing.T) {
 		Currency string
 		err      error
 	}{
-		{"Incorrect", "abc", validators2.CurrencyNotAllowedError},
-		{"Incorrect", "ABC", validators2.CurrencyNotAllowedError},
-		{"Incorrect", "GBP", validators2.CurrencyNotAllowedError},
+		{"Incorrect", "abc", CurrencyNotAllowedError},
+		{"Incorrect", "ABC", CurrencyNotAllowedError},
+		{"Incorrect", "GBP", CurrencyNotAllowedError},
 		{"Correct", "RUB", nil},
 		{"Correct", "USD", nil},
 		{"Correct", "EUR", nil},
@@ -91,7 +90,7 @@ func TestValidateCurrency(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.validateCurrency(testCase.Currency, []string{
+			err := validateCurrency(testCase.Currency, []string{
 				"RUB", "USD", "EUR",
 			})
 			require.ErrorIs(t, err, testCase.err)
@@ -105,15 +104,15 @@ func TestValidateTargetBudget(t *testing.T) {
 		Target int
 		err    error
 	}{
-		{"Negative", -1, validators2.TargetIsNegativeError},
-		{"Big", 1e18 + 1, validators2.ValueIsBigError},
+		{"Negative", -1, TargetIsNegativeError},
+		{"Big", 1e18 + 1, ValueIsBigError},
 		{"Correct", 1000, nil},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.validateTargetBudget(testCase.Target)
+			err := validateTargetBudget(testCase.Target)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -125,14 +124,14 @@ func TestValidateStartDate(t *testing.T) {
 		Start time.Time
 		err   error
 	}{
-		{"In past", time.Now().AddDate(0, 0, -1), validators2.StartDateInPastError},
+		{"In past", time.Now().AddDate(0, 0, -1), StartDateInPastError},
 		{"Correct", time.Now().AddDate(0, 0, 1), nil},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.validateBudgetStartDate(testCase.Start)
+			err := validateBudgetStartDate(testCase.Start)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -145,7 +144,7 @@ func TestValidateEndDate(t *testing.T) {
 		End   time.Time
 		err   error
 	}{
-		{"In past", time.Now(), time.Now().AddDate(0, 0, -1), validators2.EndDateInPastError},
+		{"In past", time.Now(), time.Now().AddDate(0, 0, -1), EndDateInPastError},
 		{"Correct (in future)", time.Now(), time.Now().AddDate(0, 0, 1), nil},
 		{"Correct (nil end time)", time.Now(), time.Time{}, nil},
 	}
@@ -153,7 +152,7 @@ func TestValidateEndDate(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.validateBudgetEndDate(testCase.Start, testCase.End)
+			err := validateBudgetEndDate(testCase.Start, testCase.End)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}

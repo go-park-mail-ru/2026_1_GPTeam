@@ -25,16 +25,13 @@ func NewEnums(repository repository.EnumsRepository) *Enums {
 }
 
 func (obj *Enums) GetCurrencyCodes() []string {
-	obj.log.Info("getting currency codes")
 	return obj.repository.GetCurrencyCodesFromDB()
 }
 
 func (obj *Enums) GetTransactionTypes() []string {
-	obj.log.Info("getting transaction types")
 	return obj.repository.GetTransactionTypesFromDB()
 }
 
 func (obj *Enums) GetCategoryTypes() []string {
-	obj.log.Info("getting category types")
 	return obj.repository.GetCategoryTypesFromDB()
 }

@@ -33,8 +33,6 @@ func NewJwtPostgres(db *pgxpool.Pool) *JwtPostgres {
 }
 
 func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenModel) error {
-	obj.log.Info("creating refresh token in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
 	_, err := obj.db.Exec(ctx, query, token.Uuid, token.UserId, token.ExpiredAt)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
@@ -63,8 +61,6 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 }
 
 func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
-	obj.log.Info("deleting refresh token in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `delete from jwt where uuid = $1;`
 	_, err := obj.db.Exec(ctx, query, uuid)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -85,8 +81,6 @@ func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
 }
 
 func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
-	obj.log.Info("deleting refresh token by user in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `delete from jwt where user_id = $1;`
 	_, err := obj.db.Exec(ctx, query, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -107,8 +101,6 @@ func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 }
 
 func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error) {
-	obj.log.Info("getting refresh token in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `select user_id, expired_at from jwt where uuid = $1;`
 	token := models.RefreshTokenModel{Uuid: uuid}
 	err := obj.db.QueryRow(ctx, query, uuid).Scan(&token.UserId, &token.ExpiredAt)

@@ -34,8 +34,6 @@ func NewTransactionPostgres(db *pgxpool.Pool) *TransactionPostgres {
 }
 
 func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
-	obj.log.Info("creating transaction in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `insert into transaction (user_id, account_id, value, type, category, title, description, created_at, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id;`
 	var id int
 	err := obj.db.QueryRow(ctx, query, transaction.UserId, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.CreatedAt, transaction.TransactionDate).Scan(&id)
