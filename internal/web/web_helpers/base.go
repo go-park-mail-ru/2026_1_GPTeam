@@ -455,13 +455,6 @@ type UpdateUserProfileRequest struct {
 
 type BadRequestErrorResponse SimpleResponse
 
-func NewBadRequestErrorResponse() BadRequestErrorResponse {
-	return BadRequestErrorResponse{
-		Code:    http.StatusBadRequest,
-		Message: "Некорректный запрос",
-	}
-}
-
 type InternalServerErrorResponse SimpleResponse
 
 func NewInternalServerErrorResponse() InternalServerErrorResponse {

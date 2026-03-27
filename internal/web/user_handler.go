@@ -2,8 +2,8 @@ package web
 
 import (
 	"net/http"
-	"time"
 	"path/filepath"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -142,13 +142,13 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	var req web_helpers.UpdateUserProfileRequest
 	if err := web_helpers.ReadRequestJSON(r, &req); err != nil {
-		response := web_helpers.NewBadRequestErrorResponse()
+		response := web_helpers.NewBadRequestErrorResponse("невозможно прочитать тело запроса")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	if err := validateUpdateProfileRequest(req); err != nil {
-		response := web_helpers.NewBadRequestErrorResponse()
+		response := web_helpers.NewBadRequestErrorResponse("ошибка валидации")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
