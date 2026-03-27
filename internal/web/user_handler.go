@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -95,7 +96,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userContext := r.Context().Value("user")
-	authUser, ok := userContext.(models.UserModel)
+	authUser, ok := userContext.(*models.UserModel)
 	if !ok {
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -110,7 +111,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	finalUrl := "/img/" + avatarName
+	finalUrl := os.Getenv("SERVER_URL") + "/img/" + avatarName
 	response := web_helpers.NewAvatarUploadSuccessResponse(finalUrl)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
