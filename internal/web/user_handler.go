@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
@@ -57,6 +58,63 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
+func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(5 << 20)
+	if err != nil {
+		response := web_helpers.NewBadRequestErrorResponse("Слишком большой файл")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	file, header, err := r.FormFile("avatar")
+	if err != nil {
+		response := web_helpers.NewBadRequestErrorResponse("Нет файла аватара")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	defer file.Close()
+
+	buff := make([]byte, 512)
+	if _, err = file.Read(buff); err != nil {
+		response := web_helpers.NewServerErrorResponse("Ошибка чтения")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	fileType := http.DetectContentType(buff)
+	if fileType != "image/jpeg" && fileType != "image/png" {
+		response := web_helpers.NewBadRequestErrorResponse("Допустимы только форматы JPEG и PNG")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	if _, err = file.Seek(0, 0); err != nil {
+		response := web_helpers.NewServerErrorResponse("Внутренняя ошибка")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	userContext := r.Context().Value("user")
+	authUser, ok := userContext.(models.UserModel)
+	if !ok {
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	ext := filepath.Ext(header.Filename)
+	avatarName, err := obj.userApp.UploadAvatar(r.Context(), authUser.Id, file, ext)
+	if err != nil {
+		response := web_helpers.NewServerErrorResponse("Не удалось сохранить аватар")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	finalUrl := "/img/" + avatarName
+	response := web_helpers.NewAvatarUploadSuccessResponse(finalUrl)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -84,13 +142,13 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	var req web_helpers.UpdateUserProfileRequest
 	if err := web_helpers.ReadRequestJSON(r, &req); err != nil {
-		response := web_helpers.NewBadRequestErrorResponse()
+		response := web_helpers.NewBadRequestErrorResponse("невозможно прочитать тело запроса")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	if err := validateUpdateProfileRequest(req); err != nil {
-		response := web_helpers.NewBadRequestErrorResponse()
+		response := web_helpers.NewBadRequestErrorResponse("ошибка валидации")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}

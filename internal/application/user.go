@@ -2,11 +2,15 @@ package application
 
 import (
 	"context"
+	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,6 +21,7 @@ type UserUseCase interface {
 	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
 	UpdateLastLogin(ctx context.Context, userId int) error
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
+	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
 }
 
 type User struct {
@@ -28,7 +33,7 @@ func NewUser(repository repository.UserRepository) *User {
 }
 
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper (на будущее, так как надо сделать поддержку старых перцов и плавную миграцию на новый перец)
 	if err != nil {
 		return web_helpers.AuthUser{}, HashPasswordError
 	}
@@ -56,6 +61,26 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 		CreatedAt: userModel.CreatedAt,
 	}
 	return user, nil
+}
+
+func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, extension string) (string, error) {
+	avatarUrl := uuid.New().String() + extension
+	filePath := filepath.Join("./static", avatarUrl)
+	dst, err := os.Create(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		return "", err
+	}
+	err = obj.repository.UpdateAvatar(ctx, userID, avatarUrl)
+	if err != nil {
+		return "", err
+	}
+
+	return avatarUrl, nil
 }
 
 func (obj *User) GetById(ctx context.Context, id int) (*models.UserModel, error) {
