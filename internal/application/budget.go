@@ -31,7 +31,8 @@ func NewBudget(repository repository.BudgetRepository) *Budget {
 }
 
 func (obj *Budget) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
-	budget.CreatedAt = time.Date(budget.CreatedAt.Year(), budget.CreatedAt.Month(), budget.CreatedAt.Day(), 0, 0, 0, 0, time.UTC)
+	loc := time.FixedZone("UTC+3", 3*60*60)
+	budget.CreatedAt = time.Date(budget.CreatedAt.Year(), budget.CreatedAt.Month(), budget.CreatedAt.Day(), 0, 0, 0, 0, loc)
 	id, err := obj.repository.Create(ctx, budget)
 	return id, err
 }
