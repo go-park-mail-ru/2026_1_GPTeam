@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -214,14 +213,20 @@ func (obj *UserPostgres) Update(ctx context.Context, profile models.UpdateUserPr
 }
 
 func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl string) error {
-	query := `update "user" set avatar_url = $1, updated_at = $2 where id = $3;`
-	result, err := obj.db.Exec(ctx, query, avatarUrl, time.Now(), id)
+	query := `update "user" set avatar_url = $1 where id = $2;`
+	result, err := obj.db.Exec(ctx, query, avatarUrl, id)
 	if err != nil {
-		fmt.Printf("Unable to update avatar: %v\n", err)
+		obj.log.Warn("failed to update avatar (not db error)",
+			zap.Int("user_id", id),
+			zap.String("request_id", ctx.Value("request_id").(string)),
+			zap.Error(err))
 		return err
 	}
 
 	if result.RowsAffected() == 0 {
+		obj.log.Warn("no rows affected",
+			zap.Int("user_id", id),
+			zap.String("request_id", ctx.Value("request_id").(string)))
 		return NothingInTableError
 	}
 

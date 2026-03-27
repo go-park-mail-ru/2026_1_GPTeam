@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -28,10 +29,10 @@ func NoDirListing(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.URL.Path)
 		if strings.HasSuffix(r.URL.Path, "/") && r.URL.Path == "/img/" {
-            http.NotFound(w, r)
-            return
-        }
-        next.ServeHTTP(w, r)
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 

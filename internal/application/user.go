@@ -11,8 +11,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
-	"go.uber.org/zap"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -77,11 +77,19 @@ func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, e
 	filePath := filepath.Join("./static", avatarUrl)
 	dst, err := os.Create(filePath)
 	if err != nil {
+		obj.log.Warn("failed to create file",
+			zap.Int("user_id", userID),
+			zap.String("request_id", ctx.Value("request_id").(string)),
+			zap.Error(err))
 		return "", err
 	}
 	defer dst.Close()
 
-	if _, err := io.Copy(dst, file); err != nil {
+	if _, err = io.Copy(dst, file); err != nil {
+		obj.log.Warn("failed to copy file",
+			zap.Int("user_id", userID),
+			zap.String("request_id", ctx.Value("request_id").(string)),
+			zap.Error(err))
 		return "", err
 	}
 	err = obj.repository.UpdateAvatar(ctx, userID, avatarUrl)
