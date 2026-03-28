@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type BudgetRepository interface {
@@ -21,10 +20,10 @@ type BudgetRepository interface {
 }
 
 type BudgetPostgres struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewBudgetPostgres(db *pgxpool.Pool) *BudgetPostgres {
+func NewBudgetPostgres(db DB) *BudgetPostgres {
 	return &BudgetPostgres{db: db}
 }
 

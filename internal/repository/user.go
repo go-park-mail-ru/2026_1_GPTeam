@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserRepository interface {
@@ -25,10 +24,10 @@ type UserRepository interface {
 }
 
 type UserPostgres struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewUserPostgres(db *pgxpool.Pool) *UserPostgres {
+func NewUserPostgres(db DB) *UserPostgres {
 	return &UserPostgres{db: db}
 }
 

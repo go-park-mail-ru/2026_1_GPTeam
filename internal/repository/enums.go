@@ -15,7 +15,7 @@ type EnumsRepository interface {
 }
 
 type EnumsPostgres struct {
-	db               *pgxpool.Pool
+	db               DB
 	mu               sync.RWMutex
 	currencyCodes    []string
 	transactionTypes []string

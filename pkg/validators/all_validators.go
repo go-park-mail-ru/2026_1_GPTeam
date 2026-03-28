@@ -83,8 +83,11 @@ func ValidateCurrency(currency string, allowedCurrencies []string) error {
 }
 
 func ValidateTargetBudget(target int) error {
-	if target <= 0 {
+	if target < 0 {
 		return TargetIsNegativeError
+	}
+	if target == 0 {
+		return TargetIsZeroError
 	}
 	if target > 1e12 {
 		return TargetIsBigError
