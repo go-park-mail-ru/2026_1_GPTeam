@@ -190,3 +190,5 @@ static/*
 
 !static/profile.svg
 !static/.gitkeep
+
+coverage.html

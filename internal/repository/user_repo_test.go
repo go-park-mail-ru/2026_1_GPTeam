@@ -6,18 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
-
-func newUserPostgres(t *testing.T) (*UserPostgres, pgxmock.PgxPoolIface) {
-	t.Helper()
-	mock, err := pgxmock.NewPool()
-	require.NoError(t, err)
-	return &UserPostgres{db: mock}, mock
-}
 
 func TestUserPostgres_Create(t *testing.T) {
 	t.Parallel()
@@ -52,6 +47,28 @@ func TestUserPostgres_Create(t *testing.T) {
 			expectedId:  -1,
 			expectedErr: errors.New("db error"),
 		},
+		{
+			name: "UniqueViolation — DuplicatedDataError",
+			user: models.UserModel{Username: "testuser", Password: "hash", Email: "test@example.com"},
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`insert into "user"`).
+					WithArgs("testuser", "hash", "test@example.com", pgxmock.AnyArg()).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
+			},
+			expectedId:  -1,
+			expectedErr: DuplicatedDataError,
+		},
+		{
+			name: "CheckViolation — ConstraintError",
+			user: models.UserModel{Username: "testuser", Password: "hash", Email: "test@example.com"},
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`insert into "user"`).
+					WithArgs("testuser", "hash", "test@example.com", pgxmock.AnyArg()).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
+			},
+			expectedId:  -1,
+			expectedErr: ConstraintError,
+		},
 	}
 
 	for _, c := range cases {
@@ -59,13 +76,19 @@ func TestUserPostgres_Create(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			repo, mock := newUserPostgres(t)
+			mock, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			repo := NewUserPostgres(mock)
 			c.setupMock(mock)
 
 			id, err := repo.Create(context.Background(), c.user)
 
 			if c.expectedErr != nil {
 				require.Error(t, err)
+				require.Equal(t, c.expectedId, id)
+				if errors.Is(c.expectedErr, DuplicatedDataError) || errors.Is(c.expectedErr, ConstraintError) {
+					require.ErrorIs(t, err, c.expectedErr)
+				}
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, c.expectedId, id)
@@ -117,7 +140,9 @@ func TestUserPostgres_GetByID(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			repo, mock := newUserPostgres(t)
+			mock, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			repo := NewUserPostgres(mock)
 			c.setupMock(mock)
 
 			user, err := repo.GetByID(context.Background(), c.id)
@@ -177,7 +202,9 @@ func TestUserPostgres_GetByUsername(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			repo, mock := newUserPostgres(t)
+			mock, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			repo := NewUserPostgres(mock)
 			c.setupMock(mock)
 
 			user, err := repo.GetByUsername(context.Background(), c.username)
@@ -235,7 +262,9 @@ func TestUserPostgres_GetByEmail(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			repo, mock := newUserPostgres(t)
+			mock, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			repo := NewUserPostgres(mock)
 			c.setupMock(mock)
 
 			user, err := repo.GetByEmail(context.Background(), c.email)
@@ -284,10 +313,12 @@ func TestUserPostgres_UpdateLastLogin(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			repo, mock := newUserPostgres(t)
+			mock, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			repo := NewUserPostgres(mock)
 			c.setupMock(mock)
 
-			err := repo.UpdateLastLogin(context.Background(), 1, time.Now())
+			err = repo.UpdateLastLogin(context.Background(), 1, time.Now())
 
 			if c.expectedErr {
 				require.Error(t, err)
@@ -321,12 +352,8 @@ func TestUserPostgres_Update(t *testing.T) {
 				}).AddRow(1, username, "hash", "test@example.com", now, nil, "", now, true)
 				mock.ExpectQuery(`UPDATE\s+"user"\s+SET`).
 					WithArgs(
-						pgxmock.AnyArg(),
-						pgxmock.AnyArg(),
-						pgxmock.AnyArg(),
-						pgxmock.AnyArg(),
-						pgxmock.AnyArg(),
-						1,
+						pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(),
+						pgxmock.AnyArg(), pgxmock.AnyArg(), 1,
 					).
 					WillReturnRows(rows)
 			},
@@ -338,12 +365,8 @@ func TestUserPostgres_Update(t *testing.T) {
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`UPDATE\s+"user"\s+SET`).
 					WithArgs(
-						pgxmock.AnyArg(),
-						pgxmock.AnyArg(),
-						pgxmock.AnyArg(),
-						pgxmock.AnyArg(),
-						pgxmock.AnyArg(),
-						1,
+						pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(),
+						pgxmock.AnyArg(), pgxmock.AnyArg(), 1,
 					).
 					WillReturnError(errors.New("db error"))
 			},
@@ -356,7 +379,9 @@ func TestUserPostgres_Update(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			repo, mock := newUserPostgres(t)
+			mock, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			repo := NewUserPostgres(mock)
 			c.setupMock(mock)
 
 			user, err := repo.Update(context.Background(), c.profile)

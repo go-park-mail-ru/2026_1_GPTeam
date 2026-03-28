@@ -75,6 +75,80 @@ func TestCORSMiddleware_OptionsDoesNotCallNext(t *testing.T) {
 	require.NotEqual(t, http.StatusTeapot, w.Code)
 }
 
+func TestNoDirListing(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name         string
+		path         string
+		expectedCode int
+		nextCalled   bool
+	}{
+		{
+			name:         "/img/ — блокируется",
+			path:         "/img/",
+			expectedCode: http.StatusNotFound,
+			nextCalled:   false,
+		},
+		{
+			name:         "/img/photo.png — пропускается",
+			path:         "/img/photo.png",
+			expectedCode: http.StatusOK,
+			nextCalled:   true,
+		},
+		{
+			name:         "/static/ — пропускается (не /img/)",
+			path:         "/static/",
+			expectedCode: http.StatusOK,
+			nextCalled:   true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			called := false
+			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := NoDirListing(next)
+			req := httptest.NewRequest(http.MethodGet, c.path, nil)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+
+			require.Equal(t, c.expectedCode, w.Code)
+			require.Equal(t, c.nextCalled, called)
+		})
+	}
+}
+
+func TestSetUserCtx_GetUserCtx(t *testing.T) {
+	t.Parallel()
+
+	t.Run("set и get возвращают того же пользователя", func(t *testing.T) {
+		t.Parallel()
+
+		user := models.UserModel{Id: 1, Username: "testuser", Email: "test@example.com"}
+		ctx := SetUserCtx(context.Background(), user)
+		got, ok := GetUserCtx(ctx)
+
+		require.True(t, ok)
+		require.Equal(t, user.Id, got.Id)
+		require.Equal(t, user.Username, got.Username)
+	})
+
+	t.Run("get из пустого контекста возвращает false", func(t *testing.T) {
+		t.Parallel()
+
+		_, ok := GetUserCtx(context.Background())
+		require.False(t, ok)
+	})
+}
+
 func TestMethodValidationMiddleware_AllowedMethods(t *testing.T) {
 	t.Parallel()
 

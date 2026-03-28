@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type JwtRepository interface {
@@ -22,7 +21,7 @@ type JwtPostgres struct {
 	db DB
 }
 
-func NewJwtPostgres(db *pgxpool.Pool) *JwtPostgres {
+func NewJwtPostgres(db DB) *JwtPostgres {
 	return &JwtPostgres{db: db}
 }
 

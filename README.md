@@ -1,4 +1,5 @@
 # Backend 2026_01_GPTeam
+
 Делаем финансовый планировщик
 
 [репозиторий фронт TBA](https://github.com/frontend-park-mail-ru/2026_1_GPTeam)
@@ -13,11 +14,22 @@
 
 [Григорий](https://github.com/grishacake)
 
-### Тесты
-```bash
-go test ./... -coverprofile=coverage
-go tool cover -func=coverage
-```
+[Аня](https://github.com/one-compressive)
 
-### Запуск
-docker-compose up -d --build
+### Тесты
+
+Запуск тестов через Makefile:
+
+```bash
+# Запустить все тесты
+make test
+
+# Запустить тесты с отчётом о покрытии (выводит общий процент)
+make test-cover
+
+# Запустить тесты, сгенерировать HTML-отчёт и открыть его в браузере
+make test-cover-html
+
+# Очистить файлы отчётов
+make clean-test
+```

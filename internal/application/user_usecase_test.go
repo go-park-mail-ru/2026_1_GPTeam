@@ -3,11 +3,15 @@ package application
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
@@ -170,6 +174,34 @@ func TestUserUseCase_GetByCredentials(t *testing.T) {
 	}
 }
 
+func TestUserUseCase_GetByCredentials_Success(t *testing.T) {
+	t.Parallel()
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte("Admin123"), bcrypt.DefaultCost)
+	require.NoError(t, err)
+
+	hashedUser := &models.UserModel{
+		Id:       1,
+		Username: "testuser",
+		Password: string(hashed),
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := repomocks.NewMockUserRepository(ctrl)
+	repo.EXPECT().GetByUsername(gomock.Any(), "testuser").Return(hashedUser, nil)
+
+	uc := NewUser(repo)
+	user, err := uc.GetByCredentials(context.Background(), web_helpers.LoginBodyRequest{
+		Username: "testuser",
+		Password: "Admin123",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, hashedUser.Username, user.Username)
+}
+
 func TestUserUseCase_IsAuthUserExists(t *testing.T) {
 	t.Parallel()
 
@@ -324,6 +356,136 @@ func TestUserUseCase_Update(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, username, user.Username)
+			}
+		})
+	}
+}
+
+func TestUserUseCase_Update_WithPassword(t *testing.T) {
+	t.Parallel()
+
+	username := "user"
+	testUser := &models.UserModel{Id: 1, Username: username}
+
+	cases := []struct {
+		name        string
+		setupMocks  func(repo *repomocks.MockUserRepository, capturedProfile *models.UpdateUserProfile)
+		expectedErr bool
+	}{
+		{
+			name: "успешное обновление с паролем",
+			setupMocks: func(repo *repomocks.MockUserRepository, capturedProfile *models.UpdateUserProfile) {
+				repo.EXPECT().
+					Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(_ context.Context, p models.UpdateUserProfile) (*models.UserModel, error) {
+						*capturedProfile = p
+						return testUser, nil
+					})
+			},
+			expectedErr: false,
+		},
+		{
+			name: "ошибка репозитория при обновлении с паролем",
+			setupMocks: func(repo *repomocks.MockUserRepository, capturedProfile *models.UpdateUserProfile) {
+				repo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil, errors.New("db error"))
+			},
+			expectedErr: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			originalPassword := "NewPass123"
+			password := originalPassword
+			profile := models.UpdateUserProfile{
+				Id:        1,
+				Username:  &username,
+				Password:  &password,
+				UpdatedAt: time.Now(),
+			}
+
+			var capturedProfile models.UpdateUserProfile
+			repo := repomocks.NewMockUserRepository(ctrl)
+			c.setupMocks(repo, &capturedProfile)
+
+			uc := NewUser(repo)
+			user, err := uc.Update(context.Background(), profile)
+
+			if c.expectedErr {
+				require.Error(t, err)
+				require.Nil(t, user)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, capturedProfile.Password)
+				require.NotEqual(t, originalPassword, *capturedProfile.Password)
+				err = bcrypt.CompareHashAndPassword([]byte(*capturedProfile.Password), []byte(originalPassword))
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestUserUseCase_UploadAvatar(t *testing.T) {
+	err := os.MkdirAll("./static", 0755)
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll("./static") })
+
+	cases := []struct {
+		name        string
+		setupMocks  func(repo *repomocks.MockUserRepository)
+		fileContent string
+		expectedErr bool
+	}{
+		{
+			name:        "успешная загрузка",
+			fileContent: "fake image data",
+			setupMocks: func(repo *repomocks.MockUserRepository) {
+				repo.EXPECT().UpdateAvatar(gomock.Any(), 1, gomock.Any()).Return(nil)
+			},
+			expectedErr: false,
+		},
+		{
+			name:        "ошибка репозитория",
+			fileContent: "fake image data",
+			setupMocks: func(repo *repomocks.MockUserRepository) {
+				repo.EXPECT().UpdateAvatar(gomock.Any(), 1, gomock.Any()).Return(errors.New("db error"))
+			},
+			expectedErr: true,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			// не parallel — все пишут в ./static
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			repo := repomocks.NewMockUserRepository(ctrl)
+			c.setupMocks(repo)
+
+			uc := NewUser(repo)
+			avatarUrl, err := uc.UploadAvatar(
+				context.Background(),
+				1,
+				strings.NewReader(c.fileContent),
+				".png",
+			)
+
+			if c.expectedErr {
+				require.Error(t, err)
+				require.Empty(t, avatarUrl)
+			} else {
+				require.NoError(t, err)
+				require.NotEmpty(t, avatarUrl)
+				require.True(t, strings.HasSuffix(avatarUrl, ".png"))
+				os.Remove(filepath.Join("./static", avatarUrl))
 			}
 		})
 	}

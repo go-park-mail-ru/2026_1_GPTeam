@@ -111,6 +111,20 @@ func (mr *MockUserRepositoryMockRecorder) Update(ctx, profile interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockUserRepository)(nil).Update), ctx, profile)
 }
 
+// UpdateAvatar mocks base method.
+func (m *MockUserRepository) UpdateAvatar(ctx context.Context, id int, avatarUrl string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateAvatar", ctx, id, avatarUrl)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateAvatar indicates an expected call of UpdateAvatar.
+func (mr *MockUserRepositoryMockRecorder) UpdateAvatar(ctx, id, avatarUrl interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAvatar", reflect.TypeOf((*MockUserRepository)(nil).UpdateAvatar), ctx, id, avatarUrl)
+}
+
 // UpdateLastLogin mocks base method.
 func (m *MockUserRepository) UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error {
 	m.ctrl.T.Helper()

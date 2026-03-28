@@ -7,7 +7,6 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AccountRepository interface {
@@ -21,7 +20,7 @@ type AccountPostgres struct {
 	db DB
 }
 
-func NewAccountPostgres(db *pgxpool.Pool) *AccountPostgres {
+func NewAccountPostgres(db DB) *AccountPostgres {
 	return &AccountPostgres{db: db}
 }
 

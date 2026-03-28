@@ -6,6 +6,7 @@ package mocks
 
 import (
 	context "context"
+	io "io"
 	reflect "reflect"
 
 	models "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -123,4 +124,19 @@ func (m *MockUserUseCase) UpdateLastLogin(ctx context.Context, userId int) error
 func (mr *MockUserUseCaseMockRecorder) UpdateLastLogin(ctx, userId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockUserUseCase)(nil).UpdateLastLogin), ctx, userId)
+}
+
+// UploadAvatar mocks base method.
+func (m *MockUserUseCase) UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UploadAvatar", ctx, UserID, file, extension)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UploadAvatar indicates an expected call of UploadAvatar.
+func (mr *MockUserUseCaseMockRecorder) UploadAvatar(ctx, UserID, file, extension interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadAvatar", reflect.TypeOf((*MockUserUseCase)(nil).UploadAvatar), ctx, UserID, file, extension)
 }
