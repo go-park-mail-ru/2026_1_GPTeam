@@ -19,11 +19,12 @@ func TestUserPostgres_Create(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name        string
-		user        models.UserModel
-		setupMock   func(mock pgxmock.PgxPoolIface)
-		expectedId  int
-		expectedErr error
+		name          string
+		user          models.UserModel
+		setupMock     func(mock pgxmock.PgxPoolIface)
+		expectedId    int
+		expectedErr   bool
+		expectedErrIs error
 	}{
 		{
 			name: "успешное создание",
@@ -35,7 +36,7 @@ func TestUserPostgres_Create(t *testing.T) {
 					WillReturnRows(rows)
 			},
 			expectedId:  1,
-			expectedErr: nil,
+			expectedErr: false,
 		},
 		{
 			name: "ошибка БД",
@@ -46,7 +47,7 @@ func TestUserPostgres_Create(t *testing.T) {
 					WillReturnError(errors.New("db error"))
 			},
 			expectedId:  -1,
-			expectedErr: errors.New("db error"),
+			expectedErr: true,
 		},
 		{
 			name: "UniqueViolation — DuplicatedDataError",
@@ -56,8 +57,9 @@ func TestUserPostgres_Create(t *testing.T) {
 					WithArgs("testuser", "hash", "test@example.com", pgxmock.AnyArg()).
 					WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
 			},
-			expectedId:  -1,
-			expectedErr: DuplicatedDataError,
+			expectedId:    -1,
+			expectedErr:   true,
+			expectedErrIs: DuplicatedDataError,
 		},
 		{
 			name: "CheckViolation — ConstraintError",
@@ -67,8 +69,20 @@ func TestUserPostgres_Create(t *testing.T) {
 					WithArgs("testuser", "hash", "test@example.com", pgxmock.AnyArg()).
 					WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
 			},
+			expectedId:    -1,
+			expectedErr:   true,
+			expectedErrIs: ConstraintError,
+		},
+		{
+			name: "другая PgError — не DuplicatedDataError и не ConstraintError",
+			user: models.UserModel{Username: "testuser", Password: "hash", Email: "test@example.com"},
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`insert into "user"`).
+					WithArgs("testuser", "hash", "test@example.com", pgxmock.AnyArg()).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.ForeignKeyViolation})
+			},
 			expectedId:  -1,
-			expectedErr: ConstraintError,
+			expectedErr: true,
 		},
 	}
 
@@ -84,11 +98,14 @@ func TestUserPostgres_Create(t *testing.T) {
 
 			id, err := repo.Create(context.Background(), c.user)
 
-			if c.expectedErr != nil {
+			if c.expectedErr {
 				require.Error(t, err)
 				require.Equal(t, c.expectedId, id)
-				if errors.Is(c.expectedErr, DuplicatedDataError) || errors.Is(c.expectedErr, ConstraintError) {
-					require.ErrorIs(t, err, c.expectedErr)
+				if c.expectedErrIs != nil {
+					require.ErrorIs(t, err, c.expectedErrIs)
+				} else {
+					require.NotErrorIs(t, err, DuplicatedDataError)
+					require.NotErrorIs(t, err, ConstraintError)
 				}
 			} else {
 				require.NoError(t, err)
@@ -99,41 +116,21 @@ func TestUserPostgres_Create(t *testing.T) {
 	}
 }
 
-func TestUserPostgres_Create_OtherPgError(t *testing.T) {
-	t.Parallel()
-
-	user := models.UserModel{Username: "testuser", Password: "hash", Email: "test@example.com"}
-
-	mock, err := pgxmock.NewPool()
-	require.NoError(t, err)
-	repo := NewUserPostgres(mock)
-
-	mock.ExpectQuery(`insert into "user"`).
-		WithArgs("testuser", "hash", "test@example.com", pgxmock.AnyArg()).
-		WillReturnError(&pgconn.PgError{Code: pgerrcode.ForeignKeyViolation})
-
-	id, err := repo.Create(context.Background(), user)
-
-	require.Error(t, err)
-	require.Equal(t, -1, id)
-	require.NotErrorIs(t, err, DuplicatedDataError)
-	require.NotErrorIs(t, err, ConstraintError)
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
 func TestUserPostgres_GetByID(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
+	lastLoginTime := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
 
 	cases := []struct {
-		name        string
-		id          int
-		setupMock   func(mock pgxmock.PgxPoolIface)
-		expectedErr bool
+		name              string
+		id                int
+		setupMock         func(mock pgxmock.PgxPoolIface)
+		expectedErr       bool
+		expectedLastLogin *time.Time
 	}{
 		{
-			name: "пользователь найден",
+			name: "пользователь найден, last_login nil",
 			id:   1,
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				rows := pgxmock.NewRows([]string{
@@ -145,6 +142,21 @@ func TestUserPostgres_GetByID(t *testing.T) {
 					WillReturnRows(rows)
 			},
 			expectedErr: false,
+		},
+		{
+			name: "пользователь найден, last_login заполнен",
+			id:   1,
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{
+					"id", "username", "password", "email",
+					"created_at", "last_login", "avatar_url", "updated_at", "active",
+				}).AddRow(1, "testuser", "hash", "test@example.com", now, lastLoginTime, "", now, true)
+				mock.ExpectQuery(`select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where id = \$1`).
+					WithArgs(1).
+					WillReturnRows(rows)
+			},
+			expectedErr:       false,
+			expectedLastLogin: &lastLoginTime,
 		},
 		{
 			name: "пользователь не найден",
@@ -177,37 +189,13 @@ func TestUserPostgres_GetByID(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, user)
 				require.Equal(t, c.id, user.Id)
+				if c.expectedLastLogin != nil {
+					require.Equal(t, *c.expectedLastLogin, user.LastLogin)
+				}
 			}
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
-}
-
-func TestUserPostgres_GetByID_WithValidLastLogin(t *testing.T) {
-	t.Parallel()
-
-	now := time.Now()
-	lastLoginTime := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
-
-	mock, err := pgxmock.NewPool()
-	require.NoError(t, err)
-	repo := NewUserPostgres(mock)
-
-	rows := pgxmock.NewRows([]string{
-		"id", "username", "password", "email",
-		"created_at", "last_login", "avatar_url", "updated_at", "active",
-	}).AddRow(1, "testuser", "hash", "test@example.com", now, lastLoginTime, "", now, true)
-
-	mock.ExpectQuery(`select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where id = \$1`).
-		WithArgs(1).
-		WillReturnRows(rows)
-
-	user, err := repo.GetByID(context.Background(), 1)
-
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, lastLoginTime, user.LastLogin)
-	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestUserPostgres_GetByUsername(t *testing.T) {
@@ -389,10 +377,11 @@ func TestUserPostgres_Update(t *testing.T) {
 	username := "newname"
 
 	cases := []struct {
-		name        string
-		profile     models.UpdateUserProfile
-		setupMock   func(mock pgxmock.PgxPoolIface)
-		expectedErr bool
+		name          string
+		profile       models.UpdateUserProfile
+		setupMock     func(mock pgxmock.PgxPoolIface)
+		expectedErr   bool
+		expectedErrIs error
 	}{
 		{
 			name:    "успешно",
@@ -412,7 +401,7 @@ func TestUserPostgres_Update(t *testing.T) {
 			expectedErr: false,
 		},
 		{
-			name:    "ошибка",
+			name:    "ошибка БД",
 			profile: models.UpdateUserProfile{Id: 1, Username: &username, UpdatedAt: now},
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`UPDATE\s+"user"\s+SET`).
@@ -423,6 +412,20 @@ func TestUserPostgres_Update(t *testing.T) {
 					WillReturnError(errors.New("db error"))
 			},
 			expectedErr: true,
+		},
+		{
+			name:    "пользователь не найден",
+			profile: models.UpdateUserProfile{Id: 999, Username: &username, UpdatedAt: now},
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`UPDATE\s+"user"\s+SET`).
+					WithArgs(
+						pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(),
+						pgxmock.AnyArg(), pgxmock.AnyArg(), 999,
+					).
+					WillReturnError(pgx.ErrNoRows)
+			},
+			expectedErr:   true,
+			expectedErrIs: NothingInTableError,
 		},
 	}
 
@@ -441,6 +444,9 @@ func TestUserPostgres_Update(t *testing.T) {
 			if c.expectedErr {
 				require.Error(t, err)
 				require.Nil(t, user)
+				if c.expectedErrIs != nil {
+					require.ErrorIs(t, err, c.expectedErrIs)
+				}
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, username, user.Username)
@@ -450,40 +456,16 @@ func TestUserPostgres_Update(t *testing.T) {
 	}
 }
 
-func TestUserPostgres_Update_NoRows(t *testing.T) {
-	t.Parallel()
-
-	now := time.Now()
-	username := "newname"
-	profile := models.UpdateUserProfile{Id: 999, Username: &username, UpdatedAt: now}
-
-	mock, err := pgxmock.NewPool()
-	require.NoError(t, err)
-	repo := NewUserPostgres(mock)
-
-	mock.ExpectQuery(`UPDATE\s+"user"\s+SET`).
-		WithArgs(
-			pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(),
-			pgxmock.AnyArg(), pgxmock.AnyArg(), 999,
-		).
-		WillReturnError(pgx.ErrNoRows)
-
-	user, err := repo.Update(context.Background(), profile)
-
-	require.ErrorIs(t, err, NothingInTableError)
-	require.Nil(t, user)
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
 func TestUserPostgres_UpdateAvatar(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name        string
-		id          int
-		avatarUrl   string
-		setupMock   func(mock pgxmock.PgxPoolIface)
-		expectedErr error
+		name          string
+		id            int
+		avatarUrl     string
+		setupMock     func(mock pgxmock.PgxPoolIface)
+		expectedErr   bool
+		expectedErrIs error
 	}{
 		{
 			name:      "успешное обновление",
@@ -494,7 +476,7 @@ func TestUserPostgres_UpdateAvatar(t *testing.T) {
 					WithArgs("https://example.com/avatar.jpg", pgxmock.AnyArg(), 1).
 					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 			},
-			expectedErr: nil,
+			expectedErr: false,
 		},
 		{
 			name:      "ошибка БД",
@@ -505,7 +487,7 @@ func TestUserPostgres_UpdateAvatar(t *testing.T) {
 					WithArgs("https://example.com/avatar.jpg", pgxmock.AnyArg(), 1).
 					WillReturnError(errors.New("db error"))
 			},
-			expectedErr: errors.New("db error"),
+			expectedErr: true,
 		},
 		{
 			name:      "пользователь не найден (RowsAffected = 0)",
@@ -516,7 +498,8 @@ func TestUserPostgres_UpdateAvatar(t *testing.T) {
 					WithArgs("https://example.com/avatar.jpg", pgxmock.AnyArg(), 999).
 					WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 			},
-			expectedErr: NothingInTableError,
+			expectedErr:   true,
+			expectedErrIs: NothingInTableError,
 		},
 	}
 
@@ -532,10 +515,10 @@ func TestUserPostgres_UpdateAvatar(t *testing.T) {
 
 			err = repo.UpdateAvatar(context.Background(), c.id, c.avatarUrl)
 
-			if c.expectedErr != nil {
+			if c.expectedErr {
 				require.Error(t, err)
-				if errors.Is(c.expectedErr, NothingInTableError) {
-					require.ErrorIs(t, err, NothingInTableError)
+				if c.expectedErrIs != nil {
+					require.ErrorIs(t, err, c.expectedErrIs)
 				}
 			} else {
 				require.NoError(t, err)

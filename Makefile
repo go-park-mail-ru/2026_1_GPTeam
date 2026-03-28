@@ -1,10 +1,10 @@
 .PHONY: test
 test:
-	go test $(go list ./... | grep -v '/mocks' | grep -v '/seed' | grep -v '/models' | grep -v '/web_helpers' | grep -v 'main.go') -v
+	go test $$(go list ./... | grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '/web_helpers') -v
 
 .PHONY: test-cover
 test-cover:
-	go test $(go list ./... | grep -v '/mocks' | grep -v '/seed' | grep -v '/models' | grep -v '/web_helpers' | grep -v 'main.go') -coverprofile=coverage.out -covermode=atomic
+	go test $$(go list ./... | grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '/web_helpers') -coverprofile=coverage.out -covermode=atomic
 
 .PHONY: test-cover-html
 test-cover-html: test-cover
