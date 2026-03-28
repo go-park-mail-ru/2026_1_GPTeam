@@ -115,3 +115,20 @@ func RequestIdMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+func AccessLogMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := logger.GetAccessLogger()
+		requestId, ok := r.Context().Value("request_id").(string)
+		if !ok {
+			requestId = "unknown"
+		}
+		log.Info("Request",
+			zap.String("path", r.URL.Path),
+			zap.String("method", r.Method),
+			zap.String("remote_addr", r.RemoteAddr),
+			zap.String("user_agent", r.UserAgent()),
+			zap.String("request_id", requestId))
+		next.ServeHTTP(w, r)
+	})
+}

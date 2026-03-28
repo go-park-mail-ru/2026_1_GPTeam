@@ -32,6 +32,17 @@ func main() {
 		}
 	}()
 	log := logger.GetLogger()
+	err = logger.InitAccessLogger()
+	if err != nil {
+		log.Fatal("Error initializing access logger",
+			zap.Error(err))
+	}
+	defer func() {
+		err = logger.AccessClose()
+		if err != nil {
+			fmt.Println("Error closing access logger: ", err)
+		}
+	}()
 
 	err = godotenv.Load()
 	if err != nil {
@@ -114,6 +125,7 @@ func main() {
 
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
+	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.RequestIdMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
