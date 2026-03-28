@@ -133,6 +133,7 @@ fabric.properties
 .nfs*
 
 ### VisualStudioCode ###
+.vscode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -183,3 +184,9 @@ $RECYCLE.BIN/
 /db/migrations/run-tern.ps1
 *coverage
 *.log
+
+# Static imgs
+static/*
+
+!static/profile.svg
+!static/.gitkeep

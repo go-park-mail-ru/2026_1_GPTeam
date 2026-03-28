@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:17
+    container_name: gpteam-db-new
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-name}
+    ports:
+      - "${POSTGRES_PORT:-5433}:${POSTGRES_INTERNAL_PORT:-5432}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-name} -p ${POSTGRES_INTERNAL_PORT:-5432}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrations:
+    image: ghcr.io/jackc/tern:latest
+    container_name: gpteam-migrations
+    volumes:
+      - ./db/migrations:/migrations
+    working_dir: /migrations
+    command: migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=${POSTGRES_INTERNAL_PORT:-5432}
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=${POSTGRES_DB:-name}
+
+  app:
+    build: .
+    container_name: gpteam-server
+    restart: always
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "${SERVER_PORT:-8081}:8080"
+    volumes:
+      - ./static:/app/static
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=${POSTGRES_INTERNAL_PORT:-5432}
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=${POSTGRES_DB:-name}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_VERSION=${JWT_VERSION:-0}
+      - SERVER_URL=${SERVER_URL:-http://localhost:8081}

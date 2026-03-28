@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -20,6 +21,7 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*models.UserModel, error)
 	UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
+	UpdateAvatar(ctx context.Context, id int, avatarUrl string) error
 }
 
 type UserPostgres struct {
@@ -155,4 +157,19 @@ func (obj *UserPostgres) Update(ctx context.Context, profile models.UpdateUserPr
 		user.LastLogin = lastLogin.Time
 	}
 	return &user, nil
+}
+
+func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl string) error {
+	query := `update "user" set avatar_url = $1, updated_at = $2 where id = $3;`
+	result, err := obj.db.Exec(ctx, query, avatarUrl, time.Now(), id)
+	if err != nil {
+		fmt.Printf("Unable to update avatar: %v\n", err)
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return NothingInTableError
+	}
+
+	return nil
 }

@@ -20,7 +20,4 @@ go tool cover -func=coverage
 ```
 
 ### Запуск
-Заполнить .env файл (есть пример в .env.example).
-```bash
-go run .
-```
+docker-compose up -d --build

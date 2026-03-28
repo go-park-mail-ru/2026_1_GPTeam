@@ -261,6 +261,13 @@ func NewMethodError() MethodError {
 	}
 }
 
+func NewBadRequestErrorResponse(message string) SimpleResponse {
+	return SimpleResponse{
+		Code:    http.StatusBadRequest,
+		Message: message,
+	}
+}
+
 type BudgetErrorResponse RequestWithErrors
 
 func NewBudgetErrorResponse(code int, message string, errors []FieldError) BudgetErrorResponse {
@@ -448,13 +455,6 @@ type UpdateUserProfileRequest struct {
 
 type BadRequestErrorResponse SimpleResponse
 
-func NewBadRequestErrorResponse() BadRequestErrorResponse {
-	return BadRequestErrorResponse{
-		Code:    http.StatusBadRequest,
-		Message: "Некорректный запрос",
-	}
-}
-
 type InternalServerErrorResponse SimpleResponse
 
 func NewInternalServerErrorResponse() InternalServerErrorResponse {
@@ -501,4 +501,19 @@ type EnumListResponse struct {
 
 func NewEnumListResponse(items []string) EnumListResponse {
 	return EnumListResponse{Code: 200, Items: items}
+}
+
+type AvatarUploadSuccessResponse struct {
+	SimpleResponse
+	AvatarUrl string `json:"avatar_url"`
+}
+
+func NewAvatarUploadSuccessResponse(avatarUrl string) AvatarUploadSuccessResponse {
+	return AvatarUploadSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Аватар успешно загружен",
+		},
+		AvatarUrl: avatarUrl,
+	}
 }

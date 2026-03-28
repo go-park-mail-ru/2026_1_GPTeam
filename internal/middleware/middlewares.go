@@ -22,10 +22,21 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func NoDirListing(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.URL.Path)
+		if strings.HasSuffix(r.URL.Path, "/") && r.URL.Path == "/img/" {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, userApp application.UserUseCase) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if (strings.HasPrefix(path, "/auth/") && path != "/auth/logout") || strings.HasPrefix(path, "/enums/") {
+		if (strings.HasPrefix(path, "/auth/") && path != "/auth/logout") || strings.HasPrefix(path, "/enums/") || strings.HasPrefix(path, "/img/") {
 			next.ServeHTTP(w, r)
 			return
 		}
