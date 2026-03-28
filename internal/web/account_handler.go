@@ -36,9 +36,6 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	accountId, err := obj.accountApp.GetAccountIdByUserId(r.Context(), authUser.Id)
 	if err != nil {
-		obj.log.Warn("failed to get account",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
 		if errors.Is(err, application.ErrAccountNotFound) {
 			response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
 			web_helpers.WriteResponseJSON(w, response.Code, response)

@@ -55,8 +55,6 @@ func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountMo
 			zap.Error(err))
 		return -1, err
 	}
-	obj.log.Info("creating account query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return id, nil
 }
 
@@ -84,8 +82,6 @@ func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId in
 			zap.Error(err))
 		return -1, err
 	}
-	obj.log.Info("linking account and user query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return id, nil
 }
 
@@ -110,8 +106,6 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 		}
 		ids = append(ids, id)
 	}
-	obj.log.Info("getting account_user ids by user & account query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return ids, nil
 }
 
@@ -125,7 +119,5 @@ func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int
 			zap.Error(err))
 		return 0, err
 	}
-	obj.log.Info("getting account_id by user query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return accountId, nil
 }

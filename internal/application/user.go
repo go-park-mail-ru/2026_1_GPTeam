@@ -21,7 +21,7 @@ type UserUseCase interface {
 	GetById(ctx context.Context, id int) (*models.UserModel, error)
 	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error)
 	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
-	UpdateLastLogin(ctx context.Context, userId int) error
+	UpdateLastLogin(ctx context.Context, userId int)
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
 }
@@ -77,7 +77,7 @@ func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, e
 	filePath := filepath.Join("./static", avatarUrl)
 	dst, err := os.Create(filePath)
 	if err != nil {
-		obj.log.Warn("failed to create file",
+		obj.log.Warn("failed to create avatar file",
 			zap.Int("user_id", userID),
 			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
@@ -86,7 +86,7 @@ func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, e
 	defer dst.Close()
 
 	if _, err = io.Copy(dst, file); err != nil {
-		obj.log.Warn("failed to copy file",
+		obj.log.Warn("failed to copy avatar file",
 			zap.Int("user_id", userID),
 			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
@@ -111,7 +111,7 @@ func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBod
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password))
 	if err != nil {
-		obj.log.Warn("user not found",
+		obj.log.Warn("user not found with credentials",
 			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
 		return nil, err
@@ -139,12 +139,14 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 	return user, true
 }
 
-func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
+func (obj *User) UpdateLastLogin(ctx context.Context, userId int) {
 	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
 	if err != nil {
-		return err
+		obj.log.Warn("failed to update last login",
+			zap.Int("user_id", userId),
+			zap.String("request_id", ctx.Value("request_id").(string)),
+			zap.Error(err))
 	}
-	return nil
 }
 
 func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {

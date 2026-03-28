@@ -62,8 +62,6 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 			zap.Error(err))
 		return -1, err
 	}
-	obj.log.Info("creating budget query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return id, nil
 }
 
@@ -85,8 +83,6 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 	if !endAt.Valid {
 		budget.EndAt = time.Time{}
 	}
-	obj.log.Info("getting budget by id query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return budget, nil
 }
 
@@ -126,8 +122,6 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 			zap.String("request_id", ctx.Value("request_id").(string)))
 		return []int{}, NothingInTableError
 	}
-	obj.log.Info("getting budget ids by user query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return ids, nil
 }
 
@@ -140,7 +134,5 @@ func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
 			zap.Error(err))
 		return err
 	}
-	obj.log.Info("deleting budget query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return nil
 }

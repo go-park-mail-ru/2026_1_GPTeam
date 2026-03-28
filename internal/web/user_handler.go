@@ -120,10 +120,6 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	ext := filepath.Ext(header.Filename)
 	avatarName, err := obj.userApp.UploadAvatar(r.Context(), authUser.Id, file, ext)
 	if err != nil {
-		obj.log.Warn("failed to upload avatar",
-			zap.Int("user_id", authUser.Id),
-			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
 		response := web_helpers.NewServerErrorResponse("Не удалось сохранить аватар")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -205,10 +201,6 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	updatedUser, err := obj.userApp.Update(r.Context(), updateProfile)
 	if err != nil {
-		obj.log.Warn("failed to update profile",
-			zap.Int("user_id", authUser.Id),
-			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
 		response := web_helpers.NewInternalServerErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return

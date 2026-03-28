@@ -47,5 +47,12 @@ func (obj *Account) IsUserAuthorOfAccount(ctx context.Context, userId int, accou
 	if err != nil {
 		return false
 	}
-	return len(ids) > 0
+	if len(ids) == 0 {
+		obj.log.Warn("user is not author of account",
+			zap.Int("userId", userId),
+			zap.Int("accountId", accountId),
+			zap.String("request_id", ctx.Value("request_id").(string)))
+		return false
+	}
+	return true
 }

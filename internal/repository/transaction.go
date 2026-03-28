@@ -59,14 +59,10 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 			zap.Error(err))
 		return -1, err
 	}
-	obj.log.Info("creating transaction query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return id, nil
 }
 
 func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
-	obj.log.Info("getting transaction ids by user in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `select id from transaction where user_id = $1 and deleted_at is null;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userId)
@@ -103,16 +99,10 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 			zap.Int("userId", userId))
 		return []int{}, NothingInTableError
 	}
-	obj.log.Info("get transaction ids by user query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return ids, nil
 }
 
 func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel) error {
-	obj.log.Info("updating transaction in db",
-		zap.Int("transaction_id", transaction.Id),
-		zap.Int("user_id", transaction.UserId),
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
 	res, err := obj.db.Exec(ctx, query, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate, transaction.Id, transaction.UserId)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
@@ -155,16 +145,10 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 			zap.String("request_id", ctx.Value("request_id").(string)))
 		return IncorrectRowsAffectedError
 	}
-	obj.log.Info("update transaction query executed",
-		zap.Int("transaction_id", transaction.Id),
-		zap.Int("user_id", transaction.UserId),
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return nil
 }
 
 func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (int, error) {
-	obj.log.Info("deleting transaction in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `UPDATE transaction SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id;`
 	var id int
 	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&id)
@@ -177,14 +161,10 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 		}
 		return 0, err
 	}
-	obj.log.Info("delete transaction query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return id, nil
 }
 
 func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
-	obj.log.Info("getting transaction in db",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date, updated_at from transaction where id = $1 and deleted_at is null;`
 	transaction := models.TransactionModel{
 		Id: transactionId,
@@ -200,7 +180,5 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 		}
 		return models.TransactionModel{}, err
 	}
-	obj.log.Info("get transaction query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return transaction, nil
 }

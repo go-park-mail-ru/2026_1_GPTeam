@@ -38,10 +38,6 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		zap.String("request_id", ctx.Value("request_id").(string)))
 	token, err := obj.jwt.GenerateToken(userId)
 	if err != nil {
-		obj.log.Warn("auth token generation failed and user do not get any cookie",
-			zap.Int("user_id", userId),
-			zap.String("request_id", ctx.Value("request_id").(string)),
-			zap.Error(err))
 		return
 	}
 	cookie := &http.Cookie{
@@ -59,10 +55,6 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		zap.String("request_id", ctx.Value("request_id").(string)))
 	token, err = obj.jwt.GenerateRefreshToken(ctx, userId, "pass")
 	if err != nil {
-		obj.log.Warn("refresh token generation failed and user do not get refresh cookie",
-			zap.Int("user_id", userId),
-			zap.String("request_id", ctx.Value("request_id").(string)),
-			zap.Error(err))
 		return
 	}
 	cookie = &http.Cookie{
@@ -80,24 +72,31 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		zap.String("request_id", ctx.Value("request_id").(string)))
 }
 
-func (obj *JwtAuthService) GetAuthCookie(r *http.Request) (*http.Cookie, error) {
+func (obj *JwtAuthService) GetAuthCookie(ctx context.Context, r *http.Request) (*http.Cookie, error) {
 	cookie, err := r.Cookie(TokenName)
+	if err != nil {
+		obj.log.Warn("failed to get token cookie",
+			zap.String("request_id", ctx.Value("request_id").(string)),
+			zap.Error(err))
+	}
 	return cookie, err
 }
 
-func (obj *JwtAuthService) GetRefreshToken(r *http.Request) (*http.Cookie, error) {
+func (obj *JwtAuthService) GetRefreshToken(ctx context.Context, r *http.Request) (*http.Cookie, error) {
 	cookie, err := r.Cookie(RefreshTokenName)
+	if err != nil {
+		obj.log.Warn("failed to get refresh token cookie",
+			zap.String("request_id", ctx.Value("request_id").(string)),
+			zap.Error(err))
+	}
 	return cookie, err
 }
 
 func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, int) {
 	obj.log.Info("checking if user authenticated",
 		zap.String("request_id", ctx.Value("request_id").(string)))
-	cookie, err := obj.GetAuthCookie(r)
+	cookie, err := obj.GetAuthCookie(ctx, r)
 	if err != nil {
-		obj.log.Warn("user is not authenticated",
-			zap.String("request_id", ctx.Value("request_id").(string)),
-			zap.Error(err))
 		return false, -1
 	}
 	token := cookie.Value
@@ -108,19 +107,10 @@ func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, i
 func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	obj.log.Info("clear old token cookie",
 		zap.String("request_id", ctx.Value("request_id").(string)))
-	cookie, err := obj.GetRefreshToken(r)
-	if err != nil {
-		obj.log.Warn("get refresh token error",
-			zap.String("request_id", ctx.Value("request_id").(string)),
-			zap.Error(err))
-	} else {
+	cookie, err := obj.GetRefreshToken(ctx, r)
+	if err == nil {
 		refreshToken := cookie.Value
-		err = obj.jwt.DeleteRefreshToken(ctx, refreshToken)
-		if err != nil {
-			obj.log.Warn("delete refresh token error",
-				zap.String("request_id", ctx.Value("request_id").(string)),
-				zap.Error(err))
-		}
+		obj.jwt.DeleteRefreshToken(ctx, refreshToken)
 	}
 
 	cookie = &http.Cookie{
@@ -152,19 +142,13 @@ func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, 
 func (obj *JwtAuthService) Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, int) {
 	obj.log.Info("refresh token cookie",
 		zap.String("request_id", ctx.Value("request_id").(string)))
-	cookie, err := obj.GetRefreshToken(r)
+	cookie, err := obj.GetRefreshToken(ctx, r)
 	if err != nil {
-		obj.log.Warn("get refresh token error",
-			zap.String("request_id", ctx.Value("request_id").(string)),
-			zap.Error(err))
 		return false, -1
 	}
 	token := cookie.Value
 	isValid, userId := obj.jwt.CheckRefreshToken(ctx, token)
 	if !isValid {
-		obj.log.Warn("refresh token invalid",
-			zap.String("request_id", ctx.Value("request_id").(string)),
-			zap.Error(err))
 		return false, -1
 	}
 	obj.ClearOld(ctx, w, r)

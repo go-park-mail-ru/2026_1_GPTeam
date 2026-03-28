@@ -88,9 +88,6 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	authUser, err := obj.userApp.Create(r.Context(), body)
 	if err != nil {
-		obj.log.Warn("failed to create user",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
 		if errors.Is(err, application.HashPasswordError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 				web_helpers.NewFieldError("password", "Придумайте другой пароль"),
@@ -117,9 +114,6 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 	obj.log.Info("user created",
 		zap.Int("user_id", authUser.Id),
 		zap.String("request_id", r.Context().Value("request_id").(string)))
-	obj.log.Info("new account creating for user",
-		zap.Int("user_id", authUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
 	accountModel := models.AccountModel{
 		Name:      "base",
 		Balance:   0,
@@ -129,9 +123,6 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 	}
 	accountId, err := obj.accountApp.Create(r.Context(), accountModel)
 	if err != nil {
-		obj.log.Warn("failed to create account",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
 		if errors.Is(err, repository.AccountDuplicatedDataError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Такой счёт уже существует"
@@ -153,11 +144,6 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		zap.Int("account_id", accountId),
 		zap.String("request_id", r.Context().Value("request_id").(string)))
 	if err = obj.accountApp.LinkAccountAndUser(r.Context(), accountId, authUser.Id); err != nil {
-		obj.log.Warn("failed to link account and user",
-			zap.Int("user_id", authUser.Id),
-			zap.Int("account_id", accountId),
-			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
 		if errors.Is(err, repository.ConstraintError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Введены некорректные данные"
@@ -201,10 +187,6 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	storedUser, err := obj.userApp.GetByCredentials(r.Context(), userRequest)
 	if err != nil {
-		obj.log.Warn("failed to get user by credentials",
-			zap.String("username", userRequest.Username),
-			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
 		response := web_helpers.NewLoginErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("username", "Неверный логин или пароль"),
 			web_helpers.NewFieldError("password", "Неверный логин или пароль"),
@@ -212,13 +194,7 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	err = obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id)
-	if err != nil {
-		obj.log.Warn("failed to update last login",
-			zap.Int("user_id", storedUser.Id),
-			zap.String("request_id", r.Context().Value("request_id").(string)),
-			zap.Error(err))
-	}
+	obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id)
 	user := web_helpers.User{
 		Username:  storedUser.Username,
 		Email:     storedUser.Email,
@@ -230,8 +206,5 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		zap.String("request_id", r.Context().Value("request_id").(string)))
 	response := web_helpers.NewLoginSuccessResponse(user)
 	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)
-	obj.log.Info("generated new auth cookie",
-		zap.Int("user_id", storedUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

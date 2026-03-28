@@ -55,8 +55,6 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 			zap.Error(err))
 		return err
 	}
-	obj.log.Info("creating refresh token query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return nil
 }
 
@@ -75,8 +73,6 @@ func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
 			zap.Error(err))
 		return err
 	}
-	obj.log.Info("deleting refresh token query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return nil
 }
 
@@ -95,8 +91,6 @@ func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 			zap.Error(err))
 		return err
 	}
-	obj.log.Info("deleting refresh token by user query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return nil
 }
 
@@ -116,7 +110,5 @@ func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTok
 		}
 		return models.RefreshTokenModel{}, err
 	}
-	obj.log.Info("getting refresh token query executed",
-		zap.String("request_id", ctx.Value("request_id").(string)))
 	return token, nil
 }

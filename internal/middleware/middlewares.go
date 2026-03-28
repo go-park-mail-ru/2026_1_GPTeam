@@ -60,18 +60,9 @@ func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, u
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		log.Info("[auth middleware] auth service success check",
-			zap.String("path", path),
-			zap.Int("user_id", userId),
-			zap.String("request_id", r.Context().Value("request_id").(string)))
 
 		authUser, err := userApp.GetById(r.Context(), userId)
 		if err != nil {
-			log.Error("[auth middleware] get user by id from db failed",
-				zap.String("path", path),
-				zap.Int("user_id", userId),
-				zap.String("request_id", r.Context().Value("request_id").(string)),
-				zap.Error(err))
 			response := web_helpers.NewUnauthorizedErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
