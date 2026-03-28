@@ -1,467 +1,198 @@
 package web
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"net/http"
-	"net/http/httptest"
-	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
-	appmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	authmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/mocks"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 )
 
-func TestAuthHandler_Logout(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	authSvc := authmocks.NewMockAuthenticationService(ctrl)
-	userApp := appmocks.NewMockUserUseCase(ctrl)
-	accountApp := appmocks.NewMockAccountUseCase(ctrl)
-
-	authSvc.EXPECT().ClearOld(gomock.Any(), gomock.Any(), gomock.Any())
-
-	handler := NewAuthHandler(authSvc, userApp, accountApp)
-	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
-	w := httptest.NewRecorder()
-	handler.Logout(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-	var resp map[string]any
-	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-	require.EqualValues(t, http.StatusOK, resp["code"])
+type AuthHandler struct {
+	authService auth.AuthenticationService
+	userApp     application.UserUseCase
+	accountApp  application.AccountUseCase
 }
 
-func TestAuthHandler_RefreshToken(t *testing.T) {
-	t.Parallel()
-
-	testUser := web_helpers.User{Username: "testuser", Email: "test@example.com"}
-
-	cases := []struct {
-		name         string
-		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase)
-		expectedCode int
-	}{
-		{
-			name: "успешный refresh",
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
-				authSvc.EXPECT().Refresh(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, 1)
-				userApp.EXPECT().IsAuthUserExists(gomock.Any(), true, 1).Return(testUser, true)
-			},
-			expectedCode: http.StatusOK,
-		},
-		{
-			name: "refresh не удался → 401",
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
-				authSvc.EXPECT().Refresh(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, -1)
-				userApp.EXPECT().IsAuthUserExists(gomock.Any(), false, -1).Return(web_helpers.User{}, false)
-			},
-			expectedCode: http.StatusUnauthorized,
-		},
+func NewAuthHandler(auth auth.AuthenticationService, userUseCase application.UserUseCase, accountUseCase application.AccountUseCase) *AuthHandler {
+	return &AuthHandler{
+		authService: auth,
+		userApp:     userUseCase,
+		accountApp:  accountUseCase,
 	}
+}
 
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
+func (obj *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	obj.authService.ClearOld(r.Context(), w, r)
+	response := web_helpers.NewLogoutSuccessResponse()
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
 
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+func (obj *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	isAuth, userId := obj.authService.Refresh(r.Context(), w, r)
+	authUser, ok := obj.userApp.IsAuthUserExists(r.Context(), isAuth, userId)
+	if !ok {
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	response := web_helpers.NewLoginSuccessResponse(authUser)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
 
-			authSvc := authmocks.NewMockAuthenticationService(ctrl)
-			userApp := appmocks.NewMockUserUseCase(ctrl)
-			accountApp := appmocks.NewMockAccountUseCase(ctrl)
-			c.setupMocks(authSvc, userApp)
-
-			handler := NewAuthHandler(authSvc, userApp, accountApp)
-			req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
-			w := httptest.NewRecorder()
-			handler.RefreshToken(w, req)
-
-			require.Equal(t, c.expectedCode, w.Code)
+func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
+	var body web_helpers.SignupBodyRequest
+	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
+		response := web_helpers.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []web_helpers.FieldError{
+			web_helpers.NewFieldError("", "Не удалось прочитать тело запроса"),
 		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
 	}
-}
+	if body.Username == "" || body.Password == "" || body.Email == "" || body.ConfirmPassword == "" {
+		var fieldErrors []web_helpers.FieldError
+		if body.Username == "" {
+			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("username", "Поле обязательно для заполнения"))
+		}
+		if body.Password == "" {
+			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("password", "Поле обязательно для заполнения"))
+		}
+		if body.Email == "" {
+			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("email", "Поле обязательно для заполнения"))
+		}
+		if body.ConfirmPassword == "" {
+			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("confirm_password", "Поле обязательно для заполнения"))
+		}
+		response := web_helpers.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
 
-func TestAuthHandler_Login(t *testing.T) {
-	t.Parallel()
+	validationErrors := make([]web_helpers.FieldError, 0)
+	if err := validators.ValidateUsername(body.Username); err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("username", err.Error()))
+	}
+	if err := validators.ValidatePassword(body.Password); err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", err.Error()))
+	}
+	if err := validators.ValidateEmail(body.Email); err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("email", err.Error()))
+	}
+	if body.Password != body.ConfirmPassword {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", "Пароли не совпадают"))
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("confirm_password", "Пароли не совпадают"))
+	}
+	if len(validationErrors) > 0 {
+		response := web_helpers.NewValidationErrorResponse(validationErrors)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
 
-	storedUser := &models.UserModel{
-		Id:        1,
-		Username:  "testuser",
-		Email:     "test@example.com",
+	authUser, err := obj.userApp.Create(r.Context(), body)
+	if err != nil {
+		if errors.Is(err, application.HashPasswordError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+				web_helpers.NewFieldError("password", "Придумайте другой пароль"),
+			})
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.DuplicatedDataError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Такой пользователь уже существует"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.ConstraintError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Введены некорректные данные"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	accountModel := models.AccountModel{
+		Name:      "base",
+		Balance:   0,
+		Currency:  "RUB",
 		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
-
-	cases := []struct {
-		name         string
-		body         any
-		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase)
-		expectedCode int
-	}{
-		{
-			name: "успешный логин",
-			body: web_helpers.LoginBodyRequest{Username: "testuser", Password: "Admin123"},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
-				userApp.EXPECT().GetByCredentials(gomock.Any(), gomock.Any()).Return(storedUser, nil)
-				authSvc.EXPECT().GenerateNewAuth(gomock.Any(), gomock.Any(), storedUser.Id)
-			},
-			expectedCode: http.StatusOK,
-		},
-		{
-			name: "неверные credentials → 401",
-			body: web_helpers.LoginBodyRequest{Username: "testuser", Password: "wrong"},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
-				userApp.EXPECT().GetByCredentials(gomock.Any(), gomock.Any()).Return(nil, errors.New("invalid credentials"))
-			},
-			expectedCode: http.StatusUnauthorized,
-		},
-		{
-			name:         "невалидный json → 401",
-			body:         "not json",
-			setupMocks:   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {},
-			expectedCode: http.StatusUnauthorized,
-		},
+	accountId, err := obj.accountApp.Create(r.Context(), accountModel)
+	if err != nil {
+		if errors.Is(err, repository.AccountDuplicatedDataError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Такой счёт уже существует"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.ConstraintError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Введены некорректные данные"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
 	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			authSvc := authmocks.NewMockAuthenticationService(ctrl)
-			userApp := appmocks.NewMockUserUseCase(ctrl)
-			accountApp := appmocks.NewMockAccountUseCase(ctrl)
-			c.setupMocks(authSvc, userApp)
-
-			handler := NewAuthHandler(authSvc, userApp, accountApp)
-
-			bodyBytes, _ := json.Marshal(c.body)
-			req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(bodyBytes))
-			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
-			handler.Login(w, req)
-
-			require.Equal(t, c.expectedCode, w.Code)
-		})
+	if err = obj.accountApp.LinkAccountAndUser(r.Context(), accountId, authUser.Id); err != nil {
+		if errors.Is(err, repository.ConstraintError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Введены некорректные данные"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.AccountForeignKeyError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "Счёта не существует"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse("req_id")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
 	}
+	response := web_helpers.NewSignupSuccessResponse(authUser)
+	obj.authService.GenerateNewAuth(r.Context(), w, authUser.Id)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
-func TestAuthHandler_SignUp(t *testing.T) {
-	t.Parallel()
-
-	authUser := web_helpers.AuthUser{Id: 1, Username: "newuser", Email: "new@example.com"}
-
-	cases := []struct {
-		name         string
-		body         any
-		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase)
-		expectedCode int
-	}{
-		{
-			name: "успешная регистрация",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(authUser, nil)
-				accountApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(1, nil)
-				accountApp.EXPECT().LinkAccountAndUser(gomock.Any(), 1, authUser.Id).Return(nil)
-				authSvc.EXPECT().GenerateNewAuth(gomock.Any(), gomock.Any(), authUser.Id)
-			},
-			expectedCode: http.StatusOK,
-		},
-		{
-			name:         "невалидный json → 400",
-			body:         "{not json}",
-			setupMocks:   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "пустые поля → 400",
-			body: web_helpers.SignupBodyRequest{},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-			},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "невалидный username → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "ab",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks:   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "невалидный пароль → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "weak",
-				ConfirmPassword: "weak",
-				Email:           "new@example.com",
-			},
-			setupMocks:   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "невалидный email → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "notanemail",
-			},
-			setupMocks:   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "пароли не совпадают → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin456",
-				Email:           "new@example.com",
-			},
-			setupMocks:   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "дубликат пользователя → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, repository.DuplicatedDataError)
-			},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "ConstraintError при создании юзера → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, repository.ConstraintError)
-			},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "ошибка хэширования пароля → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, application.HashPasswordError)
-			},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "неизвестная ошибка при создании юзера → 500",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, errors.New("db error"))
-			},
-			expectedCode: http.StatusInternalServerError,
-		},
-		{
-			name: "AccountDuplicatedDataError при создании аккаунта → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(authUser, nil)
-				accountApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(-1, repository.AccountDuplicatedDataError)
-			},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "ConstraintError при создании аккаунта → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(authUser, nil)
-				accountApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(-1, repository.ConstraintError)
-			},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "неизвестная ошибка при создании аккаунта → 500",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(authUser, nil)
-				accountApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(-1, errors.New("db error"))
-			},
-			expectedCode: http.StatusInternalServerError,
-		},
-		{
-			name: "ConstraintError при линковке аккаунта → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(authUser, nil)
-				accountApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(1, nil)
-				accountApp.EXPECT().LinkAccountAndUser(gomock.Any(), 1, authUser.Id).Return(repository.ConstraintError)
-			},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "AccountForeignKeyError при линковке аккаунта → 400",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(authUser, nil)
-				accountApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(1, nil)
-				accountApp.EXPECT().LinkAccountAndUser(gomock.Any(), 1, authUser.Id).Return(repository.AccountForeignKeyError)
-			},
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name: "неизвестная ошибка при линковке аккаунта → 500",
-			body: web_helpers.SignupBodyRequest{
-				Username:        "newuser",
-				Password:        "Admin123",
-				ConfirmPassword: "Admin123",
-				Email:           "new@example.com",
-			},
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(authUser, nil)
-				accountApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(1, nil)
-				accountApp.EXPECT().LinkAccountAndUser(gomock.Any(), 1, authUser.Id).Return(errors.New("db error"))
-			},
-			expectedCode: http.StatusInternalServerError,
-		},
-	}
-
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			authSvc := authmocks.NewMockAuthenticationService(ctrl)
-			userApp := appmocks.NewMockUserUseCase(ctrl)
-			accountApp := appmocks.NewMockAccountUseCase(ctrl)
-			c.setupMocks(authSvc, userApp, accountApp)
-
-			handler := NewAuthHandler(authSvc, userApp, accountApp)
-
-			var bodyBytes []byte
-			if s, ok := c.body.(string); ok {
-				bodyBytes = []byte(s)
-			} else {
-				bodyBytes, _ = json.Marshal(c.body)
-			}
-			req := httptest.NewRequest(http.MethodPost, "/auth/signup", bytes.NewReader(bodyBytes))
-			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
-			handler.SignUp(w, req)
-
-			require.Equal(t, c.expectedCode, w.Code)
+func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var userRequest web_helpers.LoginBodyRequest
+	if err := web_helpers.ReadRequestJSON(r, &userRequest); err != nil {
+		response := web_helpers.NewLoginErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("username", "Не удалось прочитать json"),
+			web_helpers.NewFieldError("password", "Не удалось прочитать json"),
 		})
-	}
-}
-
-func TestAuthHandler_GetProfile(t *testing.T) {
-	t.Parallel()
-
-	testUser := models.UserModel{Id: 1, Username: "testuser", Email: "test@example.com"}
-
-	cases := []struct {
-		name         string
-		buildReq     func() *http.Request
-		expectedCode int
-	}{
-		{
-			name: "пользователь в контексте → 200",
-			buildReq: func() *http.Request {
-				req := httptest.NewRequest(http.MethodGet, "/profile", nil)
-				return req.WithContext(middleware.SetUserCtx(req.Context(), testUser))
-			},
-			expectedCode: http.StatusOK,
-		},
-		{
-			name: "нет пользователя в контексте → 401",
-			buildReq: func() *http.Request {
-				return httptest.NewRequest(http.MethodGet, "/profile", nil)
-			},
-			expectedCode: http.StatusUnauthorized,
-		},
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
 	}
 
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			authSvc := authmocks.NewMockAuthenticationService(ctrl)
-			userApp := appmocks.NewMockUserUseCase(ctrl)
-			accountApp := appmocks.NewMockAccountUseCase(ctrl)
-
-			handler := NewAuthHandler(authSvc, userApp, accountApp)
-			w := httptest.NewRecorder()
-			handler.GetProfile(w, c.buildReq())
-
-			require.Equal(t, c.expectedCode, w.Code)
+	storedUser, err := obj.userApp.GetByCredentials(r.Context(), userRequest)
+	if err != nil {
+		response := web_helpers.NewLoginErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("username", "Неверный логин или пароль"),
+			web_helpers.NewFieldError("password", "Неверный логин или пароль"),
 		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
 	}
+	user := web_helpers.User{
+		Username:  storedUser.Username,
+		Email:     storedUser.Email,
+		CreatedAt: storedUser.CreatedAt,
+		AvatarUrl: storedUser.AvatarUrl,
+	}
+	response := web_helpers.NewLoginSuccessResponse(user)
+	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
