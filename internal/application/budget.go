@@ -20,13 +20,11 @@ type BudgetUseCase interface {
 
 type Budget struct {
 	repository repository.BudgetRepository
-	log        *zap.Logger
 }
 
 func NewBudget(repository repository.BudgetRepository) *Budget {
 	return &Budget{
 		repository: repository,
-		log:        logger.GetLogger(),
 	}
 }
 
@@ -47,12 +45,12 @@ func (obj *Budget) Delete(ctx context.Context, budgetId int, user models.UserMod
 }
 
 func (obj *Budget) GetById(ctx context.Context, id int, user models.UserModel) (models.BudgetModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	budget, err := obj.repository.GetById(ctx, id)
 	if !obj.IsUserAuthorOfBudget(budget, user) {
-		obj.log.Warn("user is not author of budget",
+		log.Warn("user is not author of budget",
 			zap.Int("user_id", user.Id),
-			zap.Int("budget_id", id),
-			zap.String("request_id", ctx.Value("request_id").(string)))
+			zap.Int("budget_id", id))
 		return models.BudgetModel{}, UserNotAuthorOfBudgetError
 	}
 	return budget, err

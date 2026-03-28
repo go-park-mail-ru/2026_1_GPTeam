@@ -32,7 +32,6 @@ type Jwt struct {
 	mu         sync.RWMutex
 	secret     []byte
 	version    string
-	log        *zap.Logger
 }
 
 func NewJwt(repository repository.JwtRepository, secret string, version string) (*Jwt, error) {
@@ -49,26 +48,27 @@ func NewJwt(repository repository.JwtRepository, secret string, version string) 
 		repository: repository,
 		secret:     []byte(secret),
 		version:    version,
-		log:        log,
 	}, nil
 }
 
 func (obj *Jwt) parseToken(tokenStr string) (*jwt.Token, error) {
+	log := logger.GetLogger()
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			obj.log.Error("unexpected signing method")
+			log.Error("unexpected signing method")
 			return nil, WrongSigningMethodError
 		}
 		return obj.GetJWTSecret(), nil
 	})
 	if err != nil {
-		obj.log.Error("failed to parse token")
+		log.Error("failed to parse token")
 		return &jwt.Token{}, err
 	}
 	return token, nil
 }
 
 func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
+	log := logger.GetLogger()
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		return false, -1
@@ -76,31 +76,32 @@ func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		obj.log.Warn("invalid token (unable to claim payload)")
+		log.Warn("invalid token (unable to claim payload)")
 		return false, -1
 	}
 
 	version, ok := claims["version"].(string)
 	if !ok {
-		obj.log.Warn("invalid token (unable to claim version)")
+		log.Warn("invalid token (unable to claim version)")
 		return false, -1
 	}
 	curVersion := obj.GetVersion()
 	if version != curVersion {
-		obj.log.Warn("invalid token (invalid version)")
+		log.Warn("invalid token (invalid version)")
 		return false, -1
 	}
 
 	userIdFloat, ok := claims["user_id"].(float64)
 	userId := int(userIdFloat)
 	if !ok {
-		obj.log.Warn("invalid token (unable to claim user_id)")
+		log.Warn("invalid token (unable to claim user_id)")
 		return false, -1
 	}
 	return true, userId
 }
 
 func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		return false, -1
@@ -108,56 +109,50 @@ func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, i
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		obj.log.Warn("invalid token (unable to claim payload)",
-			zap.String("request_id", ctx.Value("request_id").(string)))
+		log.Warn("invalid token (unable to claim payload)")
 		return false, -1
 	}
 
 	version, ok := claims["version"].(string)
 	if !ok {
-		obj.log.Warn("invalid token (unable to claim version)",
-			zap.String("request_id", ctx.Value("request_id").(string)))
+		log.Warn("invalid token (unable to claim version)")
 		return false, -1
 	}
 	curVersion := obj.GetVersion()
 	if version != curVersion {
-		obj.log.Warn("invalid token (invalid version)",
-			zap.String("request_id", ctx.Value("request_id").(string)))
+		log.Warn("invalid token (invalid version)")
 		return false, -1
 	}
 
 	tokenId, ok := claims["id"].(string)
 	if !ok {
-		obj.log.Warn("invalid token (unable to claim token_id)",
-			zap.String("request_id", ctx.Value("request_id").(string)))
+		log.Warn("invalid token (unable to claim token_id)")
 		return false, -1
 	}
 
 	userIdFloat, ok := claims["user_id"].(float64)
 	userId := int(userIdFloat)
 	if !ok {
-		obj.log.Warn("invalid token (unable to claim user_id)",
-			zap.String("request_id", ctx.Value("request_id").(string)))
+		log.Warn("invalid token (unable to claim user_id)")
 		return false, -1
 	}
 
 	storedToken, err := obj.repository.Get(ctx, tokenId)
 	if err != nil {
-		obj.log.Warn("failed to get token from db",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Warn("failed to get token from db",
 			zap.Error(err))
 		return false, -1
 	}
 	if storedToken.UserId != userId {
-		obj.log.Warn("invalid token (invalid userId)",
-			zap.String("request_id", ctx.Value("request_id").(string)))
+		log.Warn("invalid token (invalid userId)")
 		return false, -1
 	}
 	return true, userId
 }
 
 func (obj *Jwt) GenerateToken(userID int) (string, error) {
-	obj.log.Info("generating new token",
+	log := logger.GetLogger()
+	log.Info("generating new token",
 		zap.Int("user_id", userID))
 	expirationTime := time.Now().Add(AccessTokenExpirationTime)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -168,7 +163,7 @@ func (obj *Jwt) GenerateToken(userID int) (string, error) {
 
 	tokenStr, err := token.SignedString(obj.GetJWTSecret())
 	if err != nil {
-		obj.log.Error("failed to sign token",
+		log.Error("failed to sign token",
 			zap.Int("user_id", userID),
 			zap.Error(err))
 		return "", err
@@ -178,9 +173,9 @@ func (obj *Jwt) GenerateToken(userID int) (string, error) {
 }
 
 func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userId int, deviceId string) (string, error) {
-	obj.log.Info("generating new refresh token",
-		zap.Int("user_id", userId),
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(ctx)
+	log.Info("generating new refresh token",
+		zap.Int("user_id", userId))
 	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
 
 	tokenId := uuid.New().String()
@@ -192,10 +187,9 @@ func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userId int, deviceId s
 	})
 	refreshStr, err := token.SignedString(obj.GetJWTSecret())
 	if err != nil {
-		obj.log.Error("failed to sign token",
+		log.Error("failed to sign token",
 			zap.Int("user_id", userId),
 			zap.String("token_id", tokenId),
-			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
 		return "", err
 	}
@@ -218,8 +212,8 @@ func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userId int, deviceId s
 }
 
 func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) {
-	obj.log.Info("deleting refresh token",
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(ctx)
+	log.Info("deleting refresh token")
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		return
@@ -228,8 +222,7 @@ func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		id, ok := claims["id"].(string)
 		if !ok {
-			obj.log.Error("invalid token (unable to claim token_id)",
-				zap.String("request_id", ctx.Value("request_id").(string)))
+			log.Error("invalid token (unable to claim token_id)")
 			return
 		}
 		err = obj.repository.DeleteByUuid(ctx, id)

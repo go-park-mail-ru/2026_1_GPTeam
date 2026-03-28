@@ -38,15 +38,13 @@ func NoDirListing(next http.Handler) http.Handler {
 
 func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, userApp application.UserUseCase) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log := logger.GetLogger()
+		log := logger.GetLoggerWIthRequestId(r.Context())
 		path := r.URL.Path
 		log.Info("[auth middleware] checking",
-			zap.String("path", path),
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+			zap.String("path", path))
 		if (strings.HasPrefix(path, "/auth/") && path != "/auth/logout") || strings.HasPrefix(path, "/enums/") || strings.HasPrefix(path, "/img/") {
 			log.Info("[auth middleware] pass without checking",
-				zap.String("path", path),
-				zap.String("request_id", r.Context().Value("request_id").(string)))
+				zap.String("path", path))
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -54,8 +52,7 @@ func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, u
 		isAuth, userId := authService.IsAuth(r.Context(), r)
 		if !isAuth {
 			log.Warn("[auth middleware] auth check failed",
-				zap.String("path", path),
-				zap.String("request_id", r.Context().Value("request_id").(string)))
+				zap.String("path", path))
 			response := web_helpers.NewUnauthorizedErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -69,8 +66,7 @@ func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, u
 		}
 		log.Info("[auth middleware] auth success",
 			zap.String("path", path),
-			zap.Int("user_id", userId),
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+			zap.Int("user_id", userId))
 
 		ctx := context.WithValue(r.Context(), "user", authUser)
 		next.ServeHTTP(w, r.WithContext(ctx))

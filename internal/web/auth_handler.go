@@ -19,7 +19,6 @@ type AuthHandler struct {
 	authService auth.AuthenticationService
 	userApp     application.UserUseCase
 	accountApp  application.AccountUseCase
-	log         *zap.Logger
 }
 
 func NewAuthHandler(auth auth.AuthenticationService, userUseCase application.UserUseCase, accountUseCase application.AccountUseCase) *AuthHandler {
@@ -27,47 +26,42 @@ func NewAuthHandler(auth auth.AuthenticationService, userUseCase application.Use
 		authService: auth,
 		userApp:     userUseCase,
 		accountApp:  accountUseCase,
-		log:         logger.GetLogger(),
 	}
 }
 
 func (obj *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("logout request",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("logout request")
 	obj.authService.ClearOld(r.Context(), w, r)
-	obj.log.Info("logout success",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log.Info("logout success")
 	response := web_helpers.NewLogoutSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("refresh token request",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("refresh token request")
 	isAuth, userId := obj.authService.Refresh(r.Context(), w, r)
 	authUser, ok := obj.userApp.IsAuthUserExists(r.Context(), isAuth, userId)
 	if !ok {
-		obj.log.Warn("user unauthorized",
-			zap.Int("user_id", userId),
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+		log.Warn("user unauthorized",
+			zap.Int("user_id", userId))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("refresh token success",
-		zap.Int("user_id", userId),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log.Info("refresh token success",
+		zap.Int("user_id", userId))
 	response := web_helpers.NewLoginSuccessResponse(authUser)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("sign up request",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("sign up request")
 	var body web_helpers.SignupBodyRequest
 	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
-		obj.log.Warn("unable to read body",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
+		log.Warn("unable to read body",
 			zap.Error(err))
 		response := web_helpers.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []web_helpers.FieldError{
 			web_helpers.NewFieldError("", "Не удалось прочитать тело запроса"),
@@ -78,9 +72,8 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	validationErrors := validators.ValidateSignUpUser(body)
 	if len(validationErrors) > 0 {
-		obj.log.Warn("validation error",
-			zap.Any("validationErrors", validationErrors),
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+		log.Warn("validation error",
+			zap.Any("validationErrors", validationErrors))
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -111,9 +104,8 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("user created",
-		zap.Int("user_id", authUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log.Info("user created",
+		zap.Int("user_id", authUser.Id))
 	accountModel := models.AccountModel{
 		Name:      "base",
 		Balance:   0,
@@ -139,10 +131,9 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("account created",
+	log.Info("account created",
 		zap.Int("user_id", authUser.Id),
-		zap.Int("account_id", accountId),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+		zap.Int("account_id", accountId))
 	if err = obj.accountApp.LinkAccountAndUser(r.Context(), accountId, authUser.Id); err != nil {
 		if errors.Is(err, repository.ConstraintError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
@@ -160,22 +151,20 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("account linked",
+	log.Info("account linked",
 		zap.Int("user_id", authUser.Id),
-		zap.Int("account_id", accountId),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+		zap.Int("account_id", accountId))
 	response := web_helpers.NewSignupSuccessResponse(authUser)
 	obj.authService.GenerateNewAuth(r.Context(), w, authUser.Id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("login request",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("login request")
 	var userRequest web_helpers.LoginBodyRequest
 	if err := web_helpers.ReadRequestJSON(r, &userRequest); err != nil {
-		obj.log.Warn("failed to read body",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
+		log.Warn("failed to read body",
 			zap.Error(err))
 		response := web_helpers.NewLoginErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("username", "Не удалось прочитать json"),
@@ -201,9 +190,8 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: storedUser.CreatedAt,
 		AvatarUrl: storedUser.AvatarUrl,
 	}
-	obj.log.Info("login success",
-		zap.Int("user_id", storedUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log.Info("login success",
+		zap.Int("user_id", storedUser.Id))
 	response := web_helpers.NewLoginSuccessResponse(user)
 	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)

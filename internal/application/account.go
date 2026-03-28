@@ -18,13 +18,11 @@ type AccountUseCase interface {
 
 type Account struct {
 	repository repository.AccountRepository
-	log        *zap.Logger
 }
 
 func NewAccount(repo repository.AccountRepository) *Account {
 	return &Account{
 		repository: repo,
-		log:        logger.GetLogger(),
 	}
 }
 
@@ -43,15 +41,15 @@ func (obj *Account) LinkAccountAndUser(ctx context.Context, accountId int, userI
 }
 
 func (obj *Account) IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	ids, err := obj.repository.GetIdsByUserAndAccount(ctx, userId, accountId)
 	if err != nil {
 		return false
 	}
 	if len(ids) == 0 {
-		obj.log.Warn("user is not author of account",
+		log.Warn("user is not author of account",
 			zap.Int("userId", userId),
-			zap.Int("accountId", accountId),
-			zap.String("request_id", ctx.Value("request_id").(string)))
+			zap.Int("accountId", accountId))
 		return false
 	}
 	return true

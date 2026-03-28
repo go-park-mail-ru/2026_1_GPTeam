@@ -12,23 +12,20 @@ import (
 
 type AccountHandler struct {
 	accountApp application.AccountUseCase
-	log        *zap.Logger
 }
 
 func NewAccountHandler(accountApp application.AccountUseCase) *AccountHandler {
 	return &AccountHandler{
 		accountApp: accountApp,
-		log:        logger.GetLogger(),
 	}
 }
 
 func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("get account request",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("get account request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized",
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+		log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -46,10 +43,9 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("get account",
+	log.Info("get account",
 		zap.Int("account_id", accountId),
-		zap.Int("user_id", authUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+		zap.Int("user_id", authUser.Id))
 	web_helpers.WriteResponseJSON(w, http.StatusOK, map[string]interface{}{
 		"code":       http.StatusOK,
 		"account_id": accountId,

@@ -28,21 +28,19 @@ type UserUseCase interface {
 
 type User struct {
 	repository repository.UserRepository
-	log        *zap.Logger
 }
 
 func NewUser(repository repository.UserRepository) *User {
 	return &User{
 		repository: repository,
-		log:        logger.GetLogger(),
 	}
 }
 
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper (на будущее, так как надо сделать поддержку старых перцов и плавную миграцию на новый перец)
 	if err != nil {
-		obj.log.Warn("failed to hash password",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Warn("failed to hash password",
 			zap.Error(err))
 		return web_helpers.AuthUser{}, HashPasswordError
 	}
@@ -73,22 +71,21 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 }
 
 func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, extension string) (string, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	avatarUrl := uuid.New().String() + extension
 	filePath := filepath.Join("./static", avatarUrl)
 	dst, err := os.Create(filePath)
 	if err != nil {
-		obj.log.Warn("failed to create avatar file",
+		log.Warn("failed to create avatar file",
 			zap.Int("user_id", userID),
-			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
 		return "", err
 	}
 	defer dst.Close()
 
 	if _, err = io.Copy(dst, file); err != nil {
-		obj.log.Warn("failed to copy avatar file",
+		log.Warn("failed to copy avatar file",
 			zap.Int("user_id", userID),
-			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
 		return "", err
 	}
@@ -105,14 +102,14 @@ func (obj *User) GetById(ctx context.Context, id int) (*models.UserModel, error)
 }
 
 func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	storedUser, err := obj.repository.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return nil, err
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password))
 	if err != nil {
-		obj.log.Warn("user not found with credentials",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Warn("user not found with credentials",
 			zap.Error(err))
 		return nil, err
 	}
@@ -120,10 +117,10 @@ func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBod
 }
 
 func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	if !isAuth {
-		obj.log.Warn("user is not authorized",
-			zap.Int("user_id", userId),
-			zap.String("request_id", ctx.Value("request_id").(string)))
+		log.Warn("user is not authorized",
+			zap.Int("user_id", userId))
 		return web_helpers.User{}, false
 	}
 	storedUser, err := obj.repository.GetByID(ctx, userId)
@@ -140,22 +137,22 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 }
 
 func (obj *User) UpdateLastLogin(ctx context.Context, userId int) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
 	if err != nil {
-		obj.log.Warn("failed to update last login",
+		log.Warn("failed to update last login",
 			zap.Int("user_id", userId),
-			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
 	}
 }
 
 func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	if profile.Password != nil {
 		bytes, err := bcrypt.GenerateFromPassword([]byte(*profile.Password), bcrypt.DefaultCost)
 		if err != nil {
-			obj.log.Warn("failed to hash password",
+			log.Warn("failed to hash password",
 				zap.Int("user_id", profile.Id),
-				zap.String("request_id", ctx.Value("request_id").(string)),
 				zap.Error(err))
 			return nil, HashPasswordError
 		}

@@ -35,6 +35,7 @@ func NewBudgetPostgres(db *pgxpool.Pool) *BudgetPostgres {
 }
 
 func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `insert into budget (title, description, created_at, start_at, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id;`
 	var id int
 	endAt := pgtype.Timestamptz{
@@ -44,8 +45,7 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 	err := obj.db.QueryRow(ctx, query, budget.Title, budget.Description, budget.CreatedAt, budget.StartAt, endAt, budget.Actual, budget.Target, budget.Currency, budget.Author).Scan(&id)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		obj.log.Error("failed to create budget (db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to create budget (db error)",
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
@@ -57,8 +57,7 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 		}
 	}
 	if err != nil {
-		obj.log.Error("failed to create budget (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to create budget (not db error)",
 			zap.Error(err))
 		return -1, err
 	}
@@ -66,13 +65,13 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 }
 
 func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author, active from budget where id = $1 and active = true;`
 	var endAt pgtype.Timestamptz
 	budget := models.BudgetModel{Id: id}
 	err := obj.db.QueryRow(ctx, query, id).Scan(&budget.Title, &budget.Description, &budget.CreatedAt, &budget.StartAt, &endAt, &budget.UpdatedAt, &budget.Actual, &budget.Target, &budget.Currency, &budget.Author, &budget.Active)
 	if err != nil {
-		obj.log.Error("failed to get budget (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to get budget (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.BudgetModel{}, NothingInTableError
@@ -87,12 +86,12 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 }
 
 func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select id from budget where author = $1 and active = true;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userId)
 	if err != nil {
-		obj.log.Error("failed to get budget ids by user (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to get budget ids by user (not db error)",
 			zap.Error(err))
 		return []int{}, err
 	}
@@ -101,8 +100,7 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 		var id int
 		err = rows.Scan(&id)
 		if err != nil {
-			obj.log.Error("failed to scan id while getting budget ids by user",
-				zap.String("request_id", ctx.Value("request_id").(string)),
+			log.Error("failed to scan id while getting budget ids by user",
 				zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
 				return []int{}, InvalidDataInTableError
@@ -112,25 +110,23 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 		ids = append(ids, id)
 	}
 	if err = rows.Err(); err != nil {
-		obj.log.Error("failed to get budget ids by user (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to get budget ids by user (not db error)",
 			zap.Error(err))
 		return []int{}, err
 	}
 	if len(ids) == 0 {
-		obj.log.Info("no budget ids found in db",
-			zap.String("request_id", ctx.Value("request_id").(string)))
+		log.Info("no budget ids found in db")
 		return []int{}, NothingInTableError
 	}
 	return ids, nil
 }
 
 func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `update budget set active = false where id = $1;`
 	_, err := obj.db.Exec(ctx, query, id)
 	if err != nil {
-		obj.log.Error("failed to delete budget (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to delete budget (not db error)",
 			zap.Error(err))
 		return err
 	}

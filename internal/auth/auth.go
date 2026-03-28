@@ -19,7 +19,6 @@ type AuthenticationService interface {
 
 type JwtAuthService struct {
 	jwt jwt_auth.JwtUseCase
-	log *zap.Logger
 }
 
 const TokenName = "token"
@@ -28,14 +27,13 @@ const RefreshTokenName = "refresh_token"
 func NewJwtAuthService(useCase jwt_auth.JwtUseCase) *JwtAuthService {
 	return &JwtAuthService{
 		jwt: useCase,
-		log: logger.GetLogger(),
 	}
 }
 
 func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userId int) {
-	obj.log.Info("generating new auth for user",
-		zap.Int("user_id", userId),
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(ctx)
+	log.Info("generating new auth for user",
+		zap.Int("user_id", userId))
 	token, err := obj.jwt.GenerateToken(userId)
 	if err != nil {
 		return
@@ -50,9 +48,8 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
-	obj.log.Info("set access token cookie",
-		zap.Int("user_id", userId),
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log.Info("set access token cookie",
+		zap.Int("user_id", userId))
 	token, err = obj.jwt.GenerateRefreshToken(ctx, userId, "pass")
 	if err != nil {
 		return
@@ -67,34 +64,33 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, cookie)
-	obj.log.Info("set refresh token cookie",
-		zap.Int("user_id", userId),
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log.Info("set refresh token cookie",
+		zap.Int("user_id", userId))
 }
 
 func (obj *JwtAuthService) GetAuthCookie(ctx context.Context, r *http.Request) (*http.Cookie, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	cookie, err := r.Cookie(TokenName)
 	if err != nil {
-		obj.log.Warn("failed to get token cookie",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Warn("failed to get token cookie",
 			zap.Error(err))
 	}
 	return cookie, err
 }
 
 func (obj *JwtAuthService) GetRefreshToken(ctx context.Context, r *http.Request) (*http.Cookie, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	cookie, err := r.Cookie(RefreshTokenName)
 	if err != nil {
-		obj.log.Warn("failed to get refresh token cookie",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Warn("failed to get refresh token cookie",
 			zap.Error(err))
 	}
 	return cookie, err
 }
 
 func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, int) {
-	obj.log.Info("checking if user authenticated",
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(ctx)
+	log.Info("checking if user authenticated")
 	cookie, err := obj.GetAuthCookie(ctx, r)
 	if err != nil {
 		return false, -1
@@ -105,8 +101,8 @@ func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, i
 }
 
 func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("clear old token cookie",
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(ctx)
+	log.Info("clear old token cookie")
 	cookie, err := obj.GetRefreshToken(ctx, r)
 	if err == nil {
 		refreshToken := cookie.Value
@@ -123,8 +119,7 @@ func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, 
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
-	obj.log.Info("set empty old token cookie",
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log.Info("set empty old token cookie")
 	cookie = &http.Cookie{
 		Name:     RefreshTokenName,
 		Value:    "",
@@ -135,13 +130,12 @@ func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, 
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
-	obj.log.Info("set empty old refresh token cookie",
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log.Info("set empty old refresh token cookie")
 }
 
 func (obj *JwtAuthService) Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, int) {
-	obj.log.Info("refresh token cookie",
-		zap.String("request_id", ctx.Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(ctx)
+	log.Info("refresh token cookie")
 	cookie, err := obj.GetRefreshToken(ctx, r)
 	if err != nil {
 		return false, -1

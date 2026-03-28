@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -58,4 +59,14 @@ func Close() error {
 		multiErr = errors.Join(errLogger, errFile)
 	}
 	return multiErr
+}
+
+func GetLoggerWIthRequestId(ctx context.Context) *zap.Logger {
+	mu.RLock()
+	defer mu.RUnlock()
+	requestId, ok := ctx.Value("request_id").(string)
+	if !ok {
+		return logger
+	}
+	return logger.With(zap.String("request_id", requestId))
 }

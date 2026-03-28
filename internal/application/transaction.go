@@ -20,13 +20,11 @@ type TransactionUseCase interface {
 
 type Transaction struct {
 	repository repository.TransactionRepository
-	log        *zap.Logger
 }
 
 func NewTransaction(repo repository.TransactionRepository) *Transaction {
 	return &Transaction{
 		repository: repo,
-		log:        logger.GetLogger(),
 	}
 }
 
@@ -46,15 +44,15 @@ func (obj *Transaction) Update(ctx context.Context, transaction models.Transacti
 }
 
 func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId int) (int, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return 0, err
 	}
 	if transaction.UserId != userId {
-		obj.log.Warn("user is not author of transaction",
+		log.Warn("user is not author of transaction",
 			zap.Int("user_id", userId),
-			zap.Int("transaction_id", transactionId),
-			zap.String("request_id", ctx.Value("request_id").(string)))
+			zap.Int("transaction_id", transactionId))
 		return 0, ForbiddenError
 	}
 	id, err := obj.repository.Delete(ctx, transactionId)
@@ -65,15 +63,15 @@ func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId in
 }
 
 func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return models.TransactionModel{}, err
 	}
 	if transaction.UserId != userId {
-		obj.log.Warn("user is not author of transaction",
+		log.Warn("user is not author of transaction",
 			zap.Int("user_id", userId),
-			zap.Int("transaction_id", transactionId),
-			zap.String("request_id", ctx.Value("request_id").(string)))
+			zap.Int("transaction_id", transactionId))
 		return models.TransactionModel{}, ForbiddenError
 	}
 	return transaction, nil

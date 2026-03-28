@@ -16,13 +16,11 @@ import (
 
 type UserHandler struct {
 	userApp application.UserUseCase
-	log     *zap.Logger
 }
 
 func NewUserHandler(useCase application.UserUseCase) *UserHandler {
 	return &UserHandler{
 		userApp: useCase,
-		log:     logger.GetLogger(),
 	}
 }
 
@@ -36,30 +34,27 @@ func (obj *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("get balance request",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("get balance request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized",
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+		log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.log.Info("get balance success",
-		zap.Int("user_id", authUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log.Info("get balance success",
+		zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewBalanceResponse(0.0, "RUB", 0, 0)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("changing avatar",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("changing avatar")
 	err := r.ParseMultipartForm(5 << 20)
 	if err != nil {
-		obj.log.Warn("failed to read body",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
+		log.Warn("failed to read body",
 			zap.Error(err))
 		response := web_helpers.NewBadRequestErrorResponse("Слишком большой файл")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -68,8 +63,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile("avatar")
 	if err != nil {
-		obj.log.Warn("failed to change avatar (no file)",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
+		log.Warn("failed to change avatar (no file)",
 			zap.Error(err))
 		response := web_helpers.NewBadRequestErrorResponse("Нет файла аватара")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -79,8 +73,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	buff := make([]byte, 512)
 	if _, err = file.Read(buff); err != nil {
-		obj.log.Warn("failed to read buff",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
+		log.Warn("failed to read buff",
 			zap.Error(err))
 		response := web_helpers.NewServerErrorResponse("Ошибка чтения")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -89,9 +82,8 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	fileType := http.DetectContentType(buff)
 	if fileType != "image/jpeg" && fileType != "image/png" {
-		obj.log.Warn("file type not supported",
+		log.Warn("file type not supported",
 			zap.String("file type", fileType),
-			zap.String("request_id", r.Context().Value("request_id").(string)),
 			zap.Error(err))
 		response := web_helpers.NewBadRequestErrorResponse("Допустимы только форматы JPEG и PNG")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -99,8 +91,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err = file.Seek(0, 0); err != nil {
-		obj.log.Warn("failed to seek file",
-			zap.String("request_id", r.Context().Value("request_id").(string)),
+		log.Warn("failed to seek file",
 			zap.Error(err))
 		response := web_helpers.NewServerErrorResponse("Внутренняя ошибка")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -110,8 +101,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	userContext := r.Context().Value("user")
 	authUser, ok := userContext.(*models.UserModel)
 	if !ok {
-		obj.log.Warn("user unauthorized",
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+		log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -126,20 +116,18 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	finalUrl := os.Getenv("SERVER_URL") + "/img/" + avatarName
-	obj.log.Info("upload avatar success",
-		zap.Int("user_id", authUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log.Info("upload avatar success",
+		zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewAvatarUploadSuccessResponse(finalUrl)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("get profile request",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("get profile request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized",
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+		log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -150,20 +138,18 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: authUser.CreatedAt,
 		AvatarUrl: authUser.AvatarUrl,
 	}
-	obj.log.Info("get profile success",
-		zap.Int("user_id", authUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log.Info("get profile success",
+		zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	obj.log.Info("update profile request",
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("update profile request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
-		obj.log.Warn("user unauthorized",
-			zap.String("request_id", r.Context().Value("request_id").(string)))
+		log.Warn("user unauthorized")
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -171,9 +157,8 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	var req web_helpers.UpdateUserProfileRequest
 	if err := web_helpers.ReadRequestJSON(r, &req); err != nil {
-		obj.log.Warn("failed to read body",
+		log.Warn("failed to read body",
 			zap.Int("user_id", authUser.Id),
-			zap.String("request_id", r.Context().Value("request_id").(string)),
 			zap.Error(err))
 		response := web_helpers.NewBadRequestErrorResponse("невозможно прочитать тело запроса")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -182,9 +167,8 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	validationErrors := validators.ValidateUpdateUser(req)
 	if len(validationErrors) > 0 {
-		obj.log.Warn("validation error while updating profile",
+		log.Warn("validation error while updating profile",
 			zap.Int("user_id", authUser.Id),
-			zap.String("request_id", r.Context().Value("request_id").(string)),
 			zap.Any("validationErrors", validationErrors))
 		response := web_helpers.NewBadRequestErrorResponse("ошибка валидации")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -211,9 +195,8 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: updatedUser.CreatedAt,
 		AvatarUrl: updatedUser.AvatarUrl,
 	}
-	obj.log.Info("update profile success",
-		zap.Int("user_id", authUser.Id),
-		zap.String("request_id", r.Context().Value("request_id").(string)))
+	log.Info("update profile success",
+		zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewUpdateProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

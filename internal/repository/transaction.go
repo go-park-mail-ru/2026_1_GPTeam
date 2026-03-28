@@ -22,25 +22,23 @@ type TransactionRepository interface {
 }
 
 type TransactionPostgres struct {
-	db  *pgxpool.Pool
-	log *zap.Logger
+	db *pgxpool.Pool
 }
 
 func NewTransactionPostgres(db *pgxpool.Pool) *TransactionPostgres {
 	return &TransactionPostgres{
-		db:  db,
-		log: logger.GetLogger(),
+		db: db,
 	}
 }
 
 func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `insert into transaction (user_id, account_id, value, type, category, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) returning id;`
 	var id int
 	err := obj.db.QueryRow(ctx, query, transaction.UserId, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate).Scan(&id)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		obj.log.Error("failed to create transaction (db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to create transaction (db error)",
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
@@ -54,8 +52,7 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		}
 	}
 	if err != nil {
-		obj.log.Error("failed to create transaction (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to create transaction (not db error)",
 			zap.Error(err))
 		return -1, err
 	}
@@ -63,12 +60,12 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 }
 
 func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select id from transaction where user_id = $1 and deleted_at is null;`
 	var ids []int
 	rows, err := obj.db.Query(ctx, query, userId)
 	if err != nil {
-		obj.log.Error("failed to get transaction ids by user (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to get transaction ids by user (not db error)",
 			zap.Error(err))
 		return []int{}, err
 	}
@@ -77,8 +74,7 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		var id int
 		err = rows.Scan(&id)
 		if err != nil {
-			obj.log.Error("failed to scan id while getting transaction ids by user",
-				zap.String("request_id", ctx.Value("request_id").(string)),
+			log.Error("failed to scan id while getting transaction ids by user",
 				zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
 				return []int{}, InvalidDataInTableError
@@ -88,14 +84,12 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		ids = append(ids, id)
 	}
 	if err = rows.Err(); err != nil {
-		obj.log.Error("failed to get transaction ids by user",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to get transaction ids by user",
 			zap.Error(err))
 		return []int{}, err
 	}
 	if len(ids) == 0 {
-		obj.log.Warn("no transactions found by user",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Warn("no transactions found by user",
 			zap.Int("userId", userId))
 		return []int{}, NothingInTableError
 	}
@@ -103,14 +97,14 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 }
 
 func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel) error {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
 	res, err := obj.db.Exec(ctx, query, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate, transaction.Id, transaction.UserId)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		obj.log.Error("failed to update transaction (db error)",
+		log.Error("failed to update transaction (db error)",
 			zap.Int("transaction_id", transaction.Id),
 			zap.Int("user_id", transaction.UserId),
-			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
@@ -124,37 +118,34 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 		}
 	}
 	if err != nil {
-		obj.log.Error("failed to update transaction (not db error)",
+		log.Error("failed to update transaction (not db error)",
 			zap.Int("transaction_id", transaction.Id),
 			zap.Int("user_id", transaction.UserId),
-			zap.String("request_id", ctx.Value("request_id").(string)),
 			zap.Error(err))
 		return err
 	}
 	if res.RowsAffected() == 0 {
-		obj.log.Warn("failed to update transaction (no rows affected)",
+		log.Warn("failed to update transaction (no rows affected)",
 			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId),
-			zap.String("request_id", ctx.Value("request_id").(string)))
+			zap.Int("user_id", transaction.UserId))
 		return NothingInTableError
 	}
 	if res.RowsAffected() != 1 {
-		obj.log.Warn("failed to update transaction (too many rows affected)",
+		log.Warn("failed to update transaction (too many rows affected)",
 			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId),
-			zap.String("request_id", ctx.Value("request_id").(string)))
+			zap.Int("user_id", transaction.UserId))
 		return IncorrectRowsAffectedError
 	}
 	return nil
 }
 
 func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (int, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `UPDATE transaction SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id;`
 	var id int
 	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&id)
 	if err != nil {
-		obj.log.Error("failed to delete transaction (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to delete transaction (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, NothingInTableError
@@ -165,6 +156,7 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 }
 
 func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date, updated_at from transaction where id = $1 and deleted_at is null;`
 	transaction := models.TransactionModel{
 		Id: transactionId,
@@ -172,8 +164,7 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 
 	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
 	if err != nil {
-		obj.log.Error("failed to get transaction (not db error)",
-			zap.String("request_id", ctx.Value("request_id").(string)),
+		log.Error("failed to get transaction (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.TransactionModel{}, NothingInTableError

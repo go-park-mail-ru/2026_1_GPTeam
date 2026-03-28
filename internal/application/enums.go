@@ -2,8 +2,6 @@ package application
 
 import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
-	"go.uber.org/zap"
 )
 
 type EnumsUseCase interface {
@@ -14,13 +12,11 @@ type EnumsUseCase interface {
 
 type Enums struct {
 	repository repository.EnumsRepository
-	log        *zap.Logger
 }
 
 func NewEnums(repository repository.EnumsRepository) *Enums {
 	return &Enums{
 		repository: repository,
-		log:        logger.GetLogger(),
 	}
 }
 
