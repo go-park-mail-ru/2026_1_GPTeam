@@ -1,7 +1,6 @@
 package validators
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -10,7 +9,9 @@ import (
 	"unicode/utf8"
 )
 
-func ValidateUsername(username string) error {
+// User section
+
+func validateUsername(username string) error {
 	if len(username) < 3 {
 		return UsernameShortError
 	}
@@ -25,7 +26,7 @@ func ValidateUsername(username string) error {
 	return nil
 }
 
-func ValidatePassword(passwordStr string) error {
+func validatePassword(passwordStr string) error {
 	password := []rune(passwordStr)
 	if len(password) < 8 {
 		return IncorrectPasswordError
@@ -60,7 +61,14 @@ func ValidatePassword(passwordStr string) error {
 	return nil
 }
 
-func ValidateEmail(email string) error {
+func validateConfirmPassword(passwordStr string, confirmPasswordStr string) error {
+	if passwordStr != confirmPasswordStr {
+		return PasswordsNotSameError
+	}
+	return nil
+}
+
+func validateEmail(email string) error {
 	if len(email) == 0 || len(email) >= 255 {
 		return EmailError
 	}
@@ -75,14 +83,33 @@ func ValidateEmail(email string) error {
 	return nil
 }
 
-func ValidateCurrency(currency string, allowedCurrencies []string) error {
+// Budget section
+
+func validateBudgetTitle(title string) error {
+	if len(title) == 0 {
+		return BudgetTitleEmpty
+	}
+	if len(title) > 255 {
+		return BudgetTitleTooLong
+	}
+	return nil
+}
+
+func validateBudgetDescription(description string) error {
+	if len(description) == 0 {
+		return BudgetDescriptionEmpty
+	}
+	return nil
+}
+
+func validateCurrency(currency string, allowedCurrencies []string) error {
 	if !slices.Contains(allowedCurrencies, currency) {
 		return CurrencyNotAllowedError
 	}
 	return nil
 }
 
-func ValidateTargetBudget(target int) error {
+func validateTargetBudget(target int) error {
 	if target < 0 {
 		return TargetIsNegativeError
 	}
@@ -95,7 +122,17 @@ func ValidateTargetBudget(target int) error {
 	return nil
 }
 
-func ValidateStartDate(startDate time.Time) error {
+func validateActualBudget(actual int) error {
+	if actual < 0 {
+		return ValueIsNegativeError
+	}
+	if actual > 1e12 {
+		return ValueIsBigError
+	}
+	return nil
+}
+
+func validateBudgetStartDate(startDate time.Time) error {
 	nowTime := time.Now()
 	nowDate := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(), 0, 0, 0, 0, startDate.Location())
 	if startDate.Before(nowDate) {
@@ -104,7 +141,7 @@ func ValidateStartDate(startDate time.Time) error {
 	return nil
 }
 
-func ValidateEndDate(startDate time.Time, endDate time.Time) error {
+func validateBudgetEndDate(startDate time.Time, endDate time.Time) error {
 	if endDate.IsZero() {
 		return nil
 	}
@@ -114,13 +151,15 @@ func ValidateEndDate(startDate time.Time, endDate time.Time) error {
 	return nil
 }
 
+// Transaction section
+
 func validateTransactionTitle(title string) error {
 	title = strings.TrimSpace(title)
 	if utf8.RuneCountInString(title) == 0 {
-		return errors.New("название не может быть пустым")
+		return TransactionTitleEmptyError
 	}
 	if utf8.RuneCountInString(title) > 255 {
-		return errors.New("название не должно превышать 255 символов")
+		return TransactionTitleLongError
 	}
 	return nil
 }
@@ -128,17 +167,17 @@ func validateTransactionTitle(title string) error {
 func validateTransactionDescription(description string) error {
 	description = strings.TrimSpace(description)
 	if utf8.RuneCountInString(description) == 0 {
-		return errors.New("описание не может быть пустым")
+		return TransactionDescriptionEmptyError
 	}
 	return nil
 }
 
 func validateTransactionValue(value float64) error {
 	if value <= 0 {
-		return errors.New("сумма должна быть больше 0")
+		return ValueIsNegativeError
 	}
 	if value > 1_000_000_000 {
-		return errors.New("сумма не может превышать 1 000 000 000")
+		return ValueIsBigError
 	}
 	return nil
 }
@@ -149,7 +188,7 @@ func validateTransactionType(transactionType string, allowedTypes []string) erro
 			return nil
 		}
 	}
-	return errors.New("недопустимый тип транзакции")
+	return TransactionTypeNotAllowedError
 }
 
 func validateTransactionCategory(category string, allowedCategories []string) error {
@@ -158,5 +197,5 @@ func validateTransactionCategory(category string, allowedCategories []string) er
 			return nil
 		}
 	}
-	return errors.New("недопустимая категория")
+	return TransactionCategoryNotAllowedError
 }

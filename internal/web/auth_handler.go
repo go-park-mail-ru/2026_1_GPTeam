@@ -10,7 +10,9 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
+	"go.uber.org/zap"
 )
 
 type AuthHandler struct {
@@ -28,66 +30,50 @@ func NewAuthHandler(auth auth.AuthenticationService, userUseCase application.Use
 }
 
 func (obj *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("logout request")
 	obj.authService.ClearOld(r.Context(), w, r)
+	log.Info("logout success")
 	response := web_helpers.NewLogoutSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("refresh token request")
 	isAuth, userId := obj.authService.Refresh(r.Context(), w, r)
 	authUser, ok := obj.userApp.IsAuthUserExists(r.Context(), isAuth, userId)
 	if !ok {
+		log.Warn("user unauthorized",
+			zap.Int("user_id", userId))
 		response := web_helpers.NewUnauthorizedErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	log.Info("refresh token success",
+		zap.Int("user_id", userId))
 	response := web_helpers.NewLoginSuccessResponse(authUser)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("sign up request")
 	var body web_helpers.SignupBodyRequest
 	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
+		log.Warn("unable to read body",
+			zap.Error(err))
 		response := web_helpers.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []web_helpers.FieldError{
 			web_helpers.NewFieldError("", "Не удалось прочитать тело запроса"),
 		})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	if body.Username == "" || body.Password == "" || body.Email == "" || body.ConfirmPassword == "" {
-		var fieldErrors []web_helpers.FieldError
-		if body.Username == "" {
-			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("username", "Поле обязательно для заполнения"))
-		}
-		if body.Password == "" {
-			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("password", "Поле обязательно для заполнения"))
-		}
-		if body.Email == "" {
-			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("email", "Поле обязательно для заполнения"))
-		}
-		if body.ConfirmPassword == "" {
-			fieldErrors = append(fieldErrors, web_helpers.NewFieldError("confirm_password", "Поле обязательно для заполнения"))
-		}
-		response := web_helpers.NewSignupErrorResponse(http.StatusBadRequest, "Неверный формат запроса", fieldErrors)
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-		return
-	}
 
-	validationErrors := make([]web_helpers.FieldError, 0)
-	if err := validators.ValidateUsername(body.Username); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("username", err.Error()))
-	}
-	if err := validators.ValidatePassword(body.Password); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", err.Error()))
-	}
-	if err := validators.ValidateEmail(body.Email); err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("email", err.Error()))
-	}
-	if body.Password != body.ConfirmPassword {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", "Пароли не совпадают"))
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("confirm_password", "Пароли не совпадают"))
-	}
+	validationErrors := validators.ValidateSignUpUser(body)
 	if len(validationErrors) > 0 {
+		log.Warn("validation error",
+			zap.Any("validationErrors", validationErrors))
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -114,11 +100,12 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
+	log.Info("user created",
+		zap.Int("user_id", authUser.Id))
 	accountModel := models.AccountModel{
 		Name:      "base",
 		Balance:   0,
@@ -140,10 +127,13 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	log.Info("account created",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("account_id", accountId))
 	if err = obj.accountApp.LinkAccountAndUser(r.Context(), accountId, authUser.Id); err != nil {
 		if errors.Is(err, repository.ConstraintError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
@@ -157,18 +147,25 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse("req_id")
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	log.Info("account linked",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("account_id", accountId))
 	response := web_helpers.NewSignupSuccessResponse(authUser)
 	obj.authService.GenerateNewAuth(r.Context(), w, authUser.Id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("login request")
 	var userRequest web_helpers.LoginBodyRequest
 	if err := web_helpers.ReadRequestJSON(r, &userRequest); err != nil {
+		log.Warn("failed to read body",
+			zap.Error(err))
 		response := web_helpers.NewLoginErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("username", "Не удалось прочитать json"),
 			web_helpers.NewFieldError("password", "Не удалось прочитать json"),
@@ -186,12 +183,15 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id)
 	user := web_helpers.User{
 		Username:  storedUser.Username,
 		Email:     storedUser.Email,
 		CreatedAt: storedUser.CreatedAt,
 		AvatarUrl: storedUser.AvatarUrl,
 	}
+	log.Info("login success",
+		zap.Int("user_id", storedUser.Id))
 	response := web_helpers.NewLoginSuccessResponse(user)
 	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)

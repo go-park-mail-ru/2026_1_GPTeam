@@ -5,6 +5,8 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type TransactionUseCase interface {
@@ -21,7 +23,9 @@ type Transaction struct {
 }
 
 func NewTransaction(repo repository.TransactionRepository) *Transaction {
-	return &Transaction{repository: repo}
+	return &Transaction{
+		repository: repo,
+	}
 }
 
 func (obj *Transaction) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
@@ -40,11 +44,15 @@ func (obj *Transaction) Update(ctx context.Context, transaction models.Transacti
 }
 
 func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId int) (int, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return 0, err
 	}
 	if transaction.UserId != userId {
+		log.Warn("user is not author of transaction",
+			zap.Int("user_id", userId),
+			zap.Int("transaction_id", transactionId))
 		return 0, ForbiddenError
 	}
 	id, err := obj.repository.Delete(ctx, transactionId)
@@ -55,11 +63,15 @@ func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId in
 }
 
 func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return models.TransactionModel{}, err
 	}
 	if transaction.UserId != userId {
+		log.Warn("user is not author of transaction",
+			zap.Int("user_id", userId),
+			zap.Int("transaction_id", transactionId))
 		return models.TransactionModel{}, ForbiddenError
 	}
 	return transaction, nil

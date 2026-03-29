@@ -3,14 +3,15 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"go.uber.org/zap"
 )
 
 type UserRepository interface {
@@ -28,16 +29,21 @@ type UserPostgres struct {
 }
 
 func NewUserPostgres(db DB) *UserPostgres {
-	return &UserPostgres{db: db}
+	return &UserPostgres{
+		db: db,
+	}
 }
 
 func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) (int, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `insert into "user" (username, password, email, last_login) VALUES ($1, $2, $3, $4) returning id;`
 	var id int
 	lastLogin := pgtype.Timestamp{Valid: false}
 	err := obj.db.QueryRow(ctx, query, userInfo.Username, userInfo.Password, userInfo.Email, lastLogin).Scan(&id)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
+		log.Error("failed to create user (db error)",
+			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
 			return -1, DuplicatedDataError
@@ -48,12 +54,15 @@ func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) 
 		}
 	}
 	if err != nil {
+		log.Error("failed to create user (not db error)",
+			zap.Error(err))
 		return -1, err
 	}
 	return id, nil
 }
 
 func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where id = $1;`
 	var lastLogin pgtype.Timestamp
 	user := models.UserModel{Id: id}
@@ -63,6 +72,8 @@ func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel
 		&user.UpdatedAt, &user.Active,
 	)
 	if err != nil {
+		log.Error("failed to get user (not db error)",
+			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, NothingInTableError
 		}
@@ -75,6 +86,7 @@ func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel
 }
 
 func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*models.UserModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where username = $1;`
 	var lastLogin pgtype.Timestamp
 	user := models.UserModel{}
@@ -84,6 +96,8 @@ func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*m
 		&user.UpdatedAt, &user.Active,
 	)
 	if err != nil {
+		log.Error("failed to get user by username (not db error)",
+			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, NothingInTableError
 		}
@@ -96,6 +110,7 @@ func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*m
 }
 
 func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (*models.UserModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where email = $1;`
 	var lastLogin pgtype.Timestamp
 	user := models.UserModel{}
@@ -105,6 +120,8 @@ func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (*models.
 		&user.UpdatedAt, &user.Active,
 	)
 	if err != nil {
+		log.Error("failed to get user by email (not db error)",
+			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, NothingInTableError
 		}
@@ -117,12 +134,19 @@ func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (*models.
 }
 
 func (obj *UserPostgres) UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `UPDATE "user" SET last_login = $1 WHERE id = $2;`
 	_, err := obj.db.Exec(ctx, query, lastLogin, userId)
-	return err
+	if err != nil {
+		log.Error("failed to update last login for user (not db error)",
+			zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 func (obj *UserPostgres) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `UPDATE "user" SET username   = COALESCE($1, username), password   = COALESCE($2, password), email      = COALESCE($3, email), avatar_url = COALESCE($4, avatar_url), updated_at = $5 WHERE id = $6 RETURNING id, username, password, email, created_at, last_login, avatar_url, updated_at, active`
 
 	var lastLogin pgtype.Timestamp
@@ -147,6 +171,8 @@ func (obj *UserPostgres) Update(ctx context.Context, profile models.UpdateUserPr
 		&user.Active,
 	)
 	if err != nil {
+		log.Error("failed to update user (not db error)",
+			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, NothingInTableError
 		}
@@ -159,14 +185,19 @@ func (obj *UserPostgres) Update(ctx context.Context, profile models.UpdateUserPr
 }
 
 func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl string) error {
-	query := `update "user" set avatar_url = $1, updated_at = $2 where id = $3;`
-	result, err := obj.db.Exec(ctx, query, avatarUrl, time.Now(), id)
+	log := logger.GetLoggerWIthRequestId(ctx)
+	query := `update "user" set avatar_url = $1 where id = $2;`
+	result, err := obj.db.Exec(ctx, query, avatarUrl, id)
 	if err != nil {
-		fmt.Printf("Unable to update avatar: %v\n", err)
+		log.Warn("failed to update avatar (not db error)",
+			zap.Int("user_id", id),
+			zap.Error(err))
 		return err
 	}
 
 	if result.RowsAffected() == 0 {
+		log.Warn("no rows affected",
+			zap.Int("user_id", id))
 		return NothingInTableError
 	}
 

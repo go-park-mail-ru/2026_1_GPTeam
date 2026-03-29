@@ -13,15 +13,40 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 func main() {
-	err := godotenv.Load()
+	err := logger.InitLogger()
 	if err != nil {
-		fmt.Println("Error loading .env file")
+		fmt.Println("Error initializing logger: ", err)
+		return
+	}
+	defer func() {
+		err = logger.Close()
+		if err != nil {
+			fmt.Println("Error closing logger: ", err)
+		}
+	}()
+	log := logger.GetLogger()
+	err = logger.InitAccessLogger()
+	if err != nil {
+		log.Fatal("Error initializing access logger",
+			zap.Error(err))
+	}
+	defer func() {
+		err = logger.AccessClose()
+		if err != nil {
+			fmt.Println("Error closing access logger: ", err)
+		}
+	}()
+
+	err = godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file", zap.Error(err))
 		return
 	}
 
@@ -34,16 +59,19 @@ func main() {
 
 	pool, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
-		fmt.Printf("Unable to connect to database: %v\n", err)
+		log.Fatal("Failed to create pool", zap.Error(err))
 		return
 	}
 	defer pool.Close()
+	err = pool.Ping(context.Background())
+	if err != nil {
+		log.Fatal("Failed to connect to database", zap.Error(err))
+	}
 
 	enumsCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, pool)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	userPostgres := repository.NewUserPostgres(pool)
@@ -51,18 +79,19 @@ func main() {
 	jwtPostgres := repository.NewJwtPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
 	accountPostgres := repository.NewAccountPostgres(pool)
+	log.Info("repositories initialized")
 
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres)
 	jwt, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	authService := auth.NewJwtAuthService(jwt)
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
+	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
 	userHandler := web.NewUserHandler(userApp)
@@ -70,6 +99,7 @@ func main() {
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
+	log.Info("handlers initialized")
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
@@ -95,6 +125,7 @@ func main() {
 
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
+	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
 	server := http.Server{
@@ -103,10 +134,10 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	fmt.Println("starting server at :8080")
+	log.Info("starting server at :8080")
 	err = server.ListenAndServe()
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal("Error starting server", zap.Error(err))
 		return
 	}
 }

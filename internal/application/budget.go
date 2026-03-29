@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type BudgetUseCase interface {
@@ -21,7 +23,9 @@ type Budget struct {
 }
 
 func NewBudget(repository repository.BudgetRepository) *Budget {
-	return &Budget{repository: repository}
+	return &Budget{
+		repository: repository,
+	}
 }
 
 func (obj *Budget) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
@@ -41,8 +45,12 @@ func (obj *Budget) Delete(ctx context.Context, budgetId int, user models.UserMod
 }
 
 func (obj *Budget) GetById(ctx context.Context, id int, user models.UserModel) (models.BudgetModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	budget, err := obj.repository.GetById(ctx, id)
 	if !obj.IsUserAuthorOfBudget(budget, user) {
+		log.Warn("user is not author of budget",
+			zap.Int("user_id", user.Id),
+			zap.Int("budget_id", id))
 		return models.BudgetModel{}, UserNotAuthorOfBudgetError
 	}
 	return budget, err

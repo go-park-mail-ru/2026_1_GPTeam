@@ -1,6 +1,8 @@
 package application
 
-import "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+import (
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+)
 
 type EnumsUseCase interface {
 	GetCurrencyCodes() []string
@@ -13,7 +15,9 @@ type Enums struct {
 }
 
 func NewEnums(repository repository.EnumsRepository) *Enums {
-	return &Enums{repository: repository}
+	return &Enums{
+		repository: repository,
+	}
 }
 
 func (obj *Enums) GetCurrencyCodes() []string {
