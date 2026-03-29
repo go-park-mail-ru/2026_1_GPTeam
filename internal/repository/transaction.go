@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type TransactionRepository interface {
@@ -20,11 +19,17 @@ type TransactionRepository interface {
 	Detail(ctx context.Context, transactionId int) (models.TransactionModel, error)
 }
 
-type TransactionPostgres struct {
-	db *pgxpool.Pool
+type TransactionDB interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
-func NewTransactionPostgres(db *pgxpool.Pool) *TransactionPostgres {
+type TransactionPostgres struct {
+	db TransactionDB
+}
+
+func NewTransactionPostgres(db TransactionDB) *TransactionPostgres {
 	return &TransactionPostgres{db: db}
 }
 
