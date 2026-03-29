@@ -23,14 +23,12 @@ type BudgetRepository interface {
 }
 
 type BudgetPostgres struct {
-	db  *pgxpool.Pool
-	log *zap.Logger
+	db DB
 }
 
-func NewBudgetPostgres(db *pgxpool.Pool) *BudgetPostgres {
+func NewBudgetPostgres(db DB) *BudgetPostgres {
 	return &BudgetPostgres{
 		db:  db,
-		log: logger.GetLogger(),
 	}
 }
 

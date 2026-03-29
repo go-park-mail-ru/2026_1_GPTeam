@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
@@ -131,4 +132,14 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			zap.String("request_id", requestId))
 		next.ServeHTTP(w, r)
 	})
+}
+
+// мидлварки для тестов
+func SetUserCtx(ctx context.Context, user models.UserModel) context.Context {
+	return context.WithValue(ctx, models.UserContextKey, user)
+}
+
+func GetUserCtx(ctx context.Context) (models.UserModel, bool) {
+	user, ok := ctx.Value(models.UserContextKey).(models.UserModel)
+	return user, ok
 }

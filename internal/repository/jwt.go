@@ -21,10 +21,10 @@ type JwtRepository interface {
 }
 
 type JwtPostgres struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewJwtPostgres(db *pgxpool.Pool) *JwtPostgres {
+func NewJwtPostgres(db DB) *JwtPostgres {
 	return &JwtPostgres{
 		db: db,
 	}

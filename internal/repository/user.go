@@ -26,10 +26,10 @@ type UserRepository interface {
 }
 
 type UserPostgres struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewUserPostgres(db *pgxpool.Pool) *UserPostgres {
+func NewUserPostgres(db DB) *UserPostgres {
 	return &UserPostgres{
 		db: db,
 	}

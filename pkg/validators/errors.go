@@ -16,6 +16,8 @@ var (
 	BudgetDescriptionEmpty  = fmt.Errorf("описание пустое")
 	CurrencyNotAllowedError = fmt.Errorf("валюта не поддерживается")
 	TargetIsNegativeError   = fmt.Errorf("планируемый бюджет не может быть меньше 0")
+	TargetIsZeroError       = fmt.Errorf("планируемый бюджет не может быть равен 0")
+	TargetIsBigError        = fmt.Errorf("значение не может быть больше 1e18")
 	StartDateInPastError    = fmt.Errorf("дата начала не может быть в прошлом")
 	EndDateInPastError      = fmt.Errorf("дата окончания должна быть позже даты начала")
 

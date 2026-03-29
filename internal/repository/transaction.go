@@ -22,10 +22,10 @@ type TransactionRepository interface {
 }
 
 type TransactionPostgres struct {
-	db *pgxpool.Pool
+	db DB
 }
 
-func NewTransactionPostgres(db *pgxpool.Pool) *TransactionPostgres {
+func NewTransactionPostgres(db DB) *TransactionPostgres {
 	return &TransactionPostgres{
 		db: db,
 	}
