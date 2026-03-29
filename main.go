@@ -126,7 +126,6 @@ func main() {
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.AccessLogMiddleware(handler)
-	handler = middleware.RequestIdMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
 	server := http.Server{
