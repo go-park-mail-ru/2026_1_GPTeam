@@ -4,31 +4,31 @@ import "github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 
 func ValidateBudget(body web_helpers.BudgetRequest, currencyCodes []string) []web_helpers.FieldError {
 	var validationErrors []web_helpers.FieldError
-	err := validateBudgetTitle(body.Title)
+	err := ValidateBudgetTitle(body.Title)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", err.Error()))
 	}
-	err = validateBudgetDescription(body.Description)
+	err = ValidateBudgetDescription(body.Description)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("description", err.Error()))
 	}
-	err = validateCurrency(body.Currency, currencyCodes)
+	err = ValidateCurrency(body.Currency, currencyCodes)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", err.Error()))
 	}
-	err = validateTargetBudget(body.Target)
+	err = ValidateTargetBudget(body.Target)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("target", err.Error()))
 	}
-	err = validateActualBudget(body.Actual)
+	err = ValidateActualBudget(body.Actual)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("actual", err.Error()))
 	}
-	err = validateBudgetStartDate(body.StartAt)
+	err = ValidateBudgetStartDate(body.StartAt)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("start_at", err.Error()))
 	}
-	err = validateBudgetEndDate(body.StartAt, body.EndAt)
+	err = ValidateBudgetEndDate(body.StartAt, body.EndAt)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("end_at", err.Error()))
 	}

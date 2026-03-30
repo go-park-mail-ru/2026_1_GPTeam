@@ -39,6 +39,10 @@ func TestAuthHandler_Logout(t *testing.T) {
 
 	handler := NewAuthHandler(authSvc, userApp, accountApp)
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+
+	ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+	req = req.WithContext(ctx)
+
 	w := httptest.NewRecorder()
 	handler.Logout(w, req)
 
@@ -91,6 +95,10 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 
 			handler := NewAuthHandler(authSvc, userApp, accountApp)
 			req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+
+			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			req = req.WithContext(ctx)
+
 			w := httptest.NewRecorder()
 			handler.RefreshToken(w, req)
 
@@ -120,6 +128,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			body: web_helpers.LoginBodyRequest{Username: "testuser", Password: "Admin123"},
 			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().GetByCredentials(gomock.Any(), gomock.Any()).Return(storedUser, nil)
+				userApp.EXPECT().UpdateLastLogin(gomock.Any(), gomock.Any()).Return(nil)
 				authSvc.EXPECT().GenerateNewAuth(gomock.Any(), gomock.Any(), storedUser.Id)
 			},
 			expectedCode: http.StatusOK,
@@ -158,6 +167,11 @@ func TestAuthHandler_Login(t *testing.T) {
 			bodyBytes, _ := json.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
+
+			// Фикс паники логгера
+			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			req = req.WithContext(ctx)
+
 			w := httptest.NewRecorder()
 			handler.Login(w, req)
 
@@ -299,6 +313,10 @@ func TestAuthHandler_SignUp(t *testing.T) {
 			bodyBytes, _ := json.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPost, "/auth/signup", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
+
+			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			req = req.WithContext(ctx)
+
 			w := httptest.NewRecorder()
 			handler.SignUp(w, req)
 
