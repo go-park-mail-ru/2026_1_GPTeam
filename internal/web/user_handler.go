@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -52,6 +53,7 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLoggerWIthRequestId(r.Context())
 	log.Info("changing avatar")
+
 	err := r.ParseMultipartForm(5 << 20)
 	if err != nil {
 		log.Warn("failed to read body",
@@ -115,7 +117,20 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	finalUrl := os.Getenv("SERVER_URL") + "/img/" + avatarName
+	serverURL := os.Getenv("SERVER_URL")
+	if serverURL == "" {
+		log.Warn("SERVER_URL not set, using default value")
+		serverURL = "http://localhost:8081"
+	}
+
+	finalUrl, err := url.JoinPath(serverURL, "img", avatarName)
+	if err != nil {
+		log.Error("failed to build final url", zap.Error(err))
+		response := web_helpers.NewServerErrorResponse("Внутренняя ошибка при формировании ссылки")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
 	log.Info("upload avatar success",
 		zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewAvatarUploadSuccessResponse(finalUrl)

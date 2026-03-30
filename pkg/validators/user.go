@@ -4,20 +4,20 @@ import "github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 
 func ValidateSignUpUser(body web_helpers.SignupBodyRequest) []web_helpers.FieldError {
 	var validationErrors []web_helpers.FieldError
-	err := validateUsername(body.Username)
+	err := ValidateUsername(body.Username)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("username", err.Error()))
 	}
-	err = validatePassword(body.Password)
+	err = ValidatePassword(body.Password)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", err.Error()))
 	}
-	err = validateConfirmPassword(body.Password, body.ConfirmPassword)
+	err = ValidateConfirmPassword(body.Password, body.ConfirmPassword)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", err.Error()))
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("confirm_password", err.Error()))
 	}
-	err = validateEmail(body.Email)
+	err = ValidateEmail(body.Email)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("email", err.Error()))
 	}
@@ -27,7 +27,7 @@ func ValidateSignUpUser(body web_helpers.SignupBodyRequest) []web_helpers.FieldE
 func ValidateUpdateUser(body web_helpers.UpdateUserProfileRequest) []web_helpers.FieldError {
 	var validationErrors []web_helpers.FieldError
 	if body.Username != nil {
-		err := validateUsername(*body.Username)
+		err := ValidateUsername(*body.Username)
 		if err != nil {
 			validationErrors = append(validationErrors, web_helpers.NewFieldError("username", err.Error()))
 		}
@@ -35,7 +35,7 @@ func ValidateUpdateUser(body web_helpers.UpdateUserProfileRequest) []web_helpers
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("username", "Поле не может быть пустым"))
 	}
 	if body.Email != nil {
-		err := validateEmail(*body.Email)
+		err := ValidateEmail(*body.Email)
 		if err != nil {
 			validationErrors = append(validationErrors, web_helpers.NewFieldError("email", err.Error()))
 		}
@@ -43,7 +43,7 @@ func ValidateUpdateUser(body web_helpers.UpdateUserProfileRequest) []web_helpers
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("email", "Поле не может быть пустым"))
 	}
 	if body.Password != nil {
-		err := validatePassword(*body.Password)
+		err := ValidatePassword(*body.Password)
 		if err != nil {
 			validationErrors = append(validationErrors, web_helpers.NewFieldError("password", err.Error()))
 		}

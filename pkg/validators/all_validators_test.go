@@ -134,7 +134,7 @@ func TestValidateStartDate(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidateStartDate(testCase.Start)
+			err := validators2.ValidateBudgetStartDate(testCase.Start)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -155,7 +155,7 @@ func TestValidateEndDate(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators2.ValidateEndDate(testCase.Start, testCase.End)
+			err := validators2.ValidateBudgetEndDate(testCase.Start, testCase.End)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}

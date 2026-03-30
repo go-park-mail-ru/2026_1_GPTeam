@@ -473,7 +473,7 @@ func TestUserPostgres_UpdateAvatar(t *testing.T) {
 			avatarUrl: "https://example.com/avatar.jpg",
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectExec(`update "user" set avatar_url`).
-					WithArgs("https://example.com/avatar.jpg", pgxmock.AnyArg(), 1).
+					WithArgs("https://example.com/avatar.jpg", 1). // ИСПРАВЛЕНО: только 2 аргумента
 					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 			},
 			expectedErr: false,
@@ -484,7 +484,7 @@ func TestUserPostgres_UpdateAvatar(t *testing.T) {
 			avatarUrl: "https://example.com/avatar.jpg",
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectExec(`update "user" set avatar_url`).
-					WithArgs("https://example.com/avatar.jpg", pgxmock.AnyArg(), 1).
+					WithArgs("https://example.com/avatar.jpg", 1). // ИСПРАВЛЕНО: только 2 аргумента
 					WillReturnError(errors.New("db error"))
 			},
 			expectedErr: true,
@@ -495,7 +495,7 @@ func TestUserPostgres_UpdateAvatar(t *testing.T) {
 			avatarUrl: "https://example.com/avatar.jpg",
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectExec(`update "user" set avatar_url`).
-					WithArgs("https://example.com/avatar.jpg", pgxmock.AnyArg(), 999).
+					WithArgs("https://example.com/avatar.jpg", 999). // ИСПРАВЛЕНО: только 2 аргумента
 					WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 			},
 			expectedErr:   true,
