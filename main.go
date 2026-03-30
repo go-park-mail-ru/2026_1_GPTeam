@@ -124,6 +124,7 @@ func main() {
 	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))
 
 	handler := middleware.AuthMiddleware(mux, authService, userApp)
+	handler = middleware.CSRFMiddleware(handler)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)

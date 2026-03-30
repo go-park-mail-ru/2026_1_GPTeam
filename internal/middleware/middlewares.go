@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"slices"
@@ -16,6 +18,10 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+const CsrfCookieName = "csrf_token"
+const CsrfHeaderName = "X-CSRF-Token"
+const CsrfCookieExpirationTime = time.Hour
 
 type responseWriter struct {
 	http.ResponseWriter
@@ -152,6 +158,55 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			zap.String("request_id", requestId),
 			zap.Int("status_code", wr.StatusCode),
 			zap.String("duration", duration.String()))
+	})
+}
+
+func CSRFMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := logger.GetLoggerWIthRequestId(r.Context())
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
+			csrfToken := r.Header.Get(CsrfHeaderName)
+			if csrfToken == "" {
+				log.Warn("[CSRF middleware] no X-CSRF-Token in headers")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+			cookie, err := r.Cookie(CsrfCookieName)
+			if err != nil || cookie.Value == "" {
+				log.Warn("[CSRF middleware] no csrf_token in cookie")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+			if csrfToken != cookie.Value {
+				log.Warn("[CSRF middleware] CSRF tokens not equal")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+		}
+		bytes := make([]byte, 32)
+		_, err := rand.Read(bytes)
+		if err != nil {
+			log.Error("[CSRF middleware] failed to generate token")
+			response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		token := hex.EncodeToString(bytes)
+		cookie := &http.Cookie{
+			Name:     CsrfCookieName,
+			Value:    token,
+			Path:     "/",
+			Expires:  time.Now().Add(CsrfCookieExpirationTime),
+			Secure:   true,
+			HttpOnly: false,
+			SameSite: http.SameSiteStrictMode,
+		}
+		http.SetCookie(w, cookie)
+		w.Header().Set(CsrfHeaderName, token)
+		next.ServeHTTP(w, r)
 	})
 }
 
