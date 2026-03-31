@@ -183,7 +183,7 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id)
+	_ = obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id)
 	user := web_helpers.User{
 		Username:  storedUser.Username,
 		Email:     storedUser.Email,
