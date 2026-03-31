@@ -21,7 +21,7 @@ type UserUseCase interface {
 	GetById(ctx context.Context, id int) (*models.UserModel, error)
 	GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error)
 	IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool)
-	UpdateLastLogin(ctx context.Context, userId int)
+	UpdateLastLogin(ctx context.Context, userId int) error
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
 }
@@ -136,14 +136,16 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 	return user, true
 }
 
-func (obj *User) UpdateLastLogin(ctx context.Context, userId int) {
+func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
 	if err != nil {
 		log.Warn("failed to update last login",
 			zap.Int("user_id", userId),
 			zap.Error(err))
+		return err
 	}
+	return nil
 }
 
 func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
