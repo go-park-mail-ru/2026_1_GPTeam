@@ -64,6 +64,9 @@ func Close() error {
 func GetLoggerWIthRequestId(ctx context.Context) *zap.Logger {
 	mu.RLock()
 	defer mu.RUnlock()
+	if logger == nil {
+		return zap.NewNop()
+	}
 	requestId, ok := ctx.Value("request_id").(string)
 	if !ok {
 		return logger

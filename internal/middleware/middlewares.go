@@ -163,6 +163,10 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 
 func CSRFMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/auth/") {
+			next.ServeHTTP(w, r)
+			return
+		}
 		log := logger.GetLoggerWIthRequestId(r.Context())
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
 			csrfToken := r.Header.Get(CsrfHeaderName)
