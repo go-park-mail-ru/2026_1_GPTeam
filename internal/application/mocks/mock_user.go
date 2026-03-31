@@ -82,6 +82,36 @@ func (mr *MockUserUseCaseMockRecorder) GetById(ctx, id interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetById", reflect.TypeOf((*MockUserUseCase)(nil).GetById), ctx, id)
 }
 
+// GetMultiCurrencyBalance mocks base method.
+func (m *MockUserUseCase) GetMultiCurrencyBalance(ctx context.Context, userId int) ([]models.CurrencyStat, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMultiCurrencyBalance", ctx, userId)
+	ret0, _ := ret[0].([]models.CurrencyStat)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMultiCurrencyBalance indicates an expected call of GetMultiCurrencyBalance.
+func (mr *MockUserUseCaseMockRecorder) GetMultiCurrencyBalance(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMultiCurrencyBalance", reflect.TypeOf((*MockUserUseCase)(nil).GetMultiCurrencyBalance), ctx, userId)
+}
+
+// GetUserBalance mocks base method.
+func (m *MockUserUseCase) GetUserBalance(ctx context.Context, userId int) ([]models.CurrencyStat, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserBalance", ctx, userId)
+	ret0, _ := ret[0].([]models.CurrencyStat)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserBalance indicates an expected call of GetUserBalance.
+func (mr *MockUserUseCaseMockRecorder) GetUserBalance(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserBalance", reflect.TypeOf((*MockUserUseCase)(nil).GetUserBalance), ctx, userId)
+}
+
 // IsAuthUserExists mocks base method.
 func (m *MockUserUseCase) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool) {
 	m.ctrl.T.Helper()
