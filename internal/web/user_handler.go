@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
@@ -179,7 +180,12 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
+	if req.Username != nil {
+		req.Username = new(secure.SanitizeXss(*req.Username))
+	}
+	if req.Email != nil {
+		req.Email = new(secure.SanitizeXss(*req.Email))
+	}
 	validationErrors := validators.ValidateUpdateUser(req)
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while updating profile",

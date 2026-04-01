@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
@@ -69,6 +70,8 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	body.Title = secure.SanitizeXss(body.Title)
+	body.Description = secure.SanitizeXss(body.Description)
 	validationErrors := validators.ValidateTransaction(body, obj.enumsApp.GetTransactionTypes(), obj.enumsApp.GetCategoryTypes())
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while creating transaction",
@@ -185,6 +188,8 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	body.Title = secure.SanitizeXss(body.Title)
+	body.Description = secure.SanitizeXss(body.Description)
 	validationErrors := validators.ValidateTransaction(body, obj.enumsApp.GetTransactionTypes(), obj.enumsApp.GetCategoryTypes())
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while updating transaction",

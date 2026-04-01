@@ -108,6 +108,9 @@ func main() {
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
+	secure.XssSanitizerInit()
+	log.Info("secure package initialized")
+
 	mux := http.NewServeMux()
 	mux.Handle("/account", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccount)))
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
