@@ -29,6 +29,7 @@ type CsrfService interface {
 	GetAccessToken(ctx context.Context, r *http.Request) (string, error)
 	GetCsrfFromCookie(ctx context.Context, r *http.Request) string
 	GetCsrfFromHeader(r *http.Request) string
+	ValidateSecFetchSite(r *http.Request) bool
 }
 
 type Csrf struct {
@@ -153,4 +154,34 @@ func (obj *Csrf) GetCsrfFromCookie(ctx context.Context, r *http.Request) string 
 func (obj *Csrf) GetCsrfFromHeader(r *http.Request) string {
 	token := r.Header.Get(CsrfHeaderName)
 	return token
+}
+
+func (obj *Csrf) ValidateSecFetchSite(r *http.Request) bool {
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	secFetchSite := r.Header.Get("Sec-Fetch-Site")
+	if secFetchSite == "" {
+		log.Info("[CSRF middleware] Sec-Fetch-Site header missing, relying on CSRF tokens")
+		return true
+	}
+	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+		return true
+	}
+	switch secFetchSite {
+	case "same-origin":
+		log.Info("[CSRF middleware] Sec-Fetch-Site: same-origin, request allowed")
+		return true
+	case "same-site":
+		log.Info("[CSRF middleware] Sec-Fetch-Site: same-site, request allowed")
+		return true
+	case "cross-site":
+		log.Warn("[CSRF middleware] Sec-Fetch-Site: cross-site, request blocked")
+		return false
+	case "none":
+		log.Info("[CSRF middleware] Sec-Fetch-Site: none, request allowed")
+		return true
+	default:
+		log.Warn("[CSRF middleware] Sec-Fetch-Site: unknown, request blocked",
+			zap.String("Sec-Fetch-Site", secFetchSite))
+		return false
+	}
 }

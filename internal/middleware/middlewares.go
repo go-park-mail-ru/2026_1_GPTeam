@@ -163,6 +163,11 @@ func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Hand
 			return
 		}
 		log := logger.GetLoggerWIthRequestId(r.Context())
+		if !csrfService.ValidateSecFetchSite(r) {
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
 			accessToken, err := csrfService.GetAccessToken(r.Context(), r)
 			if err != nil {
