@@ -326,6 +326,8 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	transaction.Title = secure.SanitizeXss(transaction.Title)
+	transaction.Description = secure.SanitizeXss(transaction.Description)
 	log.Info("get transaction success",
 		zap.Int("user_id", authUser.Id),
 		zap.Int("transaction_id", transactionId))

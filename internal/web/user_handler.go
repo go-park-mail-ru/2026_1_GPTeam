@@ -149,8 +149,8 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userResponse := web_helpers.User{
-		Username:  authUser.Username,
-		Email:     authUser.Email,
+		Username:  secure.SanitizeXss(authUser.Username),
+		Email:     secure.SanitizeXss(authUser.Email),
 		CreatedAt: authUser.CreatedAt,
 		AvatarUrl: authUser.AvatarUrl,
 	}

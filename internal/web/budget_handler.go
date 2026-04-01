@@ -97,8 +97,8 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result := web_helpers.BudgetRequest{
-		Title:       budget.Title,
-		Description: budget.Description,
+		Title:       secure.SanitizeXss(budget.Title),
+		Description: secure.SanitizeXss(budget.Description),
 		CreatedAt:   budget.CreatedAt,
 		StartAt:     budget.StartAt,
 		EndAt:       budget.EndAt,
