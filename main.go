@@ -12,6 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -88,6 +89,10 @@ func main() {
 		return
 	}
 	authService := auth.NewJwtAuthService(jwt)
+	csrfService, err := secure.NewCsrf(os.Getenv("CSRF_SECRET"))
+	if err != nil {
+		return
+	}
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
@@ -123,8 +128,8 @@ func main() {
 	mux.Handle("/img/", middleware.NoDirListing(fileServer))
 	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))
 
-	handler := middleware.AuthMiddleware(mux, authService, userApp)
-	handler = middleware.CSRFMiddleware(handler)
+	handler := middleware.CSRFMiddleware(mux, csrfService)
+	handler = middleware.AuthMiddleware(handler, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)

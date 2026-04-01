@@ -2,8 +2,6 @@ package middleware
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"slices"
@@ -13,15 +11,12 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
-
-const CsrfCookieName = "csrf_token"
-const CsrfHeaderName = "X-CSRF-Token"
-const CsrfCookieExpirationTime = time.Hour
 
 type responseWriter struct {
 	http.ResponseWriter
@@ -161,7 +156,7 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func CSRFMiddleware(next http.Handler) http.Handler {
+func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/auth/") {
 			next.ServeHTTP(w, r)
@@ -169,47 +164,42 @@ func CSRFMiddleware(next http.Handler) http.Handler {
 		}
 		log := logger.GetLoggerWIthRequestId(r.Context())
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
-			csrfToken := r.Header.Get(CsrfHeaderName)
-			if csrfToken == "" {
-				log.Warn("[CSRF middleware] no X-CSRF-Token in headers")
+			accessToken, err := csrfService.GetAccessToken(r.Context(), r)
+			if err != nil {
+				log.Warn("[CSRF middleware] no access token in cookie")
 				response := web_helpers.NewForbiddenErrorResponse()
 				web_helpers.WriteResponseJSON(w, response.Code, response)
 				return
 			}
-			cookie, err := r.Cookie(CsrfCookieName)
-			if err != nil || cookie.Value == "" {
-				log.Warn("[CSRF middleware] no csrf_token in cookie")
+			csrfCookieToken := csrfService.GetCsrfFromCookie(r.Context(), r)
+			if csrfCookieToken == "" {
+				log.Warn("[CSRF middleware] no CSRF cookie in request")
 				response := web_helpers.NewForbiddenErrorResponse()
 				web_helpers.WriteResponseJSON(w, response.Code, response)
 				return
 			}
-			if csrfToken != cookie.Value {
-				log.Warn("[CSRF middleware] CSRF tokens not equal")
+			isValid, err := csrfService.ValidateCsrf(r.Context(), csrfCookieToken, accessToken)
+			if err != nil || !isValid {
+				log.Warn("[CSRF middleware] invalid CSRF cookie in request")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+			csrfHeaderToken := csrfService.GetCsrfFromHeader(r)
+			if csrfHeaderToken == "" {
+				log.Warn("[CSRF middleware] no CSRF header in request")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+			if csrfHeaderToken != csrfCookieToken {
+				log.Warn("[CSRF middleware] invalid CSRF header in request")
 				response := web_helpers.NewForbiddenErrorResponse()
 				web_helpers.WriteResponseJSON(w, response.Code, response)
 				return
 			}
 		}
-		bytes := make([]byte, 32)
-		_, err := rand.Read(bytes)
-		if err != nil {
-			log.Error("[CSRF middleware] failed to generate token")
-			response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
-			web_helpers.WriteResponseJSON(w, response.Code, response)
-			return
-		}
-		token := hex.EncodeToString(bytes)
-		cookie := &http.Cookie{
-			Name:     CsrfCookieName,
-			Value:    token,
-			Path:     "/",
-			Expires:  time.Now().Add(CsrfCookieExpirationTime),
-			Secure:   true,
-			HttpOnly: false,
-			SameSite: http.SameSiteStrictMode,
-		}
-		http.SetCookie(w, cookie)
-		w.Header().Set(CsrfHeaderName, token)
+		csrfService.SetCsrfCookie(r.Context(), w, r)
 		next.ServeHTTP(w, r)
 	})
 }
