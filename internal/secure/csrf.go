@@ -21,10 +21,10 @@ const CsrfHeaderName = "X-CSRF-Token"
 const CsrfCookieExpirationTime = time.Hour
 
 type CsrfService interface {
-	GenerateRandValue(ctx context.Context) (string, error)
-	GenerateCsrf(ctx context.Context, token string) (string, error)
+	generateRandValue(ctx context.Context) (string, error)
+	generateCsrf(ctx context.Context, token string) (string, error)
 	ValidateCsrf(ctx context.Context, csrf string, token string) (bool, error)
-	GetCsrfValueFromToken(ctx context.Context, csrf string) (string, error)
+	getCsrfValueFromToken(ctx context.Context, csrf string) (string, error)
 	SetCsrfCookie(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	GetAccessToken(ctx context.Context, r *http.Request) (string, error)
 	GetCsrfFromCookie(ctx context.Context, r *http.Request) string
@@ -49,7 +49,7 @@ func NewCsrf(secretKey string) (*Csrf, error) {
 	}, nil
 }
 
-func (obj *Csrf) GenerateRandValue(ctx context.Context) (string, error) {
+func (obj *Csrf) generateRandValue(ctx context.Context) (string, error) {
 	data := make([]byte, obj.randNonceLength)
 	_, err := rand.Read(data)
 	if err != nil {
@@ -61,8 +61,8 @@ func (obj *Csrf) GenerateRandValue(ctx context.Context) (string, error) {
 	return hex.EncodeToString(data), nil
 }
 
-func (obj *Csrf) GenerateCsrf(ctx context.Context, token string) (string, error) {
-	randomValue, err := obj.GenerateRandValue(ctx)
+func (obj *Csrf) generateCsrf(ctx context.Context, token string) (string, error) {
+	randomValue, err := obj.generateRandValue(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -94,7 +94,7 @@ func (obj *Csrf) ValidateCsrf(ctx context.Context, csrf string, token string) (b
 	return true, nil
 }
 
-func (obj *Csrf) GetCsrfValueFromToken(ctx context.Context, csrf string) (string, error) {
+func (obj *Csrf) getCsrfValueFromToken(ctx context.Context, csrf string) (string, error) {
 	parts := strings.Split(csrf, ".")
 	if len(parts) != 2 {
 		log := logger.GetLoggerWIthRequestId(ctx)
@@ -109,7 +109,7 @@ func (obj *Csrf) SetCsrfCookie(ctx context.Context, w http.ResponseWriter, r *ht
 	if err != nil {
 		return
 	}
-	signedCsrfToken, err := obj.GenerateCsrf(ctx, token)
+	signedCsrfToken, err := obj.generateCsrf(ctx, token)
 	if err != nil {
 		return
 	}
@@ -122,7 +122,7 @@ func (obj *Csrf) SetCsrfCookie(ctx context.Context, w http.ResponseWriter, r *ht
 		SameSite: http.SameSiteStrictMode,
 		Expires:  time.Now().Add(CsrfCookieExpirationTime),
 	})
-	rawCsrfToken, err := obj.GetCsrfValueFromToken(ctx, signedCsrfToken)
+	rawCsrfToken, err := obj.getCsrfValueFromToken(ctx, signedCsrfToken)
 	if err != nil {
 		return
 	}
