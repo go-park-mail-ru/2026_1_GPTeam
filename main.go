@@ -83,7 +83,7 @@ func main() {
 	accountPostgres := repository.NewAccountPostgres(pool)
 
 	enumsApp := application.NewEnums(enumsPostgres)
-	userApp := application.NewUser(userPostgres)
+	userApp := application.NewUser(userPostgres, enumsApp)
 
 	jwtService, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {

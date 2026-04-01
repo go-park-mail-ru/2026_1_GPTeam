@@ -209,33 +209,23 @@ func (obj *UserPostgres) GetBalanceByCurrency(ctx context.Context, userId int, c
 	log := logger.GetLoggerWIthRequestId(ctx)
 	var income, expenses float64
 
-	queryIncome := `
-		SELECT COALESCE(SUM(t.value), 0) 
+	query := `
+		SELECT 
+			COALESCE(SUM(t.value) FILTER (WHERE t.type = 'INCOME'), 0) AS income,
+			COALESCE(SUM(t.value) FILTER (WHERE t.type = 'EXPENSE'), 0) AS expenses
 		FROM transaction t
 		JOIN account a ON t.account_id = a.id
 		WHERE t.user_id = $1 
-		  AND t.type = 'INCOME' 
 		  AND t.currency = $2 
 		  AND t.deleted_at IS NULL;`
 
-	err := obj.db.QueryRow(ctx, queryIncome, userId, currency).Scan(&income)
+	err := obj.db.QueryRow(ctx, query, userId, currency).Scan(&income, &expenses)
 	if err != nil {
-		log.Error("failed to get income", zap.Error(err), zap.Int("user_id", userId), zap.String("currency", currency))
-		return 0, 0, err
-	}
-
-	queryExpenses := `
-		SELECT COALESCE(SUM(t.value), 0) 
-		FROM transaction t
-		JOIN account a ON t.account_id = a.id
-		WHERE t.user_id = $1 
-		  AND t.type = 'EXPENSE' 
-		  AND t.currency = $2 
-		  AND t.deleted_at IS NULL;`
-
-	err = obj.db.QueryRow(ctx, queryExpenses, userId, currency).Scan(&expenses)
-	if err != nil {
-		log.Error("failed to get expenses", zap.Error(err), zap.Int("user_id", userId), zap.String("currency", currency))
+		log.Error("failed to get balance by currency",
+			zap.Error(err),
+			zap.Int("user_id", userId),
+			zap.String("currency", currency),
+		)
 		return 0, 0, err
 	}
 

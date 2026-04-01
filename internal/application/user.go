@@ -26,14 +26,15 @@ type UserUseCase interface {
 	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
 	GetUserBalance(ctx context.Context, userId int) ([]models.CurrencyStat, error)
 }
-
 type User struct {
 	repository repository.UserRepository
+	enumsApp   EnumsUseCase
 }
 
-func NewUser(repository repository.UserRepository) *User {
+func NewUser(repo repository.UserRepository, enumsApp EnumsUseCase) *User {
 	return &User{
-		repository: repository,
+		repository: repo,
+		enumsApp:   enumsApp,
 	}
 }
 
@@ -168,8 +169,9 @@ func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (
 func (obj *User) GetUserBalance(ctx context.Context, userId int) ([]models.CurrencyStat, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 
-	currencies := []string{"RUB", "USD", "EUR"}
-	var stats []models.CurrencyStat
+	currencies := obj.enumsApp.GetCurrencyCodes()
+
+	stats := make([]models.CurrencyStat, 0, len(currencies))
 
 	for _, curr := range currencies {
 		inc, exp, err := obj.repository.GetBalanceByCurrency(ctx, userId, curr)
