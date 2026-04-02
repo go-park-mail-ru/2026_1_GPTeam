@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
@@ -33,8 +34,21 @@ func NewTransactionPostgres(db DB) *TransactionPostgres {
 func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `insert into transaction (user_id, account_id, value, type, category, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) returning id;`
+	args := []any{
+		transaction.UserId,
+		transaction.AccountId,
+		transaction.Value,
+		transaction.Type,
+		transaction.Category,
+		transaction.Title,
+		transaction.Description,
+		transaction.TransactionDate,
+	}
 	var id int
-	err := obj.db.QueryRow(ctx, query, transaction.UserId, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate).Scan(&id)
+	startTime := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to create transaction (db error)",
@@ -55,14 +69,19 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 			zap.Error(err))
 		return -1, err
 	}
+	log.Info("Query executed")
 	return id, nil
 }
 
 func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select id from transaction where user_id = $1 and deleted_at is null;`
+	args := []any{userId}
 	var ids []int
-	rows, err := obj.db.Query(ctx, query, userId)
+	startTime := time.Now()
+	rows, err := obj.db.Query(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
 		log.Error("failed to get transaction ids by user (not db error)",
 			zap.Error(err))
@@ -92,13 +111,28 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 			zap.Int("userId", userId))
 		return []int{}, NothingInTableError
 	}
+	log.Info("Query executed")
 	return ids, nil
 }
 
 func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel) error {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
-	res, err := obj.db.Exec(ctx, query, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate, transaction.Id, transaction.UserId)
+	args := []any{
+		transaction.AccountId,
+		transaction.Value,
+		transaction.Type,
+		transaction.Category,
+		transaction.Title,
+		transaction.Description,
+		transaction.TransactionDate,
+		transaction.Id,
+		transaction.UserId,
+	}
+	startTime := time.Now()
+	res, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to update transaction (db error)",
@@ -135,14 +169,19 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 			zap.Int("user_id", transaction.UserId))
 		return IncorrectRowsAffectedError
 	}
+	log.Info("Query executed")
 	return nil
 }
 
 func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (int, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `UPDATE transaction SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id;`
+	args := []any{transactionId}
 	var id int
-	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&id)
+	startTime := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
 		log.Error("failed to delete transaction (not db error)",
 			zap.Error(err))
@@ -151,17 +190,21 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 		}
 		return 0, err
 	}
+	log.Info("Query executed")
 	return id, nil
 }
 
 func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date, updated_at from transaction where id = $1 and deleted_at is null;`
+	args := []any{transactionId}
 	transaction := models.TransactionModel{
 		Id: transactionId,
 	}
-
-	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
+	startTime := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
 		log.Error("failed to get transaction (not db error)",
 			zap.Error(err))
@@ -170,5 +213,6 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 		}
 		return models.TransactionModel{}, err
 	}
+	log.Info("Query executed")
 	return transaction, nil
 }
