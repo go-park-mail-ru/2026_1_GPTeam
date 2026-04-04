@@ -24,15 +24,17 @@ type UserUseCase interface {
 	UpdateLastLogin(ctx context.Context, userId int) error
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
+	GetUserBalance(ctx context.Context, userId int) ([]models.CurrencyStat, error)
 }
-
 type User struct {
 	repository repository.UserRepository
+	enumsApp   EnumsUseCase
 }
 
-func NewUser(repository repository.UserRepository) *User {
+func NewUser(repo repository.UserRepository, enumsApp EnumsUseCase) *User {
 	return &User{
-		repository: repository,
+		repository: repo,
+		enumsApp:   enumsApp,
 	}
 }
 
@@ -162,4 +164,29 @@ func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (
 		profile.Password = &hashedPassword
 	}
 	return obj.repository.Update(ctx, profile)
+}
+
+func (obj *User) GetUserBalance(ctx context.Context, userId int) ([]models.CurrencyStat, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
+
+	currencies := obj.enumsApp.GetCurrencyCodes()
+
+	stats := make([]models.CurrencyStat, 0, len(currencies))
+
+	for _, curr := range currencies {
+		inc, exp, err := obj.repository.GetBalanceByCurrency(ctx, userId, curr)
+		if err != nil {
+			log.Error("failed to get currency stats", zap.String("currency", curr), zap.Error(err))
+			return nil, err
+		}
+		stats = append(stats, models.CurrencyStat{
+			Currency: curr,
+			Income:   inc,
+			Expenses: exp,
+			Balance:  inc - exp,
+		})
+	}
+
+	log.Info("calculated user balance stats", zap.Int("user_id", userId))
+	return stats, nil
 }

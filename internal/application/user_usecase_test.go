@@ -18,6 +18,12 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 )
 
+type dummyEnumsApp struct{}
+
+func (d dummyEnumsApp) GetCurrencyCodes() []string    { return []string{"RUB", "USD", "EUR"} }
+func (d dummyEnumsApp) GetTransactionTypes() []string { return []string{} }
+func (d dummyEnumsApp) GetCategoryTypes() []string    { return []string{} }
+
 func TestUserUseCase_GetById(t *testing.T) {
 	t.Parallel()
 
@@ -58,7 +64,7 @@ func TestUserUseCase_GetById(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo)
+			uc := NewUser(repo, dummyEnumsApp{})
 			user, err := uc.GetById(context.Background(), c.id)
 
 			if c.expectedErr {
@@ -110,7 +116,7 @@ func TestUserUseCase_Create(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo)
+			uc := NewUser(repo, dummyEnumsApp{})
 			authUser, err := uc.Create(context.Background(), c.req)
 
 			if c.expectedErr {
@@ -167,7 +173,7 @@ func TestUserUseCase_GetByCredentials(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo)
+			uc := NewUser(repo, dummyEnumsApp{})
 			_, err := uc.GetByCredentials(context.Background(), c.req)
 			require.Error(t, err)
 		})
@@ -192,7 +198,7 @@ func TestUserUseCase_GetByCredentials_Success(t *testing.T) {
 	repo := repomocks.NewMockUserRepository(ctrl)
 	repo.EXPECT().GetByUsername(gomock.Any(), "testuser").Return(hashedUser, nil)
 
-	uc := NewUser(repo)
+	uc := NewUser(repo, dummyEnumsApp{})
 	user, err := uc.GetByCredentials(context.Background(), web_helpers.LoginBodyRequest{
 		Username: "testuser",
 		Password: "Admin123",
@@ -252,7 +258,7 @@ func TestUserUseCase_IsAuthUserExists(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo)
+			uc := NewUser(repo, dummyEnumsApp{})
 			_, ok := uc.IsAuthUserExists(context.Background(), c.isAuth, c.userId)
 			require.Equal(t, c.expectOk, ok)
 		})
@@ -294,7 +300,7 @@ func TestUserUseCase_UpdateLastLogin(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo)
+			uc := NewUser(repo, dummyEnumsApp{})
 			err := uc.UpdateLastLogin(context.Background(), 1)
 
 			if c.expectedErr {
@@ -347,7 +353,7 @@ func TestUserUseCase_Update(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo)
+			uc := NewUser(repo, dummyEnumsApp{})
 			user, err := uc.Update(context.Background(), c.profile)
 
 			if c.expectedErr {
@@ -414,7 +420,7 @@ func TestUserUseCase_Update_WithPassword(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo, &capturedProfile)
 
-			uc := NewUser(repo)
+			uc := NewUser(repo, dummyEnumsApp{})
 			user, err := uc.Update(context.Background(), profile)
 
 			if c.expectedErr {
@@ -463,14 +469,13 @@ func TestUserUseCase_UploadAvatar(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			// не parallel — все пишут в ./static
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo)
+			uc := NewUser(repo, dummyEnumsApp{})
 			avatarUrl, err := uc.UploadAvatar(
 				context.Background(),
 				1,

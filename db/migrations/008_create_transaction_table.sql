@@ -5,6 +5,7 @@ create table if not exists transaction (
     value double precision not null,
     type transaction_type not null,
     category category_type not null,
+    currency currency_code not null,
     title text not null,
     description text not null,
     created_at timestamp not null default now(),

@@ -32,9 +32,9 @@ func NewTransactionPostgres(db DB) *TransactionPostgres {
 
 func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
-	query := `insert into transaction (user_id, account_id, value, type, category, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) returning id;`
+	query := `insert into transaction (user_id, account_id, value, type, category, currency, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id;`
 	var id int
-	err := obj.db.QueryRow(ctx, query, transaction.UserId, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate).Scan(&id)
+	err := obj.db.QueryRow(ctx, query, transaction.UserId, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Currency, transaction.Title, transaction.Description, transaction.TransactionDate).Scan(&id)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to create transaction (db error)",
@@ -97,8 +97,8 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 
 func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel) error {
 	log := logger.GetLoggerWIthRequestId(ctx)
-	query := `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
-	res, err := obj.db.Exec(ctx, query, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Title, transaction.Description, transaction.TransactionDate, transaction.Id, transaction.UserId)
+	query := `update transaction set (account_id, value, type, category, currency, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7, $8) where id = $9 and user_id = $10 and deleted_at is null;`
+	res, err := obj.db.Exec(ctx, query, transaction.AccountId, transaction.Value, transaction.Type, transaction.Category, transaction.Currency, transaction.Title, transaction.Description, transaction.TransactionDate, transaction.Id, transaction.UserId)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to update transaction (db error)",
@@ -156,12 +156,12 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 
 func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
-	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date, updated_at from transaction where id = $1 and deleted_at is null;`
+	query := `select user_id, account_id, value, type, category, currency, title, description, created_at, transaction_date, updated_at from transaction where id = $1 and deleted_at is null;`
 	transaction := models.TransactionModel{
 		Id: transactionId,
 	}
 
-	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
+	err := obj.db.QueryRow(ctx, query, transactionId).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Currency, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
 	if err != nil {
 		log.Error("failed to get transaction (not db error)",
 			zap.Error(err))
