@@ -21,10 +21,7 @@ const CsrfHeaderName = "X-CSRF-Token"
 const CsrfCookieExpirationTime = time.Hour
 
 type CsrfService interface {
-	generateRandValue(ctx context.Context) (string, error)
-	generateCsrf(ctx context.Context, token string) (string, error)
 	ValidateCsrf(ctx context.Context, csrf string, token string) (bool, error)
-	getCsrfValueFromToken(ctx context.Context, csrf string) (string, error)
 	SetCsrfCookie(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	GetAccessToken(ctx context.Context, r *http.Request) (string, error)
 	GetCsrfFromCookie(ctx context.Context, r *http.Request) string

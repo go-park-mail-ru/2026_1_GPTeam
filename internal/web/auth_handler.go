@@ -11,6 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 	"go.uber.org/zap"
@@ -102,7 +103,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -129,7 +130,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -149,7 +150,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}

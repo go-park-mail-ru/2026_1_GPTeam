@@ -11,6 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 	"go.uber.org/zap"
@@ -50,7 +51,7 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	stats, err := obj.userApp.GetUserBalance(r.Context(), authUser.Id)
 	if err != nil {
 		log.Error("failed to calculate user balance", zap.Error(err))
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
