@@ -26,3 +26,10 @@ type UpdateUserProfile struct {
 	AvatarUrl *string
 	UpdatedAt time.Time
 }
+
+type CurrencyStat struct {
+	Currency string
+	Balance  float64
+	Income   float64
+	Expenses float64
+}

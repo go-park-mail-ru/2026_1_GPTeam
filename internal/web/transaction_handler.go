@@ -72,7 +72,12 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	body.Title = secure.SanitizeXss(body.Title)
 	body.Description = secure.SanitizeXss(body.Description)
-	validationErrors := validators.ValidateTransaction(body, obj.enumsApp.GetTransactionTypes(), obj.enumsApp.GetCategoryTypes())
+	validationErrors := validators.ValidateTransaction(
+		body,
+		obj.enumsApp.GetTransactionTypes(),
+		obj.enumsApp.GetCategoryTypes(),
+		obj.enumsApp.GetCurrencyCodes(),
+	)
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while creating transaction",
 			zap.Any("validationErrors", validationErrors))
@@ -87,6 +92,7 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 		Value:           body.Value,
 		Type:            body.Type,
 		Category:        body.Category,
+		Currency:        body.Currency,
 		Title:           body.Title,
 		Description:     body.Description,
 		CreatedAt:       time.Now(),
@@ -178,7 +184,6 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	var body web_helpers.TransactionRequest
 	err = web_helpers.ReadRequestJSON(r, &body)
 	if err != nil {
@@ -190,7 +195,12 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	body.Title = secure.SanitizeXss(body.Title)
 	body.Description = secure.SanitizeXss(body.Description)
-	validationErrors := validators.ValidateTransaction(body, obj.enumsApp.GetTransactionTypes(), obj.enumsApp.GetCategoryTypes())
+	validationErrors := validators.ValidateTransaction(
+		body,
+		obj.enumsApp.GetTransactionTypes(),
+		obj.enumsApp.GetCategoryTypes(),
+		obj.enumsApp.GetCurrencyCodes(),
+	)
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while updating transaction",
 			zap.Int("user_id", authUser.Id),
@@ -204,7 +214,6 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
 	transaction := models.TransactionModel{
 		Id:              transactionId,
 		UserId:          authUser.Id,
@@ -212,6 +221,7 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		Value:           body.Value,
 		Type:            body.Type,
 		Category:        body.Category,
+		Currency:        body.Currency,
 		Title:           body.Title,
 		Description:     body.Description,
 		TransactionDate: body.TransactionDate,

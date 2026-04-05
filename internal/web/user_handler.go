@@ -20,9 +20,9 @@ type UserHandler struct {
 	userApp application.UserUseCase
 }
 
-func NewUserHandler(useCase application.UserUseCase) *UserHandler {
+func NewUserHandler(userApp application.UserUseCase) *UserHandler {
 	return &UserHandler{
-		userApp: useCase,
+		userApp: userApp,
 	}
 }
 
@@ -38,6 +38,7 @@ func (obj *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLoggerWIthRequestId(r.Context())
 	log.Info("get balance request")
+
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
 		log.Warn("user unauthorized")
@@ -45,12 +46,28 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("get balance success",
-		zap.Int("user_id", authUser.Id))
-	response := web_helpers.NewBalanceResponse(0.0, "RUB", 0, 0)
+
+	stats, err := obj.userApp.GetUserBalance(r.Context(), authUser.Id)
+	if err != nil {
+		log.Error("failed to calculate user balance", zap.Error(err))
+		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	var balances []web_helpers.CurrencyBalance
+	for _, s := range stats {
+		balances = append(balances, web_helpers.CurrencyBalance{
+			Currency: s.Currency,
+			Balance:  s.Balance,
+			Income:   s.Income,
+			Expenses: s.Expenses,
+		})
+	}
+
+	response := web_helpers.NewBalanceResponse(balances)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
-
 func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLoggerWIthRequestId(r.Context())
 	log.Info("changing avatar")

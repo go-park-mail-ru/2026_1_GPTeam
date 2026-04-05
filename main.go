@@ -64,6 +64,7 @@ func main() {
 		return
 	}
 	defer pool.Close()
+
 	err = pool.Ping(context.Background())
 	if err != nil {
 		log.Fatal("Failed to connect to database", zap.Error(err))
@@ -83,12 +84,12 @@ func main() {
 	log.Info("repositories initialized")
 
 	enumsApp := application.NewEnums(enumsPostgres)
-	userApp := application.NewUser(userPostgres)
-	jwt, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
+	userApp := application.NewUser(userPostgres, enumsApp)
+	jwtService, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
 		return
 	}
-	authService := auth.NewJwtAuthService(jwt)
+	authService := auth.NewJwtAuthService(jwtService)
 	csrfService, err := secure.NewCsrf(os.Getenv("CSRF_SECRET"))
 	if err != nil {
 		return
@@ -119,6 +120,7 @@ func main() {
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Login)))
 	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPatch)(http.HandlerFunc(userHandler.ProfileHandler)))
 	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Balance)))
+	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))
 	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudgets)))
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
@@ -129,7 +131,6 @@ func main() {
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
 	mux.Handle("/img/", middleware.NoDirListing(fileServer))
-	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))
 
 	handler := middleware.CSRFMiddleware(mux, csrfService)
 	handler = middleware.AuthMiddleware(handler, authService, userApp)
