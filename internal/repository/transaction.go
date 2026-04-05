@@ -33,13 +33,14 @@ func NewTransactionPostgres(db DB) *TransactionPostgres {
 
 func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
-	query := `insert into transaction (user_id, account_id, value, type, category, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) returning id;`
+	query := `insert into transaction (user_id, account_id, value, type, category, currency, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id;`
 	args := []any{
 		transaction.UserId,
 		transaction.AccountId,
 		transaction.Value,
 		transaction.Type,
 		transaction.Category,
+		transaction.Currency,
 		transaction.Title,
 		transaction.Description,
 		transaction.TransactionDate,
@@ -117,12 +118,13 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 
 func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel) error {
 	log := logger.GetLoggerWIthRequestId(ctx)
-	query := `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
+	query := `update transaction set (account_id, value, type, category, currency, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7, $8) where id = $9 and user_id = $10 and deleted_at is null;`
 	args := []any{
 		transaction.AccountId,
 		transaction.Value,
 		transaction.Type,
 		transaction.Category,
+		transaction.Currency,
 		transaction.Title,
 		transaction.Description,
 		transaction.TransactionDate,
@@ -196,13 +198,13 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 
 func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
-	query := `select user_id, account_id, value, type, category, title, description, created_at, transaction_date, updated_at from transaction where id = $1 and deleted_at is null;`
+	query := `select user_id, account_id, value, type, category, currency, title, description, created_at, transaction_date, updated_at from transaction where id = $1 and deleted_at is null;`
 	args := []any{transactionId}
 	transaction := models.TransactionModel{
 		Id: transactionId,
 	}
 	startTime := time.Now()
-	err := obj.db.QueryRow(ctx, query, args...).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Currency, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {

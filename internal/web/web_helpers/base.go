@@ -94,16 +94,20 @@ type BudgetRequest struct {
 	Currency    string    `json:"currency"`
 }
 
-type BalanceResponse struct {
-	SimpleResponse
-	Balance  float64 `json:"balance"`
+type CurrencyBalance struct {
 	Currency string  `json:"currency"`
+	Balance  float64 `json:"balance"`
 	Income   float64 `json:"income"`
 	Expenses float64 `json:"expenses"`
-	Date     string  `json:"date"`
 }
 
-func NewBalanceResponse(balance float64, currency string, income float64, expenses float64) BalanceResponse {
+type BalanceResponse struct {
+	SimpleResponse
+	Balances []CurrencyBalance `json:"balances"`
+	Date     string            `json:"date"`
+}
+
+func NewBalanceResponse(balances []CurrencyBalance) BalanceResponse {
 	months := map[time.Month]string{
 		time.January:   "Январь",
 		time.February:  "Февраль",
@@ -121,15 +125,13 @@ func NewBalanceResponse(balance float64, currency string, income float64, expens
 	curMonth := time.Now().Month()
 	curYear := time.Now().Year()
 	curTime := fmt.Sprintf("%s %d", months[curMonth], curYear)
+
 	return BalanceResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
 			Message: "Ok",
 		},
-		Balance:  balance,
-		Currency: currency,
-		Income:   income,
-		Expenses: expenses,
+		Balances: balances,
 		Date:     curTime,
 	}
 }
@@ -363,6 +365,7 @@ type TransactionRequest struct {
 	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
+	Currency        string    `json:"currency"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
 	TransactionDate time.Time `json:"transaction_date"`
@@ -405,6 +408,7 @@ type TransactionResponse struct {
 	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
+	Currency        string    `json:"currency"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
 	CreatedAt       time.Time `json:"created_at"`
@@ -429,6 +433,7 @@ func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *T
 			Value:           transaction.Value,
 			Type:            transaction.Type,
 			Category:        transaction.Category,
+			Currency:        transaction.Currency,
 			Title:           transaction.Title,
 			Description:     transaction.Description,
 			CreatedAt:       transaction.CreatedAt,

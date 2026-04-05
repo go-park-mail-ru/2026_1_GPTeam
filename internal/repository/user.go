@@ -22,6 +22,7 @@ type UserRepository interface {
 	UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 	UpdateAvatar(ctx context.Context, id int, avatarUrl string) error
+	GetBalanceByCurrency(ctx context.Context, userId int, currency string) (float64, float64, error)
 }
 
 type UserPostgres struct {
@@ -243,4 +244,31 @@ func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl str
 	}
 	log.Info("Query executed")
 	return nil
+}
+
+func (obj *UserPostgres) GetBalanceByCurrency(ctx context.Context, userId int, currency string) (float64, float64, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
+	var income, expenses float64
+
+	query := `
+		SELECT 
+			COALESCE(SUM(t.value) FILTER (WHERE t.type = 'INCOME'), 0) AS income,
+			COALESCE(SUM(t.value) FILTER (WHERE t.type = 'EXPENSE'), 0) AS expenses
+		FROM transaction t
+		JOIN account a ON t.account_id = a.id
+		WHERE t.user_id = $1 
+		  AND t.currency = $2 
+		  AND t.deleted_at IS NULL;`
+
+	err := obj.db.QueryRow(ctx, query, userId, currency).Scan(&income, &expenses)
+	if err != nil {
+		log.Error("failed to get balance by currency",
+			zap.Error(err),
+			zap.Int("user_id", userId),
+			zap.String("currency", currency),
+		)
+		return 0, 0, err
+	}
+
+	return income, expenses, nil
 }
