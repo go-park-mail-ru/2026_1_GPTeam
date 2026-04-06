@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
@@ -32,7 +33,15 @@ func NewJwtPostgres(db DB) *JwtPostgres {
 func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenModel) error {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
-	_, err := obj.db.Exec(ctx, query, token.Uuid, token.UserId, token.ExpiredAt)
+	args := []any{
+		token.Uuid,
+		token.UserId,
+		token.ExpiredAt,
+	}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to create refresh token (db error)",
@@ -51,13 +60,18 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 			zap.Error(err))
 		return err
 	}
+	log.Info("Query executed")
 	return nil
 }
 
 func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `delete from jwt where uuid = $1;`
-	_, err := obj.db.Exec(ctx, query, uuid)
+	args := []any{uuid}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Error("failed to delete refresh token (no such uuid)",
 			zap.Error(pgx.ErrNoRows))
@@ -68,13 +82,18 @@ func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
 			zap.Error(err))
 		return err
 	}
+	log.Info("Query executed")
 	return nil
 }
 
 func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `delete from jwt where user_id = $1;`
-	_, err := obj.db.Exec(ctx, query, userID)
+	args := []any{userID}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Error("failed to delete refresh token (no such user)",
 			zap.Error(pgx.ErrNoRows))
@@ -85,14 +104,19 @@ func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 			zap.Error(err))
 		return err
 	}
+	log.Info("Query executed")
 	return nil
 }
 
 func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select user_id, expired_at from jwt where uuid = $1;`
+	args := []any{uuid}
 	token := models.RefreshTokenModel{Uuid: uuid}
-	err := obj.db.QueryRow(ctx, query, uuid).Scan(&token.UserId, &token.ExpiredAt)
+	startTime := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&token.UserId, &token.ExpiredAt)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
 	if err != nil {
 		log.Error("failed to get refresh token (not db error)",
 			zap.Error(err))
@@ -104,5 +128,6 @@ func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTok
 		}
 		return models.RefreshTokenModel{}, err
 	}
+	log.Info("Query executed")
 	return token, nil
 }

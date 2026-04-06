@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -72,6 +73,13 @@ func GetLoggerWIthRequestId(ctx context.Context) *zap.Logger {
 		return logger
 	}
 	return logger.With(zap.String("request_id", requestId))
+}
+
+func ModifyLoggerWithDBQuery(log *zap.Logger, query string, args []any, duration time.Duration) *zap.Logger {
+	return log.With(zap.String("query", query),
+		zap.Any("args", args),
+		zap.String("duration", duration.String()),
+	)
 }
 
 var accessLogger *zap.Logger
