@@ -9,7 +9,9 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 	"go.uber.org/zap"
@@ -49,7 +51,7 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	stats, err := obj.userApp.GetUserBalance(r.Context(), authUser.Id)
 	if err != nil {
 		log.Error("failed to calculate user balance", zap.Error(err))
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -165,7 +167,7 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userResponse := web_helpers.User{
-		Username:  authUser.Username,
+		Username:  secure.SanitizeXss(authUser.Username),
 		Email:     authUser.Email,
 		CreatedAt: authUser.CreatedAt,
 		AvatarUrl: authUser.AvatarUrl,
@@ -196,7 +198,9 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
+	if req.Username != nil {
+		req.Username = new(secure.SanitizeXss(*req.Username))
+	}
 	validationErrors := validators.ValidateUpdateUser(req)
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while updating profile",

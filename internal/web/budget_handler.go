@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
@@ -96,8 +97,8 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result := web_helpers.BudgetRequest{
-		Title:       budget.Title,
-		Description: budget.Description,
+		Title:       secure.SanitizeXss(budget.Title),
+		Description: secure.SanitizeXss(budget.Description),
 		CreatedAt:   budget.CreatedAt,
 		StartAt:     budget.StartAt,
 		EndAt:       budget.EndAt,
@@ -133,6 +134,8 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	body.Title = secure.SanitizeXss(body.Title)
+	body.Description = secure.SanitizeXss(body.Description)
 	validationErrors := validators.ValidateBudget(body, obj.enumsApp.GetCurrencyCodes())
 	if len(validationErrors) > 0 {
 		log.Warn("validation error when budget creating",

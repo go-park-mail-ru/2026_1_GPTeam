@@ -11,6 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/google/uuid"
@@ -152,6 +153,59 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			zap.String("request_id", requestId),
 			zap.Int("status_code", wr.StatusCode),
 			zap.String("duration", duration.String()))
+	})
+}
+
+func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/auth/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		log := logger.GetLoggerWIthRequestId(r.Context())
+		if !csrfService.ValidateSecFetchSite(r) {
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch {
+			accessToken, err := csrfService.GetAccessToken(r.Context(), r)
+			if err != nil {
+				log.Warn("[CSRF middleware] no access token in cookie")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+			csrfCookieToken := csrfService.GetCsrfFromCookie(r.Context(), r)
+			if csrfCookieToken == "" {
+				log.Warn("[CSRF middleware] no CSRF cookie in request")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+			isValid, err := csrfService.ValidateCsrf(r.Context(), csrfCookieToken, accessToken)
+			if err != nil || !isValid {
+				log.Warn("[CSRF middleware] invalid CSRF cookie in request")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+			csrfHeaderToken := csrfService.GetCsrfFromHeader(r)
+			if csrfHeaderToken == "" {
+				log.Warn("[CSRF middleware] no CSRF header in request")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+			if csrfHeaderToken != csrfCookieToken {
+				log.Warn("[CSRF middleware] invalid CSRF header in request")
+				response := web_helpers.NewForbiddenErrorResponse()
+				web_helpers.WriteResponseJSON(w, response.Code, response)
+				return
+			}
+		}
+		csrfService.SetCsrfCookie(r.Context(), w, r)
+		next.ServeHTTP(w, r)
 	})
 }
 
