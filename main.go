@@ -14,6 +14,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,12 +34,12 @@ func main() {
 			fmt.Println("Error closing logger: ", err)
 		}
 	}()
-
 	log := logger.GetLogger()
 
 	err = logger.InitAccessLogger()
 	if err != nil {
-		log.Fatal("Error initializing access logger", zap.Error(err))
+		log.Fatal("Error initializing access logger",
+			zap.Error(err))
 	}
 	defer func() {
 		err = logger.AccessClose()
@@ -92,28 +93,36 @@ func main() {
 		log.Fatal("Failed to create enums repo", zap.Error(err))
 		return
 	}
-
 	userPostgres := repository.NewUserPostgres(pool)
 	budgetPostgres := repository.NewBudgetPostgres(pool)
 	jwtPostgres := repository.NewJwtPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
 	accountPostgres := repository.NewAccountPostgres(pool)
+	log.Info("repositories initialized")
 
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres, enumsApp)
+<<<<<<< HEAD
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	jwtVersion := os.Getenv("JWT_VERSION")
 	jwtService, err := jwt_auth.NewJwt(jwtPostgres, jwtSecret, jwtVersion)
+=======
+	jwtService, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
+>>>>>>> dev
 	if err != nil {
 		log.Fatal("Failed to create JWT service", zap.Error(err))
 		return
 	}
-
 	authService := auth.NewJwtAuthService(jwtService)
+	csrfService, err := secure.NewCsrf(os.Getenv("CSRF_SECRET"))
+	if err != nil {
+		return
+	}
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
+	log.Info("use cases initialized")
 
 	transcriptionSvc := application.NewTranscriptionService(groqKey)
 	parserSvc := application.NewParserService(groqKey)
@@ -124,12 +133,18 @@ func main() {
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
+<<<<<<< HEAD
 	voiceHandler := web.NewVoiceHandler(transcriptionSvc, parserSvc)
+=======
+	log.Info("handlers initialized")
+>>>>>>> dev
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
-	mux := http.NewServeMux()
+	secure.XssSanitizerInit()
+	log.Info("secure package initialized")
 
+	mux := http.NewServeMux()
 	mux.Handle("/account", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccount)))
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.RefreshToken)))
@@ -150,7 +165,8 @@ func main() {
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
 	mux.Handle("/img/", middleware.NoDirListing(fileServer))
 
-	handler := middleware.AuthMiddleware(mux, authService, userApp)
+	handler := middleware.CSRFMiddleware(mux, csrfService)
+	handler = middleware.AuthMiddleware(handler, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
@@ -161,11 +177,11 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 120 * time.Second,
 	}
-
 	log.Info("starting server at :8080")
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))
+		return
 	}
 }
 

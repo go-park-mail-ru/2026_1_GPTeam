@@ -26,29 +26,29 @@ func ValidateSignUpUser(body web_helpers.SignupBodyRequest) []web_helpers.FieldE
 
 func ValidateUpdateUser(body web_helpers.UpdateUserProfileRequest) []web_helpers.FieldError {
 	var validationErrors []web_helpers.FieldError
+	if body.Username == nil && body.Email == nil && body.Password == nil && body.AvatarUrl == nil {
+		return append(validationErrors, web_helpers.NewFieldError("request", "Нет полей для обновления"))
+	}
+
 	if body.Username != nil {
 		err := ValidateUsername(*body.Username)
 		if err != nil {
 			validationErrors = append(validationErrors, web_helpers.NewFieldError("username", err.Error()))
 		}
-	} else {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("username", "Поле не может быть пустым"))
 	}
+
 	if body.Email != nil {
 		err := ValidateEmail(*body.Email)
 		if err != nil {
 			validationErrors = append(validationErrors, web_helpers.NewFieldError("email", err.Error()))
 		}
-	} else {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("email", "Поле не может быть пустым"))
 	}
+
 	if body.Password != nil {
 		err := ValidatePassword(*body.Password)
 		if err != nil {
 			validationErrors = append(validationErrors, web_helpers.NewFieldError("password", err.Error()))
 		}
-	} else {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("password", "Поле не может быть пустым"))
 	}
 	return validationErrors
 }

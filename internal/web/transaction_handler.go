@@ -9,7 +9,9 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 	"go.uber.org/zap"
@@ -29,6 +31,7 @@ func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsA
 	}
 }
 
+// Transactions /transactions — GET (список) и POST (создать)
 func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -38,6 +41,7 @@ func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// Transaction /transactions/{id} — GET (детали), DELETE (удалить), PUT (обновить)
 func (obj *TransactionHandler) Transaction(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -61,19 +65,23 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	var body web_helpers.TransactionRequest
 	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
-		log.Warn("failed to read body", zap.Error(err))
+		log.Warn("failed to read body",
+			zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	body.Title = secure.SanitizeXss(body.Title)
+	body.Description = secure.SanitizeXss(body.Description)
 	validationErrors := validators.ValidateTransaction(
 		body,
 		obj.enumsApp.GetTransactionTypes(),
 		obj.enumsApp.GetCategoryTypes(),
-		obj.enumsApp.GetCurrencyCodes(), // добавили
+		obj.enumsApp.GetCurrencyCodes(),
 	)
 	if len(validationErrors) > 0 {
-		log.Warn("validation error while creating transaction", zap.Any("validationErrors", validationErrors))
+		log.Warn("validation error while creating transaction",
+			zap.Any("validationErrors", validationErrors))
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -117,11 +125,13 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("created transaction", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", id))
+	log.Info("created transaction",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("transaction_id", id))
 	response := web_helpers.NewTransactionCreateSuccessResponse(id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -143,11 +153,13 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("get transaction ids success", zap.Int("user_id", authUser.Id), zap.Ints("transaction_ids", ids))
+	log.Info("get transaction ids success",
+		zap.Int("user_id", authUser.Id),
+		zap.Ints("transaction_ids", ids))
 	response := web_helpers.NewTransactionsIdsResponse(ids)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -165,7 +177,8 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	transactionId, err := strconv.Atoi(idStr)
 	if err != nil {
-		log.Warn("invalid transaction id", zap.Error(err))
+		log.Warn("invalid transaction id",
+			zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
 		})
@@ -175,16 +188,19 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 	var body web_helpers.TransactionRequest
 	err = web_helpers.ReadRequestJSON(r, &body)
 	if err != nil {
-		log.Warn("invalid request body", zap.Error(err))
+		log.Warn("invalid request body",
+			zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	body.Title = secure.SanitizeXss(body.Title)
+	body.Description = secure.SanitizeXss(body.Description)
 	validationErrors := validators.ValidateTransaction(
 		body,
 		obj.enumsApp.GetTransactionTypes(),
 		obj.enumsApp.GetCategoryTypes(),
-		obj.enumsApp.GetCurrencyCodes(), // добавили
+		obj.enumsApp.GetCurrencyCodes(),
 	)
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while updating transaction",
@@ -233,7 +249,9 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("update transaction success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
+	log.Info("update transaction success",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("transaction_id", transactionId))
 	response := web_helpers.NewTransactionUpdateSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -250,7 +268,9 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	transactionId, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
+		log.Warn("failed to read body",
+			zap.Int("user_id", authUser.Id),
+			zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
 		})
@@ -269,11 +289,13 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("transaction deleted success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
+	log.Info("transaction deleted success",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("transaction_id", transactionId))
 	response := web_helpers.NewTransactionDeleteSuccessResponse(id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -290,7 +312,9 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 	}
 	transactionId, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
+		log.Warn("failed to read body",
+			zap.Int("user_id", authUser.Id),
+			zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
 		})
@@ -309,11 +333,15 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("get transaction success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
+	transaction.Title = secure.SanitizeXss(transaction.Title)
+	transaction.Description = secure.SanitizeXss(transaction.Description)
+	log.Info("get transaction success",
+		zap.Int("user_id", authUser.Id),
+		zap.Int("transaction_id", transactionId))
 	response := web_helpers.NewTransactionDetailSuccessResponse(transaction)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

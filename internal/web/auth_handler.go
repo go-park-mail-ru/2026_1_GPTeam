@@ -9,7 +9,9 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 	"go.uber.org/zap"
@@ -69,7 +71,8 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-
+	body.Username = secure.SanitizeXss(body.Username)
+	body.Email = secure.SanitizeXss(body.Email)
 	validationErrors := validators.ValidateSignUpUser(body)
 	if len(validationErrors) > 0 {
 		log.Warn("validation error",
@@ -100,7 +103,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -127,7 +130,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -147,7 +150,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		response := web_helpers.NewServerErrorResponse(r.Context().Value("request_id").(string))
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -183,7 +186,7 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id)
+	_ = obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id)
 	user := web_helpers.User{
 		Username:  storedUser.Username,
 		Email:     storedUser.Email,
