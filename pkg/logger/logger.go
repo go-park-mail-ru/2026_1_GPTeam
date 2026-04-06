@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -64,17 +65,21 @@ func Close() error {
 func GetLoggerWIthRequestId(ctx context.Context) *zap.Logger {
 	mu.RLock()
 	defer mu.RUnlock()
-
-	// для тестов может быть nil
 	if logger == nil {
 		return zap.NewNop()
 	}
-
 	requestId, ok := ctx.Value("request_id").(string)
 	if !ok {
 		return logger
 	}
 	return logger.With(zap.String("request_id", requestId))
+}
+
+func ModifyLoggerWithDBQuery(log *zap.Logger, query string, args []any, duration time.Duration) *zap.Logger {
+	return log.With(zap.String("query", query),
+		zap.Any("args", args),
+		zap.String("duration", duration.String()),
+	)
 }
 
 var accessLogger *zap.Logger

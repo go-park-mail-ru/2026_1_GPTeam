@@ -34,12 +34,26 @@ func NewBudgetPostgres(db DB) *BudgetPostgres {
 func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `insert into budget (title, description, created_at, start_at, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id;`
-	var id int
 	endAt := pgtype.Timestamptz{
 		Time:  budget.EndAt,
 		Valid: !budget.EndAt.IsZero(),
 	}
-	err := obj.db.QueryRow(ctx, query, budget.Title, budget.Description, budget.CreatedAt, budget.StartAt, endAt, budget.Actual, budget.Target, budget.Currency, budget.Author).Scan(&id)
+	args := []any{
+		budget.Title,
+		budget.Description,
+		budget.CreatedAt,
+		budget.StartAt,
+		endAt,
+		budget.Actual,
+		budget.Target,
+		budget.Currency,
+		budget.Author,
+	}
+	var id int
+	startTime := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to create budget (db error)",
@@ -58,6 +72,7 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 			zap.Error(err))
 		return -1, err
 	}
+	log.Info("Query executed")
 	return id, nil
 }
 
@@ -66,7 +81,11 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author, active from budget where id = $1 and active = true;`
 	var endAt pgtype.Timestamptz
 	budget := models.BudgetModel{Id: id}
-	err := obj.db.QueryRow(ctx, query, id).Scan(&budget.Title, &budget.Description, &budget.CreatedAt, &budget.StartAt, &endAt, &budget.UpdatedAt, &budget.Actual, &budget.Target, &budget.Currency, &budget.Author, &budget.Active)
+	args := []any{id}
+	timeStart := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&budget.Title, &budget.Description, &budget.CreatedAt, &budget.StartAt, &endAt, &budget.UpdatedAt, &budget.Actual, &budget.Target, &budget.Currency, &budget.Author, &budget.Active)
+	duration := time.Since(timeStart)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
 		log.Error("failed to get budget (not db error)",
 			zap.Error(err))
@@ -79,6 +98,7 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 	if !endAt.Valid {
 		budget.EndAt = time.Time{}
 	}
+	log.Info("Query executed")
 	return budget, nil
 }
 
@@ -86,7 +106,11 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select id from budget where author = $1 and active = true;`
 	var ids []int
-	rows, err := obj.db.Query(ctx, query, userId)
+	args := []any{userId}
+	startTime := time.Now()
+	rows, err := obj.db.Query(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
 		log.Error("failed to get budget ids by user (not db error)",
 			zap.Error(err))
@@ -115,17 +139,23 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 		log.Info("no budget ids found in db")
 		return []int{}, NothingInTableError
 	}
+	log.Info("Query executed")
 	return ids, nil
 }
 
 func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `update budget set active = false where id = $1;`
-	_, err := obj.db.Exec(ctx, query, id)
+	args := []any{id}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
 		log.Error("failed to delete budget (not db error)",
 			zap.Error(err))
 		return err
 	}
+	log.Info("Query executed")
 	return nil
 }
