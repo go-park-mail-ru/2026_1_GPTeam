@@ -17,3 +17,14 @@ type TransactionModel struct {
 	DeletedAt       time.Time
 	UpdatedAt       time.Time
 }
+
+type TransactionDraft struct {
+	RawText     string    `json:"raw_text"`
+	Value       float64   `json:"value"`
+	Type        string    `json:"type"`
+	Category    string    `json:"category"`
+	Currency    string    `json:"currency"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	RecordedAt  time.Time `json:"recorded_at"`
+}

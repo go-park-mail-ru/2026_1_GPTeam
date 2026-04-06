@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
@@ -33,6 +35,7 @@ func main() {
 	}()
 
 	log := logger.GetLogger()
+
 	err = logger.InitAccessLogger()
 	if err != nil {
 		log.Fatal("Error initializing access logger", zap.Error(err))
@@ -49,6 +52,19 @@ func main() {
 		log.Fatal("Error loading .env file", zap.Error(err))
 		return
 	}
+
+	// Читаем и зачищаем ключ — TrimSpace убирает \n и пробелы из .env
+	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+	if groqKey == "" {
+		log.Fatal("GROQ_API_KEY environment variable is required")
+		return
+	}
+	log.Info("groq api key loaded",
+		zap.Int("len", len(groqKey)),
+		zap.String("prefix", groqKey[:min(8, len(groqKey))]+"..."),
+		zap.String("suffix", "..."+groqKey[max(0, len(groqKey)-4):]),
+	)
+	smokeTestGroq(groqKey, log)
 
 	user := os.Getenv("POSTGRES_USER")
 	password := os.Getenv("POSTGRES_PASSWORD")
@@ -73,6 +89,7 @@ func main() {
 	defer cancel()
 	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, pool)
 	if err != nil {
+		log.Fatal("Failed to create enums repo", zap.Error(err))
 		return
 	}
 
@@ -85,8 +102,11 @@ func main() {
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres, enumsApp)
 
-	jwtService, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
+	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtVersion := os.Getenv("JWT_VERSION")
+	jwtService, err := jwt_auth.NewJwt(jwtPostgres, jwtSecret, jwtVersion)
 	if err != nil {
+		log.Fatal("Failed to create JWT service", zap.Error(err))
 		return
 	}
 
@@ -95,12 +115,16 @@ func main() {
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
 
+	transcriptionSvc := application.NewTranscriptionService(groqKey)
+	parserSvc := application.NewParserService(groqKey)
+
 	enumsHandler := web.NewEnumsHandler(enumsApp)
 	userHandler := web.NewUserHandler(userApp)
 	authHandler := web.NewAuthHandler(authService, userApp, accountApp)
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
+	voiceHandler := web.NewVoiceHandler(transcriptionSvc, parserSvc)
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
@@ -119,6 +143,7 @@ func main() {
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
 	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
 	mux.Handle("/transactions", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(transactionHandler.Transactions)))
+	mux.Handle("/transactions/voice", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(voiceHandler.CreateVoiceTransaction)))
 	mux.Handle("/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete, http.MethodPut)(http.HandlerFunc(transactionHandler.Transaction)))
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
@@ -134,7 +159,7 @@ func main() {
 		Addr:         ":8080",
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 120 * time.Second,
 	}
 
 	log.Info("starting server at :8080")
@@ -142,4 +167,41 @@ func main() {
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))
 	}
+}
+
+// smokeTestGroq проверяет валидность ключа запросом к /openai/v1/models.
+// 200 — ключ рабочий, 401/403 — ключ невалиден или нет прав.
+func smokeTestGroq(key string, log *zap.Logger) {
+	req, _ := http.NewRequest(http.MethodGet, "https://api.groq.com/openai/v1/models", nil)
+	req.Header.Set("Authorization", "Bearer "+key)
+	c := &http.Client{Timeout: 5 * time.Second}
+	resp, err := c.Do(req)
+	if err != nil {
+		log.Error("groq smoke-test: network error", zap.Error(err))
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	preview := string(body)
+	if len(preview) > 120 {
+		preview = preview[:120] + "..."
+	}
+	log.Info("groq smoke-test result",
+		zap.Int("status", resp.StatusCode),
+		zap.String("body", preview),
+	)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
