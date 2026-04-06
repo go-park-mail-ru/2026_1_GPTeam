@@ -249,7 +249,6 @@ func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl str
 func (obj *UserPostgres) GetBalanceByCurrency(ctx context.Context, userId int, currency string) (float64, float64, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	var income, expenses float64
-
 	query := `
 		SELECT 
 			COALESCE(SUM(t.value) FILTER (WHERE t.type = 'INCOME'), 0) AS income,
@@ -259,16 +258,22 @@ func (obj *UserPostgres) GetBalanceByCurrency(ctx context.Context, userId int, c
 		WHERE t.user_id = $1 
 		  AND t.currency = $2 
 		  AND t.deleted_at IS NULL;`
-
-	err := obj.db.QueryRow(ctx, query, userId, currency).Scan(&income, &expenses)
+	args := []any{
+		userId,
+		currency,
+	}
+	startTime := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&income, &expenses)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
 		log.Error("failed to get balance by currency",
-			zap.Error(err),
 			zap.Int("user_id", userId),
 			zap.String("currency", currency),
+			zap.Error(err),
 		)
 		return 0, 0, err
 	}
-
+	log.Info("Query executed")
 	return income, expenses, nil
 }
