@@ -168,7 +168,7 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	}
 	userResponse := web_helpers.User{
 		Username:  secure.SanitizeXss(authUser.Username),
-		Email:     secure.SanitizeXss(authUser.Email),
+		Email:     authUser.Email,
 		CreatedAt: authUser.CreatedAt,
 		AvatarUrl: authUser.AvatarUrl,
 	}
@@ -200,9 +200,6 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Username != nil {
 		req.Username = new(secure.SanitizeXss(*req.Username))
-	}
-	if req.Email != nil {
-		req.Email = new(secure.SanitizeXss(*req.Email))
 	}
 	validationErrors := validators.ValidateUpdateUser(req)
 	if len(validationErrors) > 0 {
