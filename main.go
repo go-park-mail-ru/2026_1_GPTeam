@@ -139,13 +139,14 @@ func main() {
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
+	addr := ":" + os.Getenv("PORT")
 	server := http.Server{
-		Addr:         ":8080",
+		Addr:         addr,
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	log.Info("starting server at :8080")
+	log.Info("starting server", zap.String("addr", addr))
 	if DEBUG {
 		err = server.ListenAndServe()
 	} else {
