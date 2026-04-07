@@ -2,6 +2,7 @@ package application
 
 import "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 
+//go:generate mockgen -source=enums.go -destination=mocks/enums.go -package=mocks
 type EnumsUseCase interface {
 	GetCurrencyCodes() []string
 	GetTransactionTypes() []string

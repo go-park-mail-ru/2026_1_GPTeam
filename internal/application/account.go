@@ -8,6 +8,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 )
 
+//go:generate mockgen -source=account.go -destination=mocks/account.go -package=mocks
 type AccountUseCase interface {
 	Create(ctx context.Context, account models.AccountModel) (int, error)
 	LinkAccountAndUser(ctx context.Context, accountId int, userId int) error

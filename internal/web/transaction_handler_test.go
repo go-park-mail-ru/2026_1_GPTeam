@@ -10,32 +10,40 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
+	appmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func newTransactionRequest(t *testing.T, method, target string, body any, user models.UserModel) *http.Request {
+func newTransactionRequest(t *testing.T, method, target string, body any, user *models.UserModel) *http.Request {
 	t.Helper()
+
 	var buf bytes.Buffer
 	if body != nil {
 		err := json.NewEncoder(&buf).Encode(body)
 		require.NoError(t, err)
 	}
+
 	req := httptest.NewRequest(method, target, &buf)
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), "user", user)
-	return req.WithContext(ctx)
+
+	if user != nil {
+		ctx := context.WithValue(req.Context(), "user", *user)
+		req = req.WithContext(ctx)
+	}
+
+	return req
 }
 
 func TestTransactionHandler_Create_Success(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	txUC := NewMockTransactionUseCase(ctrl)
-	enumsUC := NewMockEnumsUseCase(ctrl)
-	accountUC := NewMockAccountUseCase(ctrl)
+	txUC := appmocks.NewMockTransactionUseCase(ctrl)
+	enumsUC := appmocks.NewMockEnumsUseCase(ctrl)
+	accountUC := appmocks.NewMockAccountUseCase(ctrl)
 	handler := NewTransactionHandler(txUC, enumsUC, accountUC)
 
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
@@ -68,7 +76,7 @@ func TestTransactionHandler_Create_Success(t *testing.T) {
 		},
 	)
 
-	req := newTransactionRequest(t, http.MethodPost, "/transactions", reqBody, user)
+	req := newTransactionRequest(t, http.MethodPost, "/transactions", reqBody, &user)
 	rr := httptest.NewRecorder()
 
 	handler.Transactions(rr, req)
@@ -87,9 +95,9 @@ func TestTransactionHandler_Create_ForbiddenWhenAccountNotOwned(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	txUC := NewMockTransactionUseCase(ctrl)
-	enumsUC := NewMockEnumsUseCase(ctrl)
-	accountUC := NewMockAccountUseCase(ctrl)
+	txUC := appmocks.NewMockTransactionUseCase(ctrl)
+	enumsUC := appmocks.NewMockEnumsUseCase(ctrl)
+	accountUC := appmocks.NewMockAccountUseCase(ctrl)
 	handler := NewTransactionHandler(txUC, enumsUC, accountUC)
 
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
@@ -107,7 +115,7 @@ func TestTransactionHandler_Create_ForbiddenWhenAccountNotOwned(t *testing.T) {
 	enumsUC.EXPECT().GetCategoryTypes().Return([]string{"food", "salary"})
 	accountUC.EXPECT().IsUserAuthorOfAccount(gomock.Any(), 7, 55).Return(false)
 
-	req := newTransactionRequest(t, http.MethodPost, "/transactions", reqBody, models.UserModel{Id: 7})
+	req := newTransactionRequest(t, http.MethodPost, "/transactions", reqBody, &models.UserModel{Id: 7})
 	rr := httptest.NewRecorder()
 
 	handler.Transactions(rr, req)
@@ -119,9 +127,9 @@ func TestTransactionHandler_GetTransactions_Success(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	txUC := NewMockTransactionUseCase(ctrl)
-	enumsUC := NewMockEnumsUseCase(ctrl)
-	accountUC := NewMockAccountUseCase(ctrl)
+	txUC := appmocks.NewMockTransactionUseCase(ctrl)
+	enumsUC := appmocks.NewMockEnumsUseCase(ctrl)
+	accountUC := appmocks.NewMockAccountUseCase(ctrl)
 	handler := NewTransactionHandler(txUC, enumsUC, accountUC)
 
 	txUC.EXPECT().GetTransactionIdsOfUser(gomock.Any(), gomock.AssignableToTypeOf(models.UserModel{})).DoAndReturn(
@@ -131,7 +139,7 @@ func TestTransactionHandler_GetTransactions_Success(t *testing.T) {
 		},
 	)
 
-	req := newTransactionRequest(t, http.MethodGet, "/transactions", nil, models.UserModel{Id: 7})
+	req := newTransactionRequest(t, http.MethodGet, "/transactions", nil, &models.UserModel{Id: 7})
 	rr := httptest.NewRecorder()
 
 	handler.Transactions(rr, req)
@@ -151,9 +159,9 @@ func TestTransactionHandler_Update_NotFound(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	txUC := NewMockTransactionUseCase(ctrl)
-	enumsUC := NewMockEnumsUseCase(ctrl)
-	accountUC := NewMockAccountUseCase(ctrl)
+	txUC := appmocks.NewMockTransactionUseCase(ctrl)
+	enumsUC := appmocks.NewMockEnumsUseCase(ctrl)
+	accountUC := appmocks.NewMockAccountUseCase(ctrl)
 	handler := NewTransactionHandler(txUC, enumsUC, accountUC)
 
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
@@ -172,7 +180,7 @@ func TestTransactionHandler_Update_NotFound(t *testing.T) {
 	accountUC.EXPECT().IsUserAuthorOfAccount(gomock.Any(), 7, 55).Return(true)
 	txUC.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(models.TransactionModel{})).Return(repository.NothingInTableError)
 
-	req := newTransactionRequest(t, http.MethodPut, "/transactions/42", reqBody, models.UserModel{Id: 7})
+	req := newTransactionRequest(t, http.MethodPut, "/transactions/42", reqBody, &models.UserModel{Id: 7})
 	req.SetPathValue("id", "42")
 	rr := httptest.NewRecorder()
 
@@ -185,14 +193,14 @@ func TestTransactionHandler_Delete_Forbidden(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	txUC := NewMockTransactionUseCase(ctrl)
-	enumsUC := NewMockEnumsUseCase(ctrl)
-	accountUC := NewMockAccountUseCase(ctrl)
+	txUC := appmocks.NewMockTransactionUseCase(ctrl)
+	enumsUC := appmocks.NewMockEnumsUseCase(ctrl)
+	accountUC := appmocks.NewMockAccountUseCase(ctrl)
 	handler := NewTransactionHandler(txUC, enumsUC, accountUC)
 
 	txUC.EXPECT().Delete(gomock.Any(), 42, 7).Return(0, application.ForbiddenError)
 
-	req := newTransactionRequest(t, http.MethodDelete, "/transactions/42", nil, models.UserModel{Id: 7})
+	req := newTransactionRequest(t, http.MethodDelete, "/transactions/42", nil, &models.UserModel{Id: 7})
 	req.SetPathValue("id", "42")
 	rr := httptest.NewRecorder()
 
@@ -205,9 +213,9 @@ func TestTransactionHandler_Detail_Success(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	txUC := NewMockTransactionUseCase(ctrl)
-	enumsUC := NewMockEnumsUseCase(ctrl)
-	accountUC := NewMockAccountUseCase(ctrl)
+	txUC := appmocks.NewMockTransactionUseCase(ctrl)
+	enumsUC := appmocks.NewMockEnumsUseCase(ctrl)
+	accountUC := appmocks.NewMockAccountUseCase(ctrl)
 	handler := NewTransactionHandler(txUC, enumsUC, accountUC)
 
 	txDate := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
@@ -225,7 +233,7 @@ func TestTransactionHandler_Detail_Success(t *testing.T) {
 		TransactionDate: txDate,
 	}, nil)
 
-	req := newTransactionRequest(t, http.MethodGet, "/transactions/42", nil, models.UserModel{Id: 7})
+	req := newTransactionRequest(t, http.MethodGet, "/transactions/42", nil, &models.UserModel{Id: 7})
 	req.SetPathValue("id", "42")
 	rr := httptest.NewRecorder()
 

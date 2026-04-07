@@ -7,6 +7,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 )
 
+//go:generate mockgen -source=transaction.go -destination=mocks/transaction.go -package=mocks
 type TransactionUseCase interface {
 	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
 	GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
