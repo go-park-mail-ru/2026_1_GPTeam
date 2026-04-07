@@ -15,6 +15,7 @@ import (
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
+//go:generate mockgen -source=jwt.go -destination=mocks/jwt.go -package=mocks
 type JwtUseCase interface {
 	parseToken(tokenStr string) (*jwt.Token, error)
 	CheckToken(tokenStr string) (bool, int)

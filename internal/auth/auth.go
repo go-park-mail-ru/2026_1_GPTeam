@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 )
 
+//go:generate mockgen -source=auth.go -destination=mocks/auth.go -package=mocks
 type AuthenticationService interface {
 	GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userId int)
 	IsAuth(r *http.Request) (bool, int)
