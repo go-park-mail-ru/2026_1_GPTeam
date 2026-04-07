@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -17,31 +18,39 @@ import (
 
 const groqChatURL = "https://api.groq.com/openai/v1/chat/completions"
 
-const parserSystemPrompt = `You are a financial transaction parser.
+const parserSystemPromptTpl = `You are a financial transaction parser.
 Extract transaction data from Russian speech transcript and return ONLY valid JSON.
-No explanation, no markdown, no code blocks — raw JSON only.
+If the transcript does NOT contain any financial transaction (e.g. general conversation, questions like "How are you"), return an empty JSON object: {}.
+
+Current date for resolving relative days: %s
+
+Allowed values (STRICT ENFORCEMENT):
+- Types: %s
+- Categories: %s
+- Currencies: %s
 
 Output schema:
 {
   "value": <number, positive float>,
-  "type": <EXACTLY one of: "expense", "income">,
-  "currency": <EXACTLY one of: "RUB", "USD", "EUR">,
-  "category": <EXACTLY one of: "groceries", "restaurant", "transport", "entertainment", "health", "utilities", "shopping", "salary", "transfer", "other">,
-  "title": <string, 2-4 words in Russian, merchant name or short action>,
-  "description": <string, full context in Russian, max 100 chars>
+  "type": <string from allowed types>,
+  "currency": <string from allowed currencies>,
+  "category": <string from allowed categories>,
+  "title": <string, merchant or item name in NOMINATIVE case, CAPITALIZED>,
+  "description": <string, logical sentence in Russian, CAPITALIZED>,
+  "date": <string, "YYYY-MM-DD">
 }
 
 Rules:
-- value is always positive regardless of expense/income
-- If value cannot be determined, set 0
-- Use ONLY the enum values listed above — never invent new ones
-- Default type: "expense", default currency: "RUB"`
+- title: Nominative case, starts with a CAPITAL letter.
+- description: Logical Russian sentence, starts with a CAPITAL letter. Max 100 chars.
+- If no date is mentioned, use the current date provided above.`
 
 type groqChatRequest struct {
 	Model       string        `json:"model"`
 	Messages    []chatMessage `json:"messages"`
 	Temperature float64       `json:"temperature"`
 	MaxTokens   int           `json:"max_tokens"`
+	TopP        float64       `json:"top_p"`
 }
 
 type chatMessage struct {
@@ -62,27 +71,31 @@ type parsedDraft struct {
 	Category    string  `json:"category"`
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
+	Date        string  `json:"date"`
 }
 
-// ParserService превращает транскрипцию в черновик транзакции
-// через второй запрос в Groq LLaMA.
 type ParserService struct {
 	apiKey     string
 	httpClient *http.Client
+	enums      EnumsUseCase
 }
 
-// NewParserService создаёт сервис парсинга транскрипций.
-func NewParserService(apiKey string) *ParserService {
+func NewParserService(apiKey, proxyStr string, enums EnumsUseCase) *ParserService {
+	var transport *http.Transport
+	if proxyStr != "" {
+		if proxyURL, err := url.Parse(proxyStr); err == nil {
+			transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			}
+		}
+	}
 	return &ParserService{
-		apiKey: strings.TrimSpace(apiKey),
-		httpClient: &http.Client{
-			Timeout: 15 * time.Second,
-		},
+		apiKey:     strings.TrimSpace(apiKey),
+		enums:      enums,
+		httpClient: &http.Client{Timeout: 30 * time.Second, Transport: transport},
 	}
 }
 
-// ParseTransaction отправляет транскрипцию в Groq LLaMA и возвращает
-// структурированный черновик транзакции с полями, совместимыми с DB-енумами.
 func (s *ParserService) ParseTransaction(ctx context.Context, transcript string) (*models.TransactionDraft, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 
@@ -90,80 +103,65 @@ func (s *ParserService) ParseTransaction(ctx context.Context, transcript string)
 		return nil, fmt.Errorf("empty transcript")
 	}
 
+	types := strings.Join(s.enums.GetTransactionTypes(), ", ")
+	categories := strings.Join(s.enums.GetCategoryTypes(), ", ")
+	currencies := strings.Join(s.enums.GetCurrencyCodes(), ", ")
+	currentDate := time.Now().Format("2006-01-02")
+
+	systemPrompt := fmt.Sprintf(parserSystemPromptTpl, currentDate, types, categories, currencies)
+
 	payload := groqChatRequest{
 		Model: "llama-3.3-70b-versatile",
 		Messages: []chatMessage{
-			{Role: "system", Content: parserSystemPrompt},
+			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: transcript},
 		},
-		Temperature: 0,
-		MaxTokens:   256,
+		Temperature: 0.1,
+		MaxTokens:   512,
+		TopP:        1,
 	}
 
-	bodyBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, groqChatURL, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
-	}
+	bodyBytes, _ := json.Marshal(payload)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, groqChatURL, bytes.NewReader(bodyBytes))
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "curl/8.5.0")
-	req.Header.Set("Accept", "*/*")
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		log.Error("parser: groq chat request failed", zap.Error(err))
-		return nil, fmt.Errorf("groq chat request: %w", err)
+		log.Error("parser: groq request failed", zap.Error(err))
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 512<<10))
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
+	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		log.Error("parser: groq returned error status",
-			zap.Int("status", resp.StatusCode),
-			zap.ByteString("body", respBody))
-		return nil, fmt.Errorf("groq chat error %d: %s", resp.StatusCode, respBody)
+		log.Error("parser: groq api error", zap.Int("status", resp.StatusCode))
+		return nil, InternalParserError
 	}
 
 	var chatResp groqChatResponse
-	if err = json.Unmarshal(respBody, &chatResp); err != nil {
-		return nil, fmt.Errorf("parse chat response: %w", err)
-	}
+	json.Unmarshal(respBody, &chatResp)
+
 	if len(chatResp.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in groq response")
+		return nil, InternalParserError
 	}
 
-	raw := stripMarkdownFences(chatResp.Choices[0].Message.Content)
+	rawJSON := stripMarkdownFences(chatResp.Choices[0].Message.Content)
+
+	if rawJSON == "{}" || rawJSON == "" {
+		return nil, nil
+	}
 
 	var parsed parsedDraft
-	if err = json.Unmarshal([]byte(raw), &parsed); err != nil {
-		log.Error("parser: failed to unmarshal llm json",
-			zap.String("raw", raw),
-			zap.Error(err))
-		return nil, fmt.Errorf("parse llm json: %w", err)
-	}
-	if parsed.Value <= 0 {
-		return nil, fmt.Errorf("amount not found in: %q", transcript)
+	if err = json.Unmarshal([]byte(rawJSON), &parsed); err != nil {
+		log.Error("parser: failed to parse LLM json", zap.String("raw", rawJSON), zap.Error(err))
+		return nil, err
 	}
 
-	if parsed.Currency == "" {
-		parsed.Currency = "RUB"
+	transactionDate, err := time.Parse("2006-01-02", parsed.Date)
+	if err != nil {
+		transactionDate = time.Now()
 	}
-	if parsed.Type == "" {
-		parsed.Type = "expense"
-	}
-
-	log.Info("parser: success",
-		zap.Float64("value", parsed.Value),
-		zap.String("type", parsed.Type),
-		zap.String("category", parsed.Category))
 
 	return &models.TransactionDraft{
 		RawText:     transcript,
@@ -173,6 +171,7 @@ func (s *ParserService) ParseTransaction(ctx context.Context, transcript string)
 		Currency:    parsed.Currency,
 		Title:       parsed.Title,
 		Description: parsed.Description,
+		Date:        transactionDate,
 	}, nil
 }
 

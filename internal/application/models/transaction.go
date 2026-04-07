@@ -27,4 +27,5 @@ type TransactionDraft struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	RecordedAt  time.Time `json:"recorded_at"`
+	Date        time.Time `json:"date"`
 }
