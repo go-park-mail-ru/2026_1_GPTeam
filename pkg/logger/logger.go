@@ -18,7 +18,7 @@ var mu sync.RWMutex
 var file *os.File
 var initErr error
 
-func InitLogger() error {
+func InitLogger(DEBUG bool) error {
 	once.Do(func() {
 		file, initErr = os.OpenFile("backend.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if initErr != nil {
@@ -30,10 +30,12 @@ func InitLogger() error {
 		logEncoderConfig := zap.NewProductionEncoderConfig()
 		logEncoderConfig.TimeKey = "time"
 		logEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-		logCore := zapcore.NewTee(
-			zapcore.NewCore(zapcore.NewJSONEncoder(logEncoderConfig), fileWriter, zap.DebugLevel),
-			zapcore.NewCore(zapcore.NewConsoleEncoder(logEncoderConfig), consoleWriter, zap.InfoLevel),
-		)
+		var cores []zapcore.Core
+		cores = append(cores, zapcore.NewCore(zapcore.NewJSONEncoder(logEncoderConfig), fileWriter, zap.DebugLevel))
+		if DEBUG {
+			cores = append(cores, zapcore.NewCore(zapcore.NewConsoleEncoder(logEncoderConfig), consoleWriter, zap.InfoLevel))
+		}
+		logCore := zapcore.NewTee(cores...)
 		logger = zap.New(logCore, zap.AddCaller())
 	})
 	return initErr

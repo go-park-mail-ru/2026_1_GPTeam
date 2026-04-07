@@ -21,7 +21,14 @@ import (
 )
 
 func main() {
-	err := logger.InitLogger()
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file: ", err)
+		return
+	}
+	DEBUG := os.Getenv("DEBUG") == "true"
+
+	err = logger.InitLogger(DEBUG)
 	if err != nil {
 		fmt.Println("Error initializing logger: ", err)
 		return
@@ -44,12 +51,6 @@ func main() {
 			fmt.Println("Error closing access logger: ", err)
 		}
 	}()
-
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file", zap.Error(err))
-		return
-	}
 
 	user := os.Getenv("POSTGRES_USER")
 	password := os.Getenv("POSTGRES_PASSWORD")
@@ -145,7 +146,21 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 	log.Info("starting server at :8080")
-	err = server.ListenAndServe()
+	if DEBUG {
+		err = server.ListenAndServe()
+	} else {
+		cerfFile := os.Getenv("CERT_FILE")
+		if cerfFile == "" {
+			log.Fatal("CERT_FILE not set")
+			return
+		}
+		keyFile := os.Getenv("KEY_FILE")
+		if keyFile == "" {
+			log.Fatal("KEY_FILE not set")
+			return
+		}
+		err = server.ListenAndServeTLS(cerfFile, keyFile)
+	}
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))
 		return
