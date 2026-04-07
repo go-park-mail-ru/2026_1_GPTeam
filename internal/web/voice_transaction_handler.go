@@ -17,16 +17,14 @@ import (
 const maxAudioSize = 25 << 20
 
 type VoiceHandler struct {
-	transcription *application.TranscriptionService
-	parser        *application.ParserService
-	enumsApp      application.EnumsUseCase
+	voiceSvc application.VoiceTransactionUseCase
+	enumsApp application.EnumsUseCase
 }
 
-func NewVoiceHandler(ts *application.TranscriptionService, ps *application.ParserService, es application.EnumsUseCase) *VoiceHandler {
+func NewVoiceHandler(voiceSvc application.VoiceTransactionUseCase, es application.EnumsUseCase) *VoiceHandler {
 	return &VoiceHandler{
-		transcription: ts,
-		parser:        ps,
-		enumsApp:      es,
+		voiceSvc: voiceSvc,
+		enumsApp: es,
 	}
 }
 
@@ -81,25 +79,17 @@ func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Req
 	groqCtx, groqCancel := context.WithTimeout(context.WithoutCancel(ctx), 90*time.Second)
 	defer groqCancel()
 
-	transcript, err := h.transcription.Transcribe(groqCtx, audioData, header.Filename)
+	draft, err := h.voiceSvc.CreateVoiceTransaction(groqCtx, audioData, header.Filename)
 	if err != nil {
-		log.Error("voice: transcription failed", zap.Error(err))
+		log.Error("voice: processing failed", zap.Error(err))
 		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(ctx))
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-
-	draft, err := h.parser.ParseTransaction(groqCtx, transcript)
-	if err != nil {
-		log.Error("voice: parsing failed", zap.Error(err))
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 		response.Message = "Не удалось обработать аудио"
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	if draft == nil || (draft.Title == "" && draft.Value == 0) {
-		log.Warn("voice: no transaction in text", zap.String("transcript", transcript))
+		log.Warn("voice: no transaction in text")
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 		response.Code = http.StatusUnprocessableEntity
 		response.Message = "В вашей речи не найдено данных о транзакции"

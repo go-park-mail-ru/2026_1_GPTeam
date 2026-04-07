@@ -11,6 +11,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
+	groq "github.com/go-park-mail-ru/2026_1_GPTeam/internal/clients/groq"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
@@ -60,7 +61,6 @@ func main() {
 		return
 	}
 
-	// Читаем ключи и прокси
 	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
 	if groqKey == "" {
 		log.Fatal("GROQ_API_KEY environment variable is required")
@@ -123,10 +123,11 @@ func main() {
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
-	log.Info("use cases initialized")
 
-	transcriptionSvc := application.NewTranscriptionService(groqKey, proxyURLStr)
-	parserSvc := application.NewParserService(groqKey, proxyURLStr, enumsApp)
+	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
+	voiceApp := application.NewVoiceTransactionService(groqClient, enumsApp)
+
+	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
 	userHandler := web.NewUserHandler(userApp)
@@ -134,7 +135,7 @@ func main() {
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
-	voiceHandler := web.NewVoiceHandler(transcriptionSvc, parserSvc, enumsApp)
+	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
 	log.Info("handlers initialized")
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
