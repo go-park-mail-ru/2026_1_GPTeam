@@ -29,7 +29,7 @@ func main() {
 	}
 	DEBUG := os.Getenv("DEBUG") == "true"
 
-	err = logger.InitLogger()
+	err = logger.InitLogger(DEBUG)
 	if err != nil {
 		fmt.Println("Error initializing logger: ", err)
 		return

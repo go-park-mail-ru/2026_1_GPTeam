@@ -199,7 +199,8 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Username != nil {
-		req.Username = new(secure.SanitizeXss(*req.Username))
+		sanitized := secure.SanitizeXss(*req.Username)
+		req.Username = &sanitized
 	}
 	validationErrors := validators.ValidateUpdateUser(req)
 	if len(validationErrors) > 0 {
