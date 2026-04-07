@@ -22,7 +22,14 @@ import (
 )
 
 func main() {
-	err := logger.InitLogger()
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file: ", err)
+		return
+	}
+	DEBUG := os.Getenv("DEBUG") == "true"
+
+	err = logger.InitLogger()
 	if err != nil {
 		fmt.Println("Error initializing logger: ", err)
 		return
@@ -162,14 +169,29 @@ func main() {
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
+	addr := ":" + os.Getenv("PORT")
 	server := http.Server{
-		Addr:         ":8080",
+		Addr:         addr,
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 120 * time.Second,
 	}
-	log.Info("starting server at :8080")
-	err = server.ListenAndServe()
+	log.Info("starting server", zap.String("addr", addr))
+	if DEBUG {
+		err = server.ListenAndServe()
+	} else {
+		cerfFile := os.Getenv("CERT_FILE")
+		if cerfFile == "" {
+			log.Fatal("CERT_FILE not set")
+			return
+		}
+		keyFile := os.Getenv("KEY_FILE")
+		if keyFile == "" {
+			log.Fatal("KEY_FILE not set")
+			return
+		}
+		err = server.ListenAndServeTLS(cerfFile, keyFile)
+	}
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))
 		return
