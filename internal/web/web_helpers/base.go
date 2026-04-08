@@ -522,3 +522,39 @@ func NewAvatarUploadSuccessResponse(avatarUrl string) AvatarUploadSuccessRespons
 		AvatarUrl: avatarUrl,
 	}
 }
+
+type TransactionDraftData struct {
+	RawText     string    `json:"raw_text"`
+	Value       float64   `json:"value"`
+	Type        string    `json:"type"`
+	Category    string    `json:"category"`
+	Currency    string    `json:"currency"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	RecordedAt  time.Time `json:"recorded_at"`
+	Date        time.Time `json:"date"`
+}
+
+type VoiceTransactionDraftResponse struct {
+	SimpleResponse
+	Draft TransactionDraftData `json:"draft"`
+}
+
+func NewVoiceTransactionDraftResponse(draft TransactionDraftData) VoiceTransactionDraftResponse {
+	return VoiceTransactionDraftResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Транзакция распознана",
+		},
+		Draft: draft,
+	}
+}
+
+type VoiceErrorResponse SimpleResponse
+
+func NewVoiceErrorResponse(code int, message string) VoiceErrorResponse {
+	return VoiceErrorResponse{
+		Code:    code,
+		Message: message,
+	}
+}
