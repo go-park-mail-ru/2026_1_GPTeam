@@ -47,6 +47,7 @@ services:
     volumes:
       - ./static:/app/static
       - ./logs:/app/log
+      - ${SSL_PATH:-./ssl}:/app/ssl:ro
     env_file:
       - .env
     environment:
