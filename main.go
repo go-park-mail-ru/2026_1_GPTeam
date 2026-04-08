@@ -147,21 +147,7 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 	log.Info("starting server", zap.String("addr", addr))
-	if DEBUG {
-		err = server.ListenAndServe()
-	} else {
-		cerfFile := os.Getenv("CERT_FILE")
-		if cerfFile == "" {
-			log.Fatal("CERT_FILE not set")
-			return
-		}
-		keyFile := os.Getenv("KEY_FILE")
-		if keyFile == "" {
-			log.Fatal("KEY_FILE not set")
-			return
-		}
-		err = server.ListenAndServeTLS(cerfFile, keyFile)
-	}
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))
 		return
