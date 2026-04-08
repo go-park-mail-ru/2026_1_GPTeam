@@ -2,182 +2,285 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
-	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	jwtmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth/mocks"
 )
 
-const authTestSecret = "testsecret123"
-const authTestVersion = "v1"
-
-func newJwtForAuthTests(t *testing.T, repo *repomocks.MockJwtRepository) *jwt_auth.Jwt {
-	t.Helper()
-	service, err := jwt_auth.NewJwt(repo, authTestSecret, authTestVersion)
-	require.NoError(t, err)
-	return service
-}
-
-func signRefreshTokenForAuthTests(t *testing.T, tokenID string, userID int) string {
-	t.Helper()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":      tokenID,
-		"user_id": userID,
-		"version": authTestVersion,
-		"exp":     time.Now().Add(jwt_auth.RefreshTokenExpirationTime).Unix(),
-	})
-	tokenStr, err := token.SignedString([]byte(authTestSecret))
-	require.NoError(t, err)
-	return tokenStr
-}
-
-func cookieMap(cookies []*http.Cookie) map[string]*http.Cookie {
-	result := make(map[string]*http.Cookie, len(cookies))
-	for _, cookie := range cookies {
-		result[cookie.Name] = cookie
-	}
-	return result
-}
-
-func TestJwtAuthService_GenerateNewAuth_SetsBothCookies(t *testing.T) {
+func TestJwtAuthService_GenerateNewAuth(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	jwtUC := newJwtForAuthTests(t, repo)
-	service := NewJwtAuthService(jwtUC)
+	cases := []struct {
+		name       string
+		setupMocks func(jwtUseCase *jwtmocks.MockJwtUseCase)
+		checkReq   func(t *testing.T, w *httptest.ResponseRecorder)
+	}{
+		{
+			name: "success",
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {
+				jwtUseCase.EXPECT().GenerateToken(42).Return("access_token", nil)
+				jwtUseCase.EXPECT().GenerateRefreshToken(gomock.Any(), 42, "pass").Return("refresh_token", nil)
+			},
+			checkReq: func(t *testing.T, w *httptest.ResponseRecorder) {
+				cookies := w.Result().Cookies()
+				require.Len(t, cookies, 2)
 
-	repo.EXPECT().DeleteByUserId(gomock.Any(), 7).Return(nil)
-	repo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(models.RefreshTokenModel{})).DoAndReturn(
-		func(_ context.Context, got models.RefreshTokenModel) error {
-			require.Equal(t, 7, got.UserId)
-			require.Equal(t, "pass", got.DeviceId)
-			require.NotEmpty(t, got.Uuid)
-			require.True(t, got.ExpiredAt.After(time.Now()))
-			return nil
+				accessCookie := cookies[0]
+				require.Equal(t, TokenName, accessCookie.Name)
+				require.Equal(t, "access_token", accessCookie.Value)
+				require.Equal(t, "/", accessCookie.Path)
+				require.True(t, accessCookie.HttpOnly)
+
+				refreshCookie := cookies[1]
+				require.Equal(t, RefreshTokenName, refreshCookie.Name)
+				require.Equal(t, "refresh_token", refreshCookie.Value)
+				require.Equal(t, "/auth/", refreshCookie.Path)
+				require.True(t, refreshCookie.HttpOnly)
+			},
 		},
-	)
+		{
+			name: "generate access token fails",
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {
+				jwtUseCase.EXPECT().GenerateToken(42).Return("", errors.New("error"))
+			},
+			checkReq: func(t *testing.T, w *httptest.ResponseRecorder) {
+				require.Empty(t, w.Result().Cookies())
+			},
+		},
+		{
+			name: "generate refresh token fails",
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {
+				jwtUseCase.EXPECT().GenerateToken(42).Return("access_token", nil)
+				jwtUseCase.EXPECT().GenerateRefreshToken(gomock.Any(), 42, "pass").Return("", errors.New("error"))
+			},
+			checkReq: func(t *testing.T, w *httptest.ResponseRecorder) {
+				cookies := w.Result().Cookies()
+				require.Len(t, cookies, 1)
+				require.Equal(t, TokenName, cookies[0].Name)
+			},
+		},
+	}
 
-	rr := httptest.NewRecorder()
-	service.GenerateNewAuth(context.Background(), rr, 7)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	cookies := cookieMap(rr.Result().Cookies())
-	require.Contains(t, cookies, TokenName)
-	require.Contains(t, cookies, RefreshTokenName)
-	require.NotEmpty(t, cookies[TokenName].Value)
-	require.NotEmpty(t, cookies[RefreshTokenName].Value)
-	require.Equal(t, "/", cookies[TokenName].Path)
-	require.Equal(t, "/auth/", cookies[RefreshTokenName].Path)
+			jwtUseCase := jwtmocks.NewMockJwtUseCase(ctrl)
+			c.setupMocks(jwtUseCase)
+
+			authService := NewJwtAuthService(jwtUseCase)
+			w := httptest.NewRecorder()
+
+			authService.GenerateNewAuth(context.Background(), w, 42)
+			c.checkReq(t, w)
+		})
+	}
 }
 
-func TestJwtAuthService_IsAuth_Success(t *testing.T) {
+func TestJwtAuthService_IsAuth(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	jwtUC := newJwtForAuthTests(t, repo)
-	service := NewJwtAuthService(jwtUC)
+	cases := []struct {
+		name         string
+		setupReq     func() *http.Request
+		setupMocks   func(jwtUseCase *jwtmocks.MockJwtUseCase)
+		expectedBool bool
+		expectedId   int
+	}{
+		{
+			name: "no cookie",
+			setupReq: func() *http.Request {
+				return httptest.NewRequest(http.MethodGet, "/", nil)
+			},
+			setupMocks:   func(jwtUseCase *jwtmocks.MockJwtUseCase) {},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "invalid token",
+			setupReq: func() *http.Request {
+				req := httptest.NewRequest(http.MethodGet, "/", nil)
+				req.AddCookie(&http.Cookie{Name: TokenName, Value: "invalid_token"})
+				return req
+			},
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {
+				jwtUseCase.EXPECT().CheckToken("invalid_token").Return(false, -1)
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "valid token",
+			setupReq: func() *http.Request {
+				req := httptest.NewRequest(http.MethodGet, "/", nil)
+				req.AddCookie(&http.Cookie{Name: TokenName, Value: "valid_token"})
+				return req
+			},
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {
+				jwtUseCase.EXPECT().CheckToken("valid_token").Return(true, 42)
+			},
+			expectedBool: true,
+			expectedId:   42,
+		},
+	}
 
-	token, err := jwtUC.GenerateToken(9)
-	require.NoError(t, err)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
-	req.AddCookie(&http.Cookie{Name: TokenName, Value: token})
+			jwtUseCase := jwtmocks.NewMockJwtUseCase(ctrl)
+			c.setupMocks(jwtUseCase)
 
-	isAuth, userID := service.IsAuth(context.Background(), req)
-	require.True(t, isAuth)
-	require.Equal(t, 9, userID)
+			authService := NewJwtAuthService(jwtUseCase)
+			req := c.setupReq()
+
+			isValid, userId := authService.IsAuth(context.Background(), req)
+			require.Equal(t, c.expectedBool, isValid)
+			require.Equal(t, c.expectedId, userId)
+		})
+	}
 }
 
-func TestJwtAuthService_IsAuth_NoCookie(t *testing.T) {
+func TestJwtAuthService_ClearOld(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	jwtUC := newJwtForAuthTests(t, repo)
-	service := NewJwtAuthService(jwtUC)
+	cases := []struct {
+		name       string
+		setupReq   func() *http.Request
+		setupMocks func(jwtUseCase *jwtmocks.MockJwtUseCase)
+	}{
+		{
+			name: "without old refresh token",
+			setupReq: func() *http.Request {
+				return httptest.NewRequest(http.MethodPost, "/logout", nil)
+			},
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {},
+		},
+		{
+			name: "with old refresh token",
+			setupReq: func() *http.Request {
+				req := httptest.NewRequest(http.MethodPost, "/logout", nil)
+				req.AddCookie(&http.Cookie{Name: RefreshTokenName, Value: "old_refresh"})
+				return req
+			},
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {
+				jwtUseCase.EXPECT().DeleteRefreshToken(gomock.Any(), "old_refresh")
+			},
+		},
+	}
 
-	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	isAuth, userID := service.IsAuth(context.Background(), req)
-	require.False(t, isAuth)
-	require.Equal(t, -1, userID)
+			jwtUseCase := jwtmocks.NewMockJwtUseCase(ctrl)
+			c.setupMocks(jwtUseCase)
+
+			authService := NewJwtAuthService(jwtUseCase)
+			w := httptest.NewRecorder()
+			req := c.setupReq()
+
+			authService.ClearOld(context.Background(), w, req)
+
+			cookies := w.Result().Cookies()
+			require.Len(t, cookies, 2)
+
+			accessCookie := cookies[0]
+			require.Equal(t, TokenName, accessCookie.Name)
+			require.Empty(t, accessCookie.Value)
+			require.True(t, accessCookie.Expires.Before(time.Now()))
+
+			refreshCookie := cookies[1]
+			require.Equal(t, RefreshTokenName, refreshCookie.Name)
+			require.Empty(t, refreshCookie.Value)
+			require.True(t, refreshCookie.Expires.Before(time.Now()))
+		})
+	}
 }
 
-func TestJwtAuthService_ClearOld_DeletesRefreshTokenAndClearsCookies(t *testing.T) {
+func TestJwtAuthService_Refresh(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	jwtUC := newJwtForAuthTests(t, repo)
-	service := NewJwtAuthService(jwtUC)
+	cases := []struct {
+		name         string
+		setupReq     func() *http.Request
+		setupMocks   func(jwtUseCase *jwtmocks.MockJwtUseCase)
+		expectedBool bool
+		expectedId   int
+	}{
+		{
+			name: "no refresh cookie",
+			setupReq: func() *http.Request {
+				return httptest.NewRequest(http.MethodPost, "/refresh", nil)
+			},
+			setupMocks:   func(jwtUseCase *jwtmocks.MockJwtUseCase) {},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "invalid refresh token",
+			setupReq: func() *http.Request {
+				req := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+				req.AddCookie(&http.Cookie{Name: RefreshTokenName, Value: "invalid_refresh"})
+				return req
+			},
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {
+				jwtUseCase.EXPECT().CheckRefreshToken(gomock.Any(), "invalid_refresh").Return(false, -1)
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "valid refresh token",
+			setupReq: func() *http.Request {
+				req := httptest.NewRequest(http.MethodPost, "/refresh", nil)
+				req.AddCookie(&http.Cookie{Name: RefreshTokenName, Value: "valid_refresh"})
+				return req
+			},
+			setupMocks: func(jwtUseCase *jwtmocks.MockJwtUseCase) {
+				jwtUseCase.EXPECT().CheckRefreshToken(gomock.Any(), "valid_refresh").Return(true, 42)
+				jwtUseCase.EXPECT().DeleteRefreshToken(gomock.Any(), "valid_refresh")
+				jwtUseCase.EXPECT().GenerateToken(42).Return("new_access", nil)
+				jwtUseCase.EXPECT().GenerateRefreshToken(gomock.Any(), 42, "pass").Return("new_refresh", nil)
+			},
+			expectedBool: true,
+			expectedId:   42,
+		},
+	}
 
-	refreshToken := signRefreshTokenForAuthTests(t, "rt-1", 7)
-	repo.EXPECT().DeleteByUuid(gomock.Any(), "rt-1").Return(nil)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
-	req.AddCookie(&http.Cookie{Name: RefreshTokenName, Value: refreshToken})
-	rr := httptest.NewRecorder()
+			jwtUseCase := jwtmocks.NewMockJwtUseCase(ctrl)
+			c.setupMocks(jwtUseCase)
 
-	service.ClearOld(context.Background(), rr, req)
+			authService := NewJwtAuthService(jwtUseCase)
+			w := httptest.NewRecorder()
+			req := c.setupReq()
 
-	cookies := cookieMap(rr.Result().Cookies())
-	require.Contains(t, cookies, TokenName)
-	require.Contains(t, cookies, RefreshTokenName)
-	require.Equal(t, "", cookies[TokenName].Value)
-	require.Equal(t, "", cookies[RefreshTokenName].Value)
-	require.Equal(t, "/", cookies[TokenName].Path)
-	require.Equal(t, "/auth/", cookies[RefreshTokenName].Path)
-}
-
-func TestJwtAuthService_Refresh_Success(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	jwtUC := newJwtForAuthTests(t, repo)
-	service := NewJwtAuthService(jwtUC)
-
-	refreshToken := signRefreshTokenForAuthTests(t, "rt-1", 7)
-	gomock.InOrder(
-		repo.EXPECT().Get(gomock.Any(), "rt-1").Return(models.RefreshTokenModel{Uuid: "rt-1", UserId: 7}, nil),
-		repo.EXPECT().DeleteByUuid(gomock.Any(), "rt-1").Return(nil),
-		repo.EXPECT().DeleteByUserId(gomock.Any(), 7).Return(nil),
-		repo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(models.RefreshTokenModel{})).Return(nil),
-	)
-
-	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
-	req.AddCookie(&http.Cookie{Name: RefreshTokenName, Value: refreshToken})
-	rr := httptest.NewRecorder()
-
-	isAuth, userID := service.Refresh(context.Background(), rr, req)
-
-	require.True(t, isAuth)
-	require.Equal(t, 7, userID)
-	cookies := cookieMap(rr.Result().Cookies())
-	require.Contains(t, cookies, TokenName)
-	require.Contains(t, cookies, RefreshTokenName)
-}
-
-func TestJwtAuthService_Refresh_NoCookie(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	jwtUC := newJwtForAuthTests(t, repo)
-	service := NewJwtAuthService(jwtUC)
-
-	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
-	rr := httptest.NewRecorder()
-
-	isAuth, userID := service.Refresh(context.Background(), rr, req)
-	require.False(t, isAuth)
-	require.Equal(t, -1, userID)
+			isValid, userId := authService.Refresh(context.Background(), w, req)
+			require.Equal(t, c.expectedBool, isValid)
+			require.Equal(t, c.expectedId, userId)
+		})
+	}
 }

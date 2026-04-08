@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
+	groq "github.com/go-park-mail-ru/2026_1_GPTeam/internal/clients/groq"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
@@ -40,6 +42,7 @@ func main() {
 		}
 	}()
 	log := logger.GetLogger()
+
 	err = logger.InitAccessLogger()
 	if err != nil {
 		log.Fatal("Error initializing access logger",
@@ -51,6 +54,26 @@ func main() {
 			fmt.Println("Error closing access logger: ", err)
 		}
 	}()
+
+	err = godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file", zap.Error(err))
+		return
+	}
+
+	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+	if groqKey == "" {
+		log.Fatal("GROQ_API_KEY environment variable is required")
+		return
+	}
+	proxyURLStr := os.Getenv("PROXY_URL")
+
+	log.Info("groq api key loaded",
+		zap.Int("len", len(groqKey)),
+		zap.String("prefix", groqKey[:min(8, len(groqKey))]+"..."),
+		zap.String("suffix", "..."+groqKey[max(0, len(groqKey)-4):]),
+		zap.String("proxy", proxyURLStr),
+	)
 
 	user := os.Getenv("POSTGRES_USER")
 	password := os.Getenv("POSTGRES_PASSWORD")
@@ -75,6 +98,7 @@ func main() {
 	defer cancel()
 	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, pool)
 	if err != nil {
+		log.Fatal("Failed to create enums repo", zap.Error(err))
 		return
 	}
 	userPostgres := repository.NewUserPostgres(pool)
@@ -88,6 +112,7 @@ func main() {
 	userApp := application.NewUser(userPostgres, enumsApp)
 	jwtService, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
+		log.Fatal("Failed to create JWT service", zap.Error(err))
 		return
 	}
 	authService := auth.NewJwtAuthService(jwtService)
@@ -98,6 +123,10 @@ func main() {
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
+
+	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
+	voiceApp := application.NewVoiceTransactionService(groqClient, enumsApp)
+
 	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
@@ -106,6 +135,7 @@ func main() {
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
+	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
 	log.Info("handlers initialized")
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
@@ -114,20 +144,22 @@ func main() {
 	log.Info("secure package initialized")
 
 	mux := http.NewServeMux()
-	mux.Handle("/account", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccount)))
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.RefreshToken)))
 	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.SignUp)))
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Login)))
-	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPatch)(http.HandlerFunc(userHandler.ProfileHandler)))
-	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Balance)))
+	mux.Handle("/api/account", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccount)))
+	mux.Handle("/api/profile", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPatch)(http.HandlerFunc(userHandler.ProfileHandler)))
+	mux.Handle("/api/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Balance)))
 	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))
-	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudgets)))
-	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
-	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
-	mux.Handle("/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
 	mux.Handle("/transactions", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(transactionHandler.Transactions)))
-	mux.Handle("/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete, http.MethodPut)(http.HandlerFunc(transactionHandler.Transaction)))
+	mux.Handle("/api/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudgets)))
+	mux.Handle("/api/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
+	mux.Handle("/api/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
+	mux.Handle("/api/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
+	mux.Handle("/api/transactions", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(transactionHandler.Transactions)))
+	mux.Handle("/api/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete, http.MethodPut)(http.HandlerFunc(transactionHandler.Transaction)))
+	mux.Handle("/api/transactions/voice", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(voiceHandler.CreateVoiceTransaction)))
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
@@ -144,24 +176,10 @@ func main() {
 		Addr:         addr,
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 120 * time.Second,
 	}
 	log.Info("starting server", zap.String("addr", addr))
-	if DEBUG {
-		err = server.ListenAndServe()
-	} else {
-		cerfFile := os.Getenv("CERT_FILE")
-		if cerfFile == "" {
-			log.Fatal("CERT_FILE not set")
-			return
-		}
-		keyFile := os.Getenv("KEY_FILE")
-		if keyFile == "" {
-			log.Fatal("KEY_FILE not set")
-			return
-		}
-		err = server.ListenAndServeTLS(cerfFile, keyFile)
-	}
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))
 		return

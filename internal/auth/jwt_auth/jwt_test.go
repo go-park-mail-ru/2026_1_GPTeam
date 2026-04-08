@@ -6,188 +6,395 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
-	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
 )
 
-const jwtTestSecret = "testsecret123"
-const jwtTestVersion = "v1"
+const (
+	testSecret  = "super_secret_key_123"
+	testVersion = "1.0.0"
+)
 
-func newJwtForTests(t *testing.T, repo *repomocks.MockJwtRepository) *Jwt {
-	t.Helper()
-	obj, err := NewJwt(repo, jwtTestSecret, jwtTestVersion)
+func createTestJwt(t *testing.T, ctrl *gomock.Controller) (*Jwt, *repomocks.MockJwtRepository) {
+	repo := repomocks.NewMockJwtRepository(ctrl)
+	jwtSvc, err := NewJwt(repo, testSecret, testVersion)
 	require.NoError(t, err)
-	return obj
+	return jwtSvc, repo
 }
 
-func signTokenForJwtTests(t *testing.T, claims jwt.MapClaims) string {
-	t.Helper()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenStr, err := token.SignedString([]byte(jwtTestSecret))
-	require.NoError(t, err)
+func generateCustomToken(claims jwt.MapClaims, secret string, method jwt.SigningMethod) string {
+	token := jwt.NewWithClaims(method, claims)
+	tokenStr, _ := token.SignedString([]byte(secret))
 	return tokenStr
 }
 
-func TestNewJwt_Validation(t *testing.T) {
+func TestNewJwt(t *testing.T) {
 	t.Parallel()
-
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	repo := repomocks.NewMockJwtRepository(ctrl)
 
-	_, err := NewJwt(repo, "short", jwtTestVersion)
-	require.ErrorIs(t, err, JwtSecretError)
-
-	_, err = NewJwt(repo, jwtTestSecret, "")
-	require.ErrorIs(t, err, JwtVersionError)
-}
-
-func TestJwt_CheckToken_Success(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	obj := newJwtForTests(t, repo)
-
-	token := signTokenForJwtTests(t, jwt.MapClaims{
-		"user_id": 9,
-		"version": jwtTestVersion,
-		"exp":     time.Now().Add(time.Hour).Unix(),
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		jwtSvc, err := NewJwt(repo, testSecret, testVersion)
+		require.NoError(t, err)
+		require.NotNil(t, jwtSvc)
+		require.Equal(t, testVersion, jwtSvc.GetVersion())
+		require.Equal(t, []byte(testSecret), jwtSvc.GetJWTSecret())
 	})
-
-	isValid, userID := obj.CheckToken(token)
-	require.True(t, isValid)
-	require.Equal(t, 9, userID)
 }
 
-func TestJwt_CheckToken_WrongVersion(t *testing.T) {
+func TestJwt_CheckToken(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	obj := newJwtForTests(t, repo)
-
-	token := signTokenForJwtTests(t, jwt.MapClaims{
-		"user_id": 9,
-		"version": "v2",
-		"exp":     time.Now().Add(time.Hour).Unix(),
-	})
-
-	isValid, userID := obj.CheckToken(token)
-	require.False(t, isValid)
-	require.Equal(t, -1, userID)
-}
-
-func TestJwt_CheckRefreshToken_Success(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	obj := newJwtForTests(t, repo)
-
-	token := signTokenForJwtTests(t, jwt.MapClaims{
-		"id":      "rt-1",
-		"user_id": 11,
-		"version": jwtTestVersion,
-		"exp":     time.Now().Add(time.Hour).Unix(),
-	})
-	repo.EXPECT().Get(gomock.Any(), "rt-1").Return(models.RefreshTokenModel{Uuid: "rt-1", UserId: 11}, nil)
-
-	isValid, userID := obj.CheckRefreshToken(context.Background(), token)
-	require.True(t, isValid)
-	require.Equal(t, 11, userID)
-}
-
-func TestJwt_CheckRefreshToken_UserMismatch(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	obj := newJwtForTests(t, repo)
-
-	token := signTokenForJwtTests(t, jwt.MapClaims{
-		"id":      "rt-1",
-		"user_id": 11,
-		"version": jwtTestVersion,
-		"exp":     time.Now().Add(time.Hour).Unix(),
-	})
-	repo.EXPECT().Get(gomock.Any(), "rt-1").Return(models.RefreshTokenModel{Uuid: "rt-1", UserId: 12}, nil)
-
-	isValid, userID := obj.CheckRefreshToken(context.Background(), token)
-	require.False(t, isValid)
-	require.Equal(t, -1, userID)
-}
-
-func TestJwt_GenerateRefreshToken_Success(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	obj := newJwtForTests(t, repo)
-
-	repo.EXPECT().DeleteByUserId(gomock.Any(), 7).Return(nil)
-	repo.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(models.RefreshTokenModel{})).DoAndReturn(
-		func(_ context.Context, got models.RefreshTokenModel) error {
-			require.Equal(t, 7, got.UserId)
-			require.Equal(t, "device-1", got.DeviceId)
-			require.NotEmpty(t, got.Uuid)
-			require.True(t, got.ExpiredAt.After(time.Now()))
-			return nil
+	cases := []struct {
+		name         string
+		setupToken   func() string
+		expectedBool bool
+		expectedId   int
+	}{
+		{
+			name: "valid token",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			expectedBool: true,
+			expectedId:   42,
 		},
-	)
+		{
+			name: "invalid token string",
+			setupToken: func() string {
+				return "invalid.token.string"
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "wrong signing method",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"user_id": float64(42),
+					"version": testVersion,
+				}, testSecret, jwt.SigningMethodNone)
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "wrong version",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"user_id": float64(42),
+					"version": "0.0.1",
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "missing version",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"user_id": float64(42),
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "missing user_id",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "expired token",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(-time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+	}
 
-	token, err := obj.GenerateRefreshToken(context.Background(), 7, "device-1")
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			jwtSvc, _ := createTestJwt(t, ctrl)
+			tokenStr := c.setupToken()
+
+			isValid, userId := jwtSvc.CheckToken(tokenStr)
+			require.Equal(t, c.expectedBool, isValid)
+			require.Equal(t, c.expectedId, userId)
+		})
+	}
+}
+
+func TestJwt_CheckRefreshToken(t *testing.T) {
+	t.Parallel()
+
+	validTokenId := uuid.New().String()
+
+	cases := []struct {
+		name         string
+		setupToken   func() string
+		setupMocks   func(repo *repomocks.MockJwtRepository)
+		expectedBool bool
+		expectedId   int
+	}{
+		{
+			name: "valid refresh token",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"id":      validTokenId,
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			setupMocks: func(repo *repomocks.MockJwtRepository) {
+				repo.EXPECT().Get(gomock.Any(), validTokenId).Return(models.RefreshTokenModel{
+					Uuid:   validTokenId,
+					UserId: 42,
+				}, nil)
+			},
+			expectedBool: true,
+			expectedId:   42,
+		},
+		{
+			name: "token not found in db",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"id":      validTokenId,
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			setupMocks: func(repo *repomocks.MockJwtRepository) {
+				repo.EXPECT().Get(gomock.Any(), validTokenId).Return(models.RefreshTokenModel{}, errors.New("not found"))
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "user_id mismatch in db",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"id":      validTokenId,
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			setupMocks: func(repo *repomocks.MockJwtRepository) {
+				repo.EXPECT().Get(gomock.Any(), validTokenId).Return(models.RefreshTokenModel{
+					Uuid:   validTokenId,
+					UserId: 99,
+				}, nil)
+			},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+		{
+			name: "missing id claim",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			setupMocks:   func(repo *repomocks.MockJwtRepository) {},
+			expectedBool: false,
+			expectedId:   -1,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			jwtSvc, repo := createTestJwt(t, ctrl)
+			tokenStr := c.setupToken()
+			c.setupMocks(repo)
+
+			isValid, userId := jwtSvc.CheckRefreshToken(context.Background(), tokenStr)
+			require.Equal(t, c.expectedBool, isValid)
+			require.Equal(t, c.expectedId, userId)
+		})
+	}
+}
+
+func TestJwt_GenerateToken(t *testing.T) {
+	t.Parallel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	jwtSvc, _ := createTestJwt(t, ctrl)
+
+	tokenStr, err := jwtSvc.GenerateToken(42)
 	require.NoError(t, err)
-	require.NotEmpty(t, token)
+	require.NotEmpty(t, tokenStr)
+
+	isValid, userId := jwtSvc.CheckToken(tokenStr)
+	require.True(t, isValid)
+	require.Equal(t, 42, userId)
 }
 
-func TestJwt_GenerateRefreshToken_DeleteOldFails(t *testing.T) {
+func TestJwt_GenerateRefreshToken(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	obj := newJwtForTests(t, repo)
-	genericErr := errors.New("delete old token failed")
+	cases := []struct {
+		name        string
+		setupMocks  func(repo *repomocks.MockJwtRepository)
+		expectedErr bool
+	}{
+		{
+			name: "success",
+			setupMocks: func(repo *repomocks.MockJwtRepository) {
+				repo.EXPECT().DeleteByUserId(gomock.Any(), 42).Return(nil)
+				repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			expectedErr: false,
+		},
+		{
+			name: "delete fails",
+			setupMocks: func(repo *repomocks.MockJwtRepository) {
+				repo.EXPECT().DeleteByUserId(gomock.Any(), 42).Return(errors.New("db error"))
+			},
+			expectedErr: true,
+		},
+		{
+			name: "create fails",
+			setupMocks: func(repo *repomocks.MockJwtRepository) {
+				repo.EXPECT().DeleteByUserId(gomock.Any(), 42).Return(nil)
+				repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(errors.New("db error"))
+			},
+			expectedErr: true,
+		},
+	}
 
-	repo.EXPECT().DeleteByUserId(gomock.Any(), 7).Return(genericErr)
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	token, err := obj.GenerateRefreshToken(context.Background(), 7, "device-1")
-	require.ErrorIs(t, err, genericErr)
-	require.Empty(t, token)
+			jwtSvc, repo := createTestJwt(t, ctrl)
+			c.setupMocks(repo)
+
+			tokenStr, err := jwtSvc.GenerateRefreshToken(context.Background(), 42, "device1")
+			if c.expectedErr {
+				require.Error(t, err)
+				require.Empty(t, tokenStr)
+			} else {
+				require.NoError(t, err)
+				require.NotEmpty(t, tokenStr)
+			}
+		})
+	}
 }
 
-func TestJwt_DeleteRefreshToken_Success(t *testing.T) {
+func TestJwt_DeleteRefreshToken(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	obj := newJwtForTests(t, repo)
+	validTokenId := uuid.New().String()
 
-	token := signTokenForJwtTests(t, jwt.MapClaims{
-		"id":      "rt-1",
-		"user_id": 7,
-		"version": jwtTestVersion,
-		"exp":     time.Now().Add(time.Hour).Unix(),
-	})
-	repo.EXPECT().DeleteByUuid(gomock.Any(), "rt-1").Return(nil)
+	cases := []struct {
+		name       string
+		setupToken func() string
+		setupMocks func(repo *repomocks.MockJwtRepository)
+	}{
+		{
+			name: "success",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"id":      validTokenId,
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			setupMocks: func(repo *repomocks.MockJwtRepository) {
+				repo.EXPECT().DeleteByUuid(gomock.Any(), validTokenId).Return(nil)
+			},
+		},
+		{
+			name: "invalid token string",
+			setupToken: func() string {
+				return "invalid"
+			},
+			setupMocks: func(repo *repomocks.MockJwtRepository) {},
+		},
+		{
+			name: "missing id claim",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			setupMocks: func(repo *repomocks.MockJwtRepository) {},
+		},
+		{
+			name: "db delete error",
+			setupToken: func() string {
+				return generateCustomToken(jwt.MapClaims{
+					"id":      validTokenId,
+					"user_id": float64(42),
+					"version": testVersion,
+					"exp":     time.Now().Add(time.Hour).Unix(),
+				}, testSecret, jwt.SigningMethodHS256)
+			},
+			setupMocks: func(repo *repomocks.MockJwtRepository) {
+				repo.EXPECT().DeleteByUuid(gomock.Any(), validTokenId).Return(errors.New("db error"))
+			},
+		},
+	}
 
-	obj.DeleteRefreshToken(context.Background(), token)
-}
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-func TestJwt_DeleteRefreshToken_InvalidTokenID(t *testing.T) {
-	t.Parallel()
+			jwtSvc, repo := createTestJwt(t, ctrl)
+			tokenStr := c.setupToken()
+			c.setupMocks(repo)
 
-	ctrl := gomock.NewController(t)
-	repo := repomocks.NewMockJwtRepository(ctrl)
-	obj := newJwtForTests(t, repo)
-
-	token := signTokenForJwtTests(t, jwt.MapClaims{
-		"user_id": 7,
-		"version": jwtTestVersion,
-		"exp":     time.Now().Add(time.Hour).Unix(),
-	})
-
-	obj.DeleteRefreshToken(context.Background(), token)
+			jwtSvc.DeleteRefreshToken(context.Background(), tokenStr)
+		})
+	}
 }

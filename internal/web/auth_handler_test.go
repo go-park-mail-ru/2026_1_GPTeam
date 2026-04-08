@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -18,8 +19,14 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	authmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 )
+
+func TestMain(m *testing.M) {
+	secure.XssSanitizerInit()
+	os.Exit(m.Run())
+}
 
 func authUserCtx(user models.UserModel) context.Context {
 	return context.WithValue(context.Background(), "user", user)
@@ -168,7 +175,6 @@ func TestAuthHandler_Login(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 
-			// Фикс паники логгера
 			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
 			req = req.WithContext(ctx)
 

@@ -235,6 +235,24 @@ func TestPanicMiddleware_RecoversPanic(t *testing.T) {
 	require.EqualValues(t, http.StatusInternalServerError, resp["code"])
 }
 
+func TestPanicMiddleware_WithRequestId(t *testing.T) {
+	t.Parallel()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("test panic with id")
+	})
+
+	handler := PanicMiddleware(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func TestPanicMiddleware_NoPanic(t *testing.T) {
 	t.Parallel()
 
@@ -467,6 +485,164 @@ func TestAuthAndMethodMiddlewareComposition(t *testing.T) {
 			handler := AuthMiddleware(mux, authSvc, userApp)
 
 			req := httptest.NewRequest(c.method, "/profile", nil)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+
+			require.Equal(t, c.expectedCode, w.Code)
+		})
+	}
+}
+
+func TestAccessLogMiddleware(t *testing.T) {
+	t.Parallel()
+
+	var gotReqId string
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if reqId, ok := r.Context().Value("request_id").(string); ok {
+			gotReqId = reqId
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte("created"))
+	})
+
+	handler := AccessLogMiddleware(next)
+	req := httptest.NewRequest(http.MethodGet, "/test-path", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.NotEmpty(t, gotReqId)
+	require.Equal(t, "created", w.Body.String())
+}
+
+func TestAccessLogMiddleware_ImplicitStatus(t *testing.T) {
+	t.Parallel()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("implicit ok"))
+	})
+
+	handler := AccessLogMiddleware(next)
+	req := httptest.NewRequest(http.MethodGet, "/test-path", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	// responseWriter должен корректно перехватить код 200 OK при прямом Write
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, "implicit ok", w.Body.String())
+}
+
+// Заглушка для тестирования CSRFMiddleware без необходимости генерации мока
+type fakeCsrf struct {
+	validSite bool
+	accToken  string
+	accErr    error
+	cookie    string
+	validCsrf bool
+	csrfErr   error
+	header    string
+}
+
+func (m *fakeCsrf) ValidateSecFetchSite(r *http.Request) bool {
+	return m.validSite
+}
+func (m *fakeCsrf) GetAccessToken(ctx context.Context, r *http.Request) (string, error) {
+	return m.accToken, m.accErr
+}
+func (m *fakeCsrf) GetCsrfFromCookie(ctx context.Context, r *http.Request) string {
+	return m.cookie
+}
+func (m *fakeCsrf) ValidateCsrf(ctx context.Context, csrfToken string, accessToken string) (bool, error) {
+	return m.validCsrf, m.csrfErr
+}
+func (m *fakeCsrf) GetCsrfFromHeader(r *http.Request) string {
+	return m.header
+}
+func (m *fakeCsrf) SetCsrfCookie(ctx context.Context, w http.ResponseWriter, r *http.Request) {}
+
+func TestCSRFMiddleware(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name         string
+		path         string
+		method       string
+		mockSetup    fakeCsrf
+		expectedCode int
+	}{
+		{
+			name:         "Путь /auth/ пропускается",
+			path:         "/auth/login",
+			method:       http.MethodPost,
+			mockSetup:    fakeCsrf{validSite: false}, // Игнорируется
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "Невалидный Sec-Fetch-Site -> 403",
+			path:         "/api/data",
+			method:       http.MethodPost,
+			mockSetup:    fakeCsrf{validSite: false},
+			expectedCode: http.StatusForbidden,
+		},
+		{
+			name:         "GET запрос -> пропускается проверка токенов, устанавливается кука",
+			path:         "/api/data",
+			method:       http.MethodGet,
+			mockSetup:    fakeCsrf{validSite: true},
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "POST без Access Token -> 403",
+			path:         "/api/data",
+			method:       http.MethodPost,
+			mockSetup:    fakeCsrf{validSite: true, accErr: errors.New("no token")},
+			expectedCode: http.StatusForbidden,
+		},
+		{
+			name:         "POST без CSRF Cookie -> 403",
+			path:         "/api/data",
+			method:       http.MethodPost,
+			mockSetup:    fakeCsrf{validSite: true, accToken: "token", cookie: ""},
+			expectedCode: http.StatusForbidden,
+		},
+		{
+			name:         "POST невалидный CSRF -> 403",
+			path:         "/api/data",
+			method:       http.MethodPost,
+			mockSetup:    fakeCsrf{validSite: true, accToken: "token", cookie: "cookie", validCsrf: false},
+			expectedCode: http.StatusForbidden,
+		},
+		{
+			name:         "POST без CSRF Header -> 403",
+			path:         "/api/data",
+			method:       http.MethodPost,
+			mockSetup:    fakeCsrf{validSite: true, accToken: "token", cookie: "cookie", validCsrf: true, header: ""},
+			expectedCode: http.StatusForbidden,
+		},
+		{
+			name:         "POST Header не совпадает с Cookie -> 403",
+			path:         "/api/data",
+			method:       http.MethodPost,
+			mockSetup:    fakeCsrf{validSite: true, accToken: "token", cookie: "cookie", validCsrf: true, header: "wrong"},
+			expectedCode: http.StatusForbidden,
+		},
+		{
+			name:         "POST успешный -> 200",
+			path:         "/api/data",
+			method:       http.MethodPost,
+			mockSetup:    fakeCsrf{validSite: true, accToken: "token", cookie: "cookie", validCsrf: true, header: "cookie"},
+			expectedCode: http.StatusOK,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			csrfSvc := &c.mockSetup
+			handler := CSRFMiddleware(http.HandlerFunc(okHandler), csrfSvc)
+			req := httptest.NewRequest(c.method, c.path, nil)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
 
