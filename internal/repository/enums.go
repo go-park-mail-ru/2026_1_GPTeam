@@ -2,10 +2,11 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type EnumsRepository interface {
@@ -15,7 +16,7 @@ type EnumsRepository interface {
 }
 
 type EnumsPostgres struct {
-	db               *pgxpool.Pool
+	db               DB
 	mu               sync.RWMutex
 	currencyCodes    []string
 	transactionTypes []string
@@ -41,21 +42,28 @@ func (obj *EnumsPostgres) GetCategoryTypesFromDB() []string {
 }
 
 func NewEnumsPostgres(ctx context.Context, db *pgxpool.Pool) (*EnumsPostgres, error) {
+	log := logger.GetLogger()
 	currencyCodes, err := getCurrenciesFromDB(ctx, db)
 	if err != nil {
+		log.Error("failed to get currency codes from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
-	fmt.Printf("Read currencies from db: %v\n", currencyCodes)
+	log.Info("Read currencies from db",
+		zap.Strings("currency_codes", currencyCodes))
 	transactionTypes, err := getTransactionTypesFromDB(ctx, db)
 	if err != nil {
+		log.Error("failed to get transaction types from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
-	fmt.Printf("Read transaction types from db: %v\n", transactionTypes)
+	log.Info("Read transaction types from db",
+		zap.Strings("transaction_types", transactionTypes))
 	categoryTypes, err := getCategoriesFromDB(ctx, db)
 	if err != nil {
+		log.Error("failed to get categories from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
-	fmt.Printf("Read categories from db: %v\n", categoryTypes)
+	log.Info("Read categories from db",
+		zap.Strings("categories", categoryTypes))
 	return &EnumsPostgres{
 		db:               db,
 		currencyCodes:    currencyCodes,

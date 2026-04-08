@@ -72,11 +72,9 @@ func (mr *MockJwtUseCaseMockRecorder) CheckToken(tokenStr any) *gomock.Call {
 }
 
 // DeleteRefreshToken mocks base method.
-func (m *MockJwtUseCase) DeleteRefreshToken(ctx context.Context, tokenStr string) error {
+func (m *MockJwtUseCase) DeleteRefreshToken(ctx context.Context, tokenStr string) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteRefreshToken", ctx, tokenStr)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "DeleteRefreshToken", ctx, tokenStr)
 }
 
 // DeleteRefreshToken indicates an expected call of DeleteRefreshToken.

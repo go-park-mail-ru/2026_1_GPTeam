@@ -91,7 +91,7 @@ func TestJwtAuthService_IsAuth_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
 	req.AddCookie(&http.Cookie{Name: TokenName, Value: token})
 
-	isAuth, userID := service.IsAuth(req)
+	isAuth, userID := service.IsAuth(context.Background(), req)
 	require.True(t, isAuth)
 	require.Equal(t, 9, userID)
 }
@@ -106,7 +106,7 @@ func TestJwtAuthService_IsAuth_NoCookie(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
 
-	isAuth, userID := service.IsAuth(req)
+	isAuth, userID := service.IsAuth(context.Background(), req)
 	require.False(t, isAuth)
 	require.Equal(t, -1, userID)
 }

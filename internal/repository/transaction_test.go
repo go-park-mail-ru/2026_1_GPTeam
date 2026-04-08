@@ -23,6 +23,7 @@ func validTransactionModel(txDate time.Time) models.TransactionModel {
 		Value:           3850,
 		Type:            "expense",
 		Category:        "food",
+		Currency:        "RUB",
 		Title:           "Покупка продуктов",
 		Description:     "Перекрёсток",
 		TransactionDate: txDate,
@@ -45,7 +46,7 @@ func TestTransactionRepository_Create(t *testing.T) {
 		{
 			name: "success",
 			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), tx.UserId, tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Title, tx.Description, tx.TransactionDate).Return(row)
+				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), tx.UserId, tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate).Return(row)
 				row.EXPECT().Scan(gomock.Any()).DoAndReturn(func(dest ...any) error {
 					*(dest[0].(*int)) = 42
 					return nil
@@ -56,7 +57,7 @@ func TestTransactionRepository_Create(t *testing.T) {
 		{
 			name: "unique violation",
 			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
+				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
 				row.EXPECT().Scan(gomock.Any()).Return(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
 			},
 			wantID:  -1,
@@ -65,7 +66,7 @@ func TestTransactionRepository_Create(t *testing.T) {
 		{
 			name: "check violation",
 			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
+				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
 				row.EXPECT().Scan(gomock.Any()).Return(&pgconn.PgError{Code: pgerrcode.CheckViolation})
 			},
 			wantID:  -1,
@@ -74,7 +75,7 @@ func TestTransactionRepository_Create(t *testing.T) {
 		{
 			name: "foreign key violation",
 			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
+				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
 				row.EXPECT().Scan(gomock.Any()).Return(&pgconn.PgError{Code: pgerrcode.ForeignKeyViolation})
 			},
 			wantID:  -1,
@@ -83,7 +84,7 @@ func TestTransactionRepository_Create(t *testing.T) {
 		{
 			name: "generic error",
 			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
+				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
 				row.EXPECT().Scan(gomock.Any()).Return(genericErr)
 			},
 			wantID:  -1,
@@ -221,48 +222,48 @@ func TestTransactionRepository_Update(t *testing.T) {
 		{
 			name: "success",
 			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 1"), nil)
+				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 1"), nil)
 			},
 		},
 		{
 			name: "not found",
 			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 0"), nil)
+				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 0"), nil)
 			},
 			wantErr: NothingInTableError,
 		},
 		{
 			name: "incorrect rows affected",
 			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 2"), nil)
+				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 2"), nil)
 			},
 			wantErr: IncorrectRowsAffectedError,
 		},
 		{
 			name: "foreign key violation",
 			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.ForeignKeyViolation})
+				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.ForeignKeyViolation})
 			},
 			wantErr: TransactionAccountForeignKeyError,
 		},
 		{
 			name: "check violation",
 			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.CheckViolation})
+				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.CheckViolation})
 			},
 			wantErr: ConstraintError,
 		},
 		{
 			name: "duplicated data",
 			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.UniqueViolation})
+				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.UniqueViolation})
 			},
 			wantErr: DuplicatedDataError,
 		},
 		{
 			name: "generic error",
 			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, genericErr)
+				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, genericErr)
 			},
 			wantErr: genericErr,
 		},
@@ -364,18 +365,19 @@ func TestTransactionRepository_Detail(t *testing.T) {
 			name: "success",
 			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
 				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 					func(dest ...any) error {
 						*(dest[0].(*int)) = 7
 						*(dest[1].(*int)) = 55
 						*(dest[2].(*float64)) = 3850
 						*(dest[3].(*string)) = "expense"
 						*(dest[4].(*string)) = "food"
-						*(dest[5].(*string)) = "Покупка продуктов"
-						*(dest[6].(*string)) = "Перекрёсток"
-						*(dest[7].(*time.Time)) = createdAt
-						*(dest[8].(*time.Time)) = txDate
-						*(dest[9].(*time.Time)) = updatedAt
+						*(dest[5].(*string)) = "RUB"
+						*(dest[6].(*string)) = "Покупка продуктов"
+						*(dest[7].(*string)) = "Перекрёсток"
+						*(dest[8].(*time.Time)) = createdAt
+						*(dest[9].(*time.Time)) = txDate
+						*(dest[10].(*time.Time)) = updatedAt
 						return nil
 					},
 				)
@@ -387,6 +389,7 @@ func TestTransactionRepository_Detail(t *testing.T) {
 				Value:           3850,
 				Type:            "expense",
 				Category:        "food",
+				Currency:        "RUB",
 				Title:           "Покупка продуктов",
 				Description:     "Перекрёсток",
 				CreatedAt:       createdAt,
@@ -398,7 +401,7 @@ func TestTransactionRepository_Detail(t *testing.T) {
 			name: "not found",
 			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
 				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(pgx.ErrNoRows)
+				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(pgx.ErrNoRows)
 			},
 			wantErr: NothingInTableError,
 		},
@@ -406,7 +409,7 @@ func TestTransactionRepository_Detail(t *testing.T) {
 			name: "generic error",
 			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
 				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genericErr)
+				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genericErr)
 			},
 			wantErr: genericErr,
 		},

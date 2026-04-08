@@ -2,10 +2,11 @@ package application
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"go.uber.org/zap"
 )
 
 //go:generate mockgen -source=account.go -destination=mocks/account.go -package=mocks
@@ -21,7 +22,9 @@ type Account struct {
 }
 
 func NewAccount(repo repository.AccountRepository) *Account {
-	return &Account{repository: repo}
+	return &Account{
+		repository: repo,
+	}
 }
 
 func (obj *Account) Create(ctx context.Context, account models.AccountModel) (int, error) {
@@ -39,10 +42,16 @@ func (obj *Account) LinkAccountAndUser(ctx context.Context, accountId int, userI
 }
 
 func (obj *Account) IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	ids, err := obj.repository.GetIdsByUserAndAccount(ctx, userId, accountId)
 	if err != nil {
-		fmt.Println(err)
 		return false
 	}
-	return len(ids) > 0
+	if len(ids) == 0 {
+		log.Warn("user is not author of account",
+			zap.Int("userId", userId),
+			zap.Int("accountId", accountId))
+		return false
+	}
+	return true
 }

@@ -52,6 +52,7 @@ func TestTransactionHandler_Create_Success(t *testing.T) {
 		"value":            3850.0,
 		"type":             "expense",
 		"category":         "food",
+		"currency":         "RUB",
 		"title":            "Покупка продуктов",
 		"description":      "Перекрёсток",
 		"transaction_date": txDate.Format(time.RFC3339),
@@ -60,6 +61,7 @@ func TestTransactionHandler_Create_Success(t *testing.T) {
 
 	enumsUC.EXPECT().GetTransactionTypes().Return([]string{"income", "expense"})
 	enumsUC.EXPECT().GetCategoryTypes().Return([]string{"food", "salary"})
+	enumsUC.EXPECT().GetCurrencyCodes().Return([]string{"RUB", "USD"})
 	accountUC.EXPECT().IsUserAuthorOfAccount(gomock.Any(), 7, 55).Return(true)
 	txUC.EXPECT().Create(gomock.Any(), gomock.AssignableToTypeOf(models.TransactionModel{})).DoAndReturn(
 		func(_ context.Context, got models.TransactionModel) (int, error) {
@@ -68,6 +70,7 @@ func TestTransactionHandler_Create_Success(t *testing.T) {
 			require.Equal(t, 3850.0, got.Value)
 			require.Equal(t, "expense", got.Type)
 			require.Equal(t, "food", got.Category)
+			require.Equal(t, "RUB", got.Currency)
 			require.Equal(t, "Покупка продуктов", got.Title)
 			require.Equal(t, "Перекрёсток", got.Description)
 			require.Equal(t, txDate, got.TransactionDate)
@@ -106,6 +109,7 @@ func TestTransactionHandler_Create_ForbiddenWhenAccountNotOwned(t *testing.T) {
 		"value":            100.0,
 		"type":             "expense",
 		"category":         "food",
+		"currency":         "RUB",
 		"title":            "Обед",
 		"description":      "Кафе",
 		"transaction_date": txDate.Format(time.RFC3339),
@@ -113,6 +117,7 @@ func TestTransactionHandler_Create_ForbiddenWhenAccountNotOwned(t *testing.T) {
 
 	enumsUC.EXPECT().GetTransactionTypes().Return([]string{"income", "expense"})
 	enumsUC.EXPECT().GetCategoryTypes().Return([]string{"food", "salary"})
+	enumsUC.EXPECT().GetCurrencyCodes().Return([]string{"RUB", "USD"})
 	accountUC.EXPECT().IsUserAuthorOfAccount(gomock.Any(), 7, 55).Return(false)
 
 	req := newTransactionRequest(t, http.MethodPost, "/transactions", reqBody, &models.UserModel{Id: 7})
@@ -170,6 +175,7 @@ func TestTransactionHandler_Update_NotFound(t *testing.T) {
 		"value":            100.0,
 		"type":             "expense",
 		"category":         "food",
+		"currency":         "RUB",
 		"title":            "Обед",
 		"description":      "Кафе",
 		"transaction_date": txDate.Format(time.RFC3339),
@@ -177,6 +183,7 @@ func TestTransactionHandler_Update_NotFound(t *testing.T) {
 
 	enumsUC.EXPECT().GetTransactionTypes().Return([]string{"income", "expense"})
 	enumsUC.EXPECT().GetCategoryTypes().Return([]string{"food", "salary"})
+	enumsUC.EXPECT().GetCurrencyCodes().Return([]string{"RUB", "USD"})
 	accountUC.EXPECT().IsUserAuthorOfAccount(gomock.Any(), 7, 55).Return(true)
 	txUC.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(models.TransactionModel{})).Return(repository.NothingInTableError)
 
@@ -227,6 +234,7 @@ func TestTransactionHandler_Detail_Success(t *testing.T) {
 		Value:           3850,
 		Type:            "expense",
 		Category:        "food",
+		Currency:        "RUB",
 		Title:           "Покупка продуктов",
 		Description:     "Перекрёсток",
 		CreatedAt:       createdAt,

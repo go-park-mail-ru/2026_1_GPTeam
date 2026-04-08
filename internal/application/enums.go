@@ -1,6 +1,8 @@
 package application
 
-import "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+import (
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+)
 
 //go:generate mockgen -source=enums.go -destination=mocks/enums.go -package=mocks
 type EnumsUseCase interface {
@@ -14,7 +16,9 @@ type Enums struct {
 }
 
 func NewEnums(repository repository.EnumsRepository) *Enums {
-	return &Enums{repository: repository}
+	return &Enums{
+		repository: repository,
+	}
 }
 
 func (obj *Enums) GetCurrencyCodes() []string {

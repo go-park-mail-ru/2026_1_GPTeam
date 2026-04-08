@@ -3,12 +3,14 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 //go:generate mockgen -source=jwt.go -destination=mocks/jwt.go -package=mocks
@@ -19,37 +21,32 @@ type JwtRepository interface {
 	Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error)
 }
 
-type JwtDB interface {
-	Acquire(ctx context.Context) (*pgxpool.Conn, error)
-	AcquireAllIdle(ctx context.Context) []*pgxpool.Conn
-	AcquireFunc(ctx context.Context, f func(*pgxpool.Conn) error) error
-	Begin(ctx context.Context) (pgx.Tx, error)
-	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
-	Close()
-	Config() *pgxpool.Config
-	CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error)
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	Ping(ctx context.Context) error
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-	Reset()
-	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
-	Stat() *pgxpool.Stat
-}
-
 type JwtPostgres struct {
-	db JwtDB
+	db DB
 }
 
-func NewJwtPostgres(db JwtDB) *JwtPostgres {
-	return &JwtPostgres{db: db}
+func NewJwtPostgres(db DB) *JwtPostgres {
+	return &JwtPostgres{
+		db: db,
+	}
 }
 
 func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenModel) error {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
-	_, err := obj.db.Exec(ctx, query, token.Uuid, token.UserId, token.ExpiredAt)
+	args := []any{
+		token.Uuid,
+		token.UserId,
+		token.ExpiredAt,
+	}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
+		log.Error("failed to create refresh token (db error)",
+			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
 			return DuplicatedDataError
@@ -59,32 +56,71 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 			return pgErr
 		}
 	}
-	return err
+	if err != nil {
+		log.Error("failed to create refresh token (not db error)",
+			zap.Error(err))
+		return err
+	}
+	log.Info("Query executed")
+	return nil
 }
 
 func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `delete from jwt where uuid = $1;`
-	_, err := obj.db.Exec(ctx, query, uuid)
+	args := []any{uuid}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
 	if errors.Is(err, pgx.ErrNoRows) {
+		log.Error("failed to delete refresh token (no such uuid)",
+			zap.Error(pgx.ErrNoRows))
 		return NothingInTableError
 	}
-	return err
+	if err != nil {
+		log.Error("failed to delete refresh token (not db error)",
+			zap.Error(err))
+		return err
+	}
+	log.Info("Query executed")
+	return nil
 }
 
 func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `delete from jwt where user_id = $1;`
-	_, err := obj.db.Exec(ctx, query, userID)
+	args := []any{userID}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
 	if errors.Is(err, pgx.ErrNoRows) {
+		log.Error("failed to delete refresh token (no such user)",
+			zap.Error(pgx.ErrNoRows))
 		return NothingInTableError
 	}
-	return err
+	if err != nil {
+		log.Error("failed to delete refresh token by user (not db error)",
+			zap.Error(err))
+		return err
+	}
+	log.Info("Query executed")
+	return nil
 }
 
 func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `select user_id, expired_at from jwt where uuid = $1;`
+	args := []any{uuid}
 	token := models.RefreshTokenModel{Uuid: uuid}
-	err := obj.db.QueryRow(ctx, query, uuid).Scan(&token.UserId, &token.ExpiredAt)
+	startTime := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&token.UserId, &token.ExpiredAt)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
 	if err != nil {
+		log.Error("failed to get refresh token (not db error)",
+			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.RefreshTokenModel{}, NothingInTableError
 		}
@@ -93,5 +129,6 @@ func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTok
 		}
 		return models.RefreshTokenModel{}, err
 	}
+	log.Info("Query executed")
 	return token, nil
 }

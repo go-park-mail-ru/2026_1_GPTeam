@@ -12,18 +12,45 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		fmt.Println("Error loading .env file")
+		fmt.Println("Error loading .env file: ", err)
 		return
 	}
+	DEBUG := os.Getenv("DEBUG") == "true"
+
+	err = logger.InitLogger(DEBUG)
+	if err != nil {
+		fmt.Println("Error initializing logger: ", err)
+		return
+	}
+	defer func() {
+		err = logger.Close()
+		if err != nil {
+			fmt.Println("Error closing logger: ", err)
+		}
+	}()
+	log := logger.GetLogger()
+	err = logger.InitAccessLogger()
+	if err != nil {
+		log.Fatal("Error initializing access logger",
+			zap.Error(err))
+	}
+	defer func() {
+		err = logger.AccessClose()
+		if err != nil {
+			fmt.Println("Error closing access logger: ", err)
+		}
+	}()
 
 	user := os.Getenv("POSTGRES_USER")
 	password := os.Getenv("POSTGRES_PASSWORD")
@@ -34,16 +61,20 @@ func main() {
 
 	pool, err := pgxpool.New(context.Background(), dbUrl)
 	if err != nil {
-		fmt.Printf("Unable to connect to database: %v\n", err)
+		log.Fatal("Failed to create pool", zap.Error(err))
 		return
 	}
 	defer pool.Close()
+
+	err = pool.Ping(context.Background())
+	if err != nil {
+		log.Fatal("Failed to connect to database", zap.Error(err))
+	}
 
 	enumsCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	enumsPostgres, err := repository.NewEnumsPostgres(enumsCtx, pool)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	userPostgres := repository.NewUserPostgres(pool)
@@ -51,18 +82,23 @@ func main() {
 	jwtPostgres := repository.NewJwtPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
 	accountPostgres := repository.NewAccountPostgres(pool)
+	log.Info("repositories initialized")
 
 	enumsApp := application.NewEnums(enumsPostgres)
-	userApp := application.NewUser(userPostgres)
-	jwt, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
+	userApp := application.NewUser(userPostgres, enumsApp)
+	jwtService, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
-	authService := auth.NewJwtAuthService(jwt)
+	authService := auth.NewJwtAuthService(jwtService)
+	csrfService, err := secure.NewCsrf(os.Getenv("CSRF_SECRET"))
+	if err != nil {
+		return
+	}
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
+	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
 	userHandler := web.NewUserHandler(userApp)
@@ -70,8 +106,12 @@ func main() {
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
+	log.Info("handlers initialized")
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
+
+	secure.XssSanitizerInit()
+	log.Info("secure package initialized")
 
 	mux := http.NewServeMux()
 	mux.Handle("/account", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccount)))
@@ -81,6 +121,7 @@ func main() {
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Login)))
 	mux.Handle("/profile", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPatch)(http.HandlerFunc(userHandler.ProfileHandler)))
 	mux.Handle("/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Balance)))
+	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))
 	mux.Handle("/get_budgets", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudgets)))
 	mux.Handle("/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
 	mux.Handle("/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
@@ -91,22 +132,38 @@ func main() {
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
 	mux.Handle("/img/", middleware.NoDirListing(fileServer))
-	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))
 
-	handler := middleware.AuthMiddleware(mux, authService, userApp)
+	handler := middleware.CSRFMiddleware(mux, csrfService)
+	handler = middleware.AuthMiddleware(handler, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
+	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
+	addr := ":" + os.Getenv("PORT")
 	server := http.Server{
-		Addr:         ":8080",
+		Addr:         addr,
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	fmt.Println("starting server at :8080")
-	err = server.ListenAndServe()
+	log.Info("starting server", zap.String("addr", addr))
+	if DEBUG {
+		err = server.ListenAndServe()
+	} else {
+		cerfFile := os.Getenv("CERT_FILE")
+		if cerfFile == "" {
+			log.Fatal("CERT_FILE not set")
+			return
+		}
+		keyFile := os.Getenv("KEY_FILE")
+		if keyFile == "" {
+			log.Fatal("KEY_FILE not set")
+			return
+		}
+		err = server.ListenAndServeTLS(cerfFile, keyFile)
+	}
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal("Error starting server", zap.Error(err))
 		return
 	}
 }
