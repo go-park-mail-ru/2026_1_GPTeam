@@ -20,7 +20,12 @@ var initErr error
 
 func InitLogger(DEBUG bool) error {
 	once.Do(func() {
-		file, initErr = os.OpenFile("backend.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		initErr = os.MkdirAll("log", 0755)
+		if initErr != nil {
+			initErr = fmt.Errorf("error creating log dir: %w", initErr)
+			return
+		}
+		file, initErr = os.OpenFile("log/backend.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if initErr != nil {
 			initErr = fmt.Errorf("error opening log file: %w", initErr)
 			return
@@ -92,7 +97,7 @@ var accessFile *os.File
 
 func InitAccessLogger() error {
 	accessOnce.Do(func() {
-		accessFile, accessInitErr = os.OpenFile("access.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		accessFile, accessInitErr = os.OpenFile("log/access.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if accessInitErr != nil {
 			accessInitErr = fmt.Errorf("error opening log file: %w", accessInitErr)
 			return
