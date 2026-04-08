@@ -48,8 +48,8 @@ services:
     read_only: true
     security_opt:
       - no-new-privileges:true
-    ports:
-      - "${PORT}:8080"
+    expose:
+      - "8080"
     volumes:
       - ./static:/app/static
       - ./logs:/app/log
