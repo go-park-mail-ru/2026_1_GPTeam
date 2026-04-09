@@ -16,6 +16,7 @@ import (
 const AccessTokenExpirationTime = time.Minute * 15
 const RefreshTokenExpirationTime = time.Hour * 24 * 7
 
+//go:generate mockgen -source=jwt.go -destination=mocks/jwt.go -package=mocks
 type JwtUseCase interface {
 	CheckToken(tokenStr string) (bool, int)
 	CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int)
@@ -34,12 +35,12 @@ type Jwt struct {
 func NewJwt(repository repository.JwtRepository, secret string, version string) (*Jwt, error) {
 	log := logger.GetLogger()
 	if len(secret) < 8 {
-		log.Fatal("secret too short")
-		return &Jwt{}, JwtSecretError
+		log.Error("secret too short")
+		return nil, JwtSecretError
 	}
 	if version == "" {
-		log.Fatal("version does not set")
-		return &Jwt{}, JwtVersionError
+		log.Error("version does not set")
+		return nil, JwtVersionError
 	}
 	return &Jwt{
 		repository: repository,

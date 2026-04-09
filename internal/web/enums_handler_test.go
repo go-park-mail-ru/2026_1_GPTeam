@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	appmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 )

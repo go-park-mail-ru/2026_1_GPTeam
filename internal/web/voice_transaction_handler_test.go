@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
