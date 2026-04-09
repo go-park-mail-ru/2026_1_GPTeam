@@ -209,6 +209,12 @@ func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Hand
 	})
 }
 
+func RateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+	})
+}
+
 // мидлварки для тестов
 func SetUserCtx(ctx context.Context, user models.UserModel) context.Context {
 	return context.WithValue(ctx, models.UserContextKey, user)
