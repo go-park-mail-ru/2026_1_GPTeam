@@ -209,8 +209,39 @@ func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Hand
 	})
 }
 
-func RateLimitMiddleware(next http.Handler) http.Handler {
+func RateLimitMiddleware(next http.Handler, rateLimiter secure.RateLimiterInterface) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := logger.GetLoggerWIthRequestId(r.Context())
+		ip, err := secure.GetRealIp(r)
+		if err != nil {
+			log.Warn("[rate limit middleware] unable to get ip")
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if rateLimiter.IsTrustedIp(ip) {
+			log.Debug("[rate limit middleware] trusted ip - skip",
+				zap.String("ip", ip))
+			next.ServeHTTP(w, r)
+			return
+		}
+		isBlocked := rateLimiter.IsIpBlocked(ip)
+		if isBlocked {
+			log.Warn("[rate limit middleware] ip blocked",
+				zap.String("ip", ip))
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		isAllowed := rateLimiter.Allow(ip)
+		if !isAllowed {
+			log.Warn("[rate limit middleware] ip exceeded limit",
+				zap.String("ip", ip))
+			rateLimiter.BlockIp(ip)
+			response := web_helpers.NewForbiddenErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

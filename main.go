@@ -141,6 +141,10 @@ func main() {
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
 	secure.XssSanitizerInit()
+	rateLimiter, err := secure.NewRateLimiter(2, os.Getenv("SERVER_IP"))
+	if err != nil {
+		return
+	}
 	log.Info("secure package initialized")
 
 	mux := http.NewServeMux()
@@ -159,7 +163,7 @@ func main() {
 	mux.Handle("/api/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
 	mux.Handle("/api/transactions", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(transactionHandler.Transactions)))
 	mux.Handle("/api/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete, http.MethodPut)(http.HandlerFunc(transactionHandler.Transaction)))
-    mux.Handle("/api/transactions/voice", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(voiceHandler.CreateVoiceTransaction)))
+	mux.Handle("/api/transactions/voice", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(voiceHandler.CreateVoiceTransaction)))
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
@@ -168,6 +172,7 @@ func main() {
 	handler := middleware.CSRFMiddleware(mux, csrfService)
 	handler = middleware.AuthMiddleware(handler, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
+	handler = middleware.RateLimitMiddleware(handler, rateLimiter)
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
