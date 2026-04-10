@@ -18,6 +18,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/gomodule/redigo/redis"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -142,7 +143,31 @@ func main() {
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
 	secure.XssSanitizerInit()
-	rateLimiter, err := rate_limiter.NewRateLimiter(2, os.Getenv("SERVER_IP"))
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	redisUrl := fmt.Sprintf("redis://%s:%s/0", redisHost, redisPort)
+	redisPool := &redis.Pool{
+		MaxIdle:     10,
+		MaxActive:   50,
+		IdleTimeout: 240 * time.Second,
+		Wait:        true,
+		Dial: func() (redis.Conn, error) {
+			conn, err := redis.DialURL(redisUrl)
+			if err != nil {
+				return nil, fmt.Errorf("failed to connect to redis: %w", err)
+			}
+			return conn, nil
+		},
+		TestOnBorrow: func(conn redis.Conn, t time.Time) error {
+			if time.Since(t) < 30*time.Second {
+				return nil
+			}
+			_, err := conn.Do("PING")
+			return err
+		},
+	}
+	rateLimitBucket := rate_limiter.NewBucketRedis(redisPool)
+	rateLimiter, err := rate_limiter.NewRateLimiter(rateLimitBucket, os.Getenv("SERVER_IP"))
 	if err != nil {
 		return
 	}

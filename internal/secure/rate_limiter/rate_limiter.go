@@ -3,7 +3,7 @@ package rate_limiter
 import (
 	"context"
 	"errors"
-	"hash/crc32"
+	"fmt"
 	"net"
 	"net/http"
 	"slices"
@@ -20,35 +20,27 @@ type RateLimiterInterface interface {
 	BlockIp(ctx context.Context, ip string)
 	BlockIpPermanent(ctx context.Context, ip string)
 	UnblockIp(ip string)
-	Allow(ip string) bool
+	Allow(ctx context.Context, ip string) bool
 	IsTrustedIp(ip string) bool
+	AllowN(ctx context.Context, ip string, n int) bool
 }
 
 type RateLimiter struct {
 	mu               sync.RWMutex
 	once             sync.Once
-	shards           []*Shard
-	numShards        int
 	permanentBlocked []string
-	stopCleanup      chan interface{}
 	trustedIps       []string
+	bucket           BucketInterface
 }
 
-func NewRateLimiter(numShards int, serverIp string) (*RateLimiter, error) {
+func NewRateLimiter(bucket BucketInterface, serverIp string) (*RateLimiter, error) {
 	log := logger.GetLogger()
 	if net.ParseIP(serverIp) == nil {
 		log.Fatal("invalid server ip address", zap.String("serverIp", serverIp))
 		return &RateLimiter{}, WrongServerIpAddress
 	}
-	shards := make([]*Shard, numShards)
-	for i := 0; i < numShards; i++ {
-		shards[i] = NewShard()
-	}
-	newRateLimiter := &RateLimiter{
-		shards:           shards,
-		numShards:        numShards,
+	return &RateLimiter{
 		permanentBlocked: []string{},
-		stopCleanup:      make(chan interface{}),
 		trustedIps: []string{
 			"127.0.0.1",
 			"::1",
@@ -57,42 +49,56 @@ func NewRateLimiter(numShards int, serverIp string) (*RateLimiter, error) {
 			"192.168.0.0/16",
 			serverIp,
 		},
-	}
-	go newRateLimiter.cleanupLoop()
-	return newRateLimiter, nil
-}
-
-func (obj *RateLimiter) getShard(ip string) *Shard {
-	key := int(crc32.ChecksumIEEE([]byte(ip)))
-	index := key % obj.numShards
-	return obj.shards[index]
+		bucket: bucket,
+	}, nil
 }
 
 func (obj *RateLimiter) IsIpBlocked(ip string) bool {
+	log := logger.GetLogger()
 	obj.mu.RLock()
 	if slices.Contains(obj.permanentBlocked, ip) {
 		return true
 	}
 	obj.mu.RUnlock()
-	shard := obj.getShard(ip)
-	bucket, err := shard.GetBucket(ip)
+	bucketInfo, err := obj.bucket.Get(ip)
 	if err != nil {
-		if errors.Is(err, NoIpInShardError) {
-			shard.AddBucket(ip)
+		if errors.Is(err, NoIpInSavedError) {
+			newBucketInfo := BucketModel{
+				Count:          MaxCount,
+				LastRefillTime: time.Now(),
+				BlockedUntil:   time.Time{},
+				LastSeen:       time.Now(),
+			}
+			err = obj.bucket.Save(ip, newBucketInfo)
+			if err != nil {
+				log.Error("failed to save bucket", zap.String("ip", ip), zap.Any("bucket", newBucketInfo), zap.Error(err))
+				return true
+			}
 			return false
 		}
 		return true
 	}
-	return bucket.IsBlocked()
+	if bucketInfo.BlockedUntil.IsZero() {
+		return false
+	}
+	now := time.Now()
+	return bucketInfo.BlockedUntil.After(now)
 }
 
 func (obj *RateLimiter) BlockIp(ctx context.Context, ip string) {
-	shard := obj.getShard(ip)
-	bucket, err := shard.GetBucket(ip)
+	log := logger.GetLoggerWIthRequestId(ctx)
+	bucketInfo := BucketModel{
+		Count:          MaxCount,
+		LastRefillTime: time.Now(),
+		BlockedUntil:   time.Now().Add(BlockDuration),
+		LastSeen:       time.Now(),
+	}
+	err := obj.bucket.Save(ip, bucketInfo)
 	if err != nil {
+		log.Error("failed to save bucket", zap.String("ip", ip), zap.Any("bucket", bucketInfo), zap.Error(err))
 		return
 	}
-	bucket.Block(ctx, BlockDuration)
+	log.Info("blocked ip", zap.String("ip", ip))
 }
 
 func (obj *RateLimiter) BlockIpPermanent(ctx context.Context, ip string) {
@@ -118,45 +124,44 @@ func (obj *RateLimiter) UnblockIp(ip string) {
 	log.Info("ip unblocked", zap.String("ip", ip))
 }
 
-func (obj *RateLimiter) Allow(ip string) bool {
-	shard := obj.getShard(ip)
-	bucket, err := shard.GetBucket(ip)
+func (obj *RateLimiter) Allow(ctx context.Context, ip string) bool {
+	return obj.AllowN(ctx, ip, 1)
+}
+
+func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
+	log := logger.GetLoggerWIthRequestId(ctx)
+	bucketInfo, err := obj.bucket.Get(ip)
 	if err != nil {
-		if errors.Is(err, NoIpInShardError) {
-			shard.AddBucket(ip)
+		if errors.Is(err, NoIpInSavedError) {
+			newBucketInfo := BucketModel{
+				Count:          MaxCount,
+				LastRefillTime: time.Now(),
+				BlockedUntil:   time.Time{},
+				LastSeen:       time.Now(),
+			}
+			err = obj.bucket.Save(ip, newBucketInfo)
+			if err != nil {
+				log.Error("failed to save bucket", zap.String("ip", ip), zap.Any("bucket", newBucketInfo), zap.Error(err))
+				return false
+			}
 			return true
 		}
 		return false
 	}
-	return bucket.Allow()
-}
-
-func (obj *RateLimiter) cleanupLoop() {
-	ticker := time.NewTicker(CleanInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			obj.cleanup()
-		case <-obj.stopCleanup:
-			return
+	fmt.Println(bucketInfo.Count)
+	duration := int(time.Since(bucketInfo.LastRefillTime).Milliseconds() / 500)
+	bucketInfo.Count = min(MaxCount, bucketInfo.Count+duration*RefillRate)
+	bucketInfo.LastRefillTime = time.Now()
+	if bucketInfo.Count >= n {
+		bucketInfo.Count -= n
+		err = obj.bucket.Save(ip, bucketInfo)
+		if err != nil {
+			log.Error("failed to save bucket", zap.String("ip", ip), zap.Any("bucket", bucketInfo), zap.Error(err))
+			return false
 		}
+		return true
 	}
-}
-
-func (obj *RateLimiter) cleanup() {
-	log := logger.GetLogger()
-	log.Info("rate limiter cleanup started")
-	lastTime := time.Now().Add(-TTL)
-	for _, shard := range obj.shards {
-		go shard.Clean(lastTime)
-	}
-}
-
-func (obj *RateLimiter) Stop() {
-	obj.once.Do(func() {
-		close(obj.stopCleanup)
-	})
+	return false
 }
 
 func (obj *RateLimiter) IsTrustedIp(ip string) bool {
