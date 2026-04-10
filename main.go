@@ -166,6 +166,12 @@ func main() {
 			return err
 		},
 	}
+	defer func() {
+		err = redisPool.Close()
+		if err != nil {
+			fmt.Println("redis pool close error", err)
+		}
+	}()
 	rateLimitBucket := rate_limiter.NewBucketRedis(redisPool)
 	rateLimiter, err := rate_limiter.NewRateLimiter(rateLimitBucket, os.Getenv("SERVER_IP"))
 	if err != nil {

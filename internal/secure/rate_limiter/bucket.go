@@ -85,6 +85,7 @@ func (obj *BucketRedis) Save(ip string, bucket BucketModel) error {
 			zap.String("ip", ip),
 			zap.Any("bucket", bucket),
 			zap.Error(err))
+		return err
 	}
 	if result != "OK" {
 		log.Error("error when saving bucket in redis",

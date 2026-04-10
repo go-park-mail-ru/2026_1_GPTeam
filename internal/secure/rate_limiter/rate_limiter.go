@@ -3,7 +3,6 @@ package rate_limiter
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"slices"
@@ -27,7 +26,6 @@ type RateLimiterInterface interface {
 
 type RateLimiter struct {
 	mu               sync.RWMutex
-	once             sync.Once
 	permanentBlocked []string
 	trustedIps       []string
 	bucket           BucketInterface
@@ -44,9 +42,9 @@ func NewRateLimiter(bucket BucketInterface, serverIp string) (*RateLimiter, erro
 		trustedIps: []string{
 			"127.0.0.1",
 			"::1",
-			"10.0.0.0/8",
-			"172.16.0.0/12",
-			"192.168.0.0/16",
+			"10.0.0.0",
+			"172.16.0.0",
+			"192.168.0.0",
 			serverIp,
 		},
 		bucket: bucket,
@@ -57,6 +55,7 @@ func (obj *RateLimiter) IsIpBlocked(ip string) bool {
 	log := logger.GetLogger()
 	obj.mu.RLock()
 	if slices.Contains(obj.permanentBlocked, ip) {
+		obj.mu.RUnlock()
 		return true
 	}
 	obj.mu.RUnlock()
@@ -148,7 +147,6 @@ func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 		}
 		return false
 	}
-	fmt.Println(bucketInfo.Count)
 	duration := int(time.Since(bucketInfo.LastRefillTime).Milliseconds() / 500)
 	bucketInfo.Count = min(MaxCount, bucketInfo.Count+duration*RefillRate)
 	bucketInfo.LastRefillTime = time.Now()
