@@ -58,10 +58,6 @@ services:
     build: .
     container_name: gpteam-server
     restart: always
-    # network_mode: host — контейнер выходит с IP хоста,
-    # поэтому Groq Audio API не блокирует запросы.
-    # ports: не нужен — приложение слушает напрямую на порту хоста (:8080)
-    network_mode: host
     depends_on:
       migrations:
         condition: service_completed_successfully
