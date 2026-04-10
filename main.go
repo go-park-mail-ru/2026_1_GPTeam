@@ -15,6 +15,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -141,7 +142,7 @@ func main() {
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
 	secure.XssSanitizerInit()
-	rateLimiter, err := secure.NewRateLimiter(2, os.Getenv("SERVER_IP"))
+	rateLimiter, err := rate_limiter.NewRateLimiter(2, os.Getenv("SERVER_IP"))
 	if err != nil {
 		return
 	}

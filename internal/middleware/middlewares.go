@@ -12,6 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/google/uuid"
@@ -209,12 +210,12 @@ func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Hand
 	})
 }
 
-func RateLimitMiddleware(next http.Handler, rateLimiter secure.RateLimiterInterface) http.Handler {
+func RateLimitMiddleware(next http.Handler, rateLimiter rate_limiter.RateLimiterInterface) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log := logger.GetLoggerWIthRequestId(r.Context())
-		ip, err := secure.GetRealIp(r)
+		ip, err := rate_limiter.GetRealIp(r)
 		if err != nil {
-			log.Warn("[rate limit middleware] unable to get ip")
+			log.Warn("[rate limit middleware] unable to get ip - return")
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -237,7 +238,7 @@ func RateLimitMiddleware(next http.Handler, rateLimiter secure.RateLimiterInterf
 		if !isAllowed {
 			log.Warn("[rate limit middleware] ip exceeded limit",
 				zap.String("ip", ip))
-			rateLimiter.BlockIp(ip)
+			rateLimiter.BlockIp(r.Context(), ip)
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
