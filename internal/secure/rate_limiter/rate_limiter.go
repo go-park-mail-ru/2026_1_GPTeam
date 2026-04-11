@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -28,10 +30,10 @@ type RateLimiter struct {
 	mu               sync.RWMutex
 	permanentBlocked []string
 	trustedIps       []string
-	bucket           BucketInterface
+	bucket           repository.BucketInterface
 }
 
-func NewRateLimiter(bucket BucketInterface, serverIp string) (*RateLimiter, error) {
+func NewRateLimiter(bucket repository.BucketInterface, serverIp string) (*RateLimiter, error) {
 	log := logger.GetLogger()
 	if net.ParseIP(serverIp) == nil {
 		log.Fatal("invalid server ip address", zap.String("serverIp", serverIp))
@@ -61,8 +63,8 @@ func (obj *RateLimiter) IsIpBlocked(ip string) bool {
 	obj.mu.RUnlock()
 	bucketInfo, err := obj.bucket.Get(ip)
 	if err != nil {
-		if errors.Is(err, NoIpInSavedError) {
-			newBucketInfo := BucketModel{
+		if errors.Is(err, repository.NoIpInSavedError) {
+			newBucketInfo := models.BucketModel{
 				Count:          MaxCount,
 				LastRefillTime: time.Now(),
 				BlockedUntil:   time.Time{},
@@ -70,7 +72,10 @@ func (obj *RateLimiter) IsIpBlocked(ip string) bool {
 			}
 			err = obj.bucket.Save(ip, newBucketInfo)
 			if err != nil {
-				log.Error("failed to save bucket", zap.String("ip", ip), zap.Any("bucket", newBucketInfo), zap.Error(err))
+				log.Error("failed to save bucket",
+					zap.String("ip", ip),
+					zap.Any("bucket", newBucketInfo),
+					zap.Error(err))
 				return true
 			}
 			return false
@@ -86,7 +91,7 @@ func (obj *RateLimiter) IsIpBlocked(ip string) bool {
 
 func (obj *RateLimiter) BlockIp(ctx context.Context, ip string) {
 	log := logger.GetLoggerWIthRequestId(ctx)
-	bucketInfo := BucketModel{
+	bucketInfo := models.BucketModel{
 		Count:          MaxCount,
 		LastRefillTime: time.Now(),
 		BlockedUntil:   time.Now().Add(BlockDuration),
@@ -94,7 +99,10 @@ func (obj *RateLimiter) BlockIp(ctx context.Context, ip string) {
 	}
 	err := obj.bucket.Save(ip, bucketInfo)
 	if err != nil {
-		log.Error("failed to save bucket", zap.String("ip", ip), zap.Any("bucket", bucketInfo), zap.Error(err))
+		log.Error("failed to save bucket",
+			zap.String("ip", ip),
+			zap.Any("bucket", bucketInfo),
+			zap.Error(err))
 		return
 	}
 	log.Info("blocked ip", zap.String("ip", ip))
@@ -131,8 +139,8 @@ func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	bucketInfo, err := obj.bucket.Get(ip)
 	if err != nil {
-		if errors.Is(err, NoIpInSavedError) {
-			newBucketInfo := BucketModel{
+		if errors.Is(err, repository.NoIpInSavedError) {
+			newBucketInfo := models.BucketModel{
 				Count:          MaxCount,
 				LastRefillTime: time.Now(),
 				BlockedUntil:   time.Time{},
@@ -140,7 +148,10 @@ func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 			}
 			err = obj.bucket.Save(ip, newBucketInfo)
 			if err != nil {
-				log.Error("failed to save bucket", zap.String("ip", ip), zap.Any("bucket", newBucketInfo), zap.Error(err))
+				log.Error("failed to save bucket",
+					zap.String("ip", ip),
+					zap.Any("bucket", newBucketInfo),
+					zap.Error(err))
 				return false
 			}
 			return true
@@ -148,13 +159,16 @@ func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 		return false
 	}
 	duration := int(time.Since(bucketInfo.LastRefillTime).Milliseconds() / 500)
-	bucketInfo.Count = min(MaxCount, bucketInfo.Count+duration*RefillRate)
+	bucketInfo.Count = min(MaxCount, bucketInfo.Count+duration*RefillRateInHalfSecond)
 	bucketInfo.LastRefillTime = time.Now()
 	if bucketInfo.Count >= n {
 		bucketInfo.Count -= n
 		err = obj.bucket.Save(ip, bucketInfo)
 		if err != nil {
-			log.Error("failed to save bucket", zap.String("ip", ip), zap.Any("bucket", bucketInfo), zap.Error(err))
+			log.Error("failed to save bucket",
+				zap.String("ip", ip),
+				zap.Any("bucket", bucketInfo),
+				zap.Error(err))
 			return false
 		}
 		return true

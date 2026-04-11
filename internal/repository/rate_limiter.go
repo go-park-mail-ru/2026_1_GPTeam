@@ -1,25 +1,20 @@
-package rate_limiter
+package repository
 
 import (
 	"encoding/json"
 	"errors"
-	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/gomodule/redigo/redis"
 	"go.uber.org/zap"
 )
 
-type BucketModel struct {
-	Count          int
-	LastRefillTime time.Time
-	BlockedUntil   time.Time
-	LastSeen       time.Time
-}
+const TTLOneDay = 86400
 
 type BucketInterface interface {
-	Get(ip string) (BucketModel, error)
-	Save(ip string, bucket BucketModel) error
+	Get(ip string) (models.BucketModel, error)
+	Save(ip string, bucket models.BucketModel) error
 }
 
 type BucketRedis struct {
@@ -32,7 +27,7 @@ func NewBucketRedis(db *redis.Pool) *BucketRedis {
 	}
 }
 
-func (obj *BucketRedis) Get(ip string) (BucketModel, error) {
+func (obj *BucketRedis) Get(ip string) (models.BucketModel, error) {
 	log := logger.GetLogger()
 	conn := obj.db.Get()
 	defer func() {
@@ -44,25 +39,25 @@ func (obj *BucketRedis) Get(ip string) (BucketModel, error) {
 	data, err := redis.Bytes(conn.Do("GET", ip))
 	if err != nil {
 		if errors.Is(err, redis.ErrNil) {
-			return BucketModel{}, NoIpInSavedError
+			return models.BucketModel{}, NoIpInSavedError
 		}
 		log.Error("redis error",
 			zap.String("ip", ip),
 			zap.Error(err))
-		return BucketModel{}, err
+		return models.BucketModel{}, err
 	}
-	bucketInfo := &BucketModel{}
+	bucketInfo := &models.BucketModel{}
 	err = json.Unmarshal(data, bucketInfo)
 	if err != nil {
 		log.Error("unable to unmarshal bucket from redis",
 			zap.String("ip", ip),
 			zap.Error(err))
-		return BucketModel{}, err
+		return models.BucketModel{}, err
 	}
 	return *bucketInfo, nil
 }
 
-func (obj *BucketRedis) Save(ip string, bucket BucketModel) error {
+func (obj *BucketRedis) Save(ip string, bucket models.BucketModel) error {
 	log := logger.GetLogger()
 	serializedBucket, err := json.Marshal(bucket)
 	if err != nil {
@@ -79,7 +74,7 @@ func (obj *BucketRedis) Save(ip string, bucket BucketModel) error {
 			log.Error("failed to close redis connection", zap.Error(err))
 		}
 	}()
-	result, err := redis.String(conn.Do("SET", ip, serializedBucket, "EX", TTL))
+	result, err := redis.String(conn.Do("SET", ip, serializedBucket, "EX", TTLOneDay))
 	if err != nil {
 		log.Error("error when saving bucket in redis",
 			zap.String("ip", ip),
