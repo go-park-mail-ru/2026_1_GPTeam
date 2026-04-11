@@ -226,7 +226,7 @@ func RateLimitMiddleware(next http.Handler, rateLimiter rate_limiter.RateLimiter
 			next.ServeHTTP(w, r)
 			return
 		}
-		isBlocked := rateLimiter.IsIpBlocked(ip)
+		isBlocked := rateLimiter.IsIpBlocked(r.Context(), ip)
 		if isBlocked {
 			log.Warn("[rate limit middleware] ip blocked",
 				zap.String("ip", ip))

@@ -17,7 +17,7 @@ import (
 )
 
 type RateLimiterInterface interface {
-	IsIpBlocked(ip string) bool
+	IsIpBlocked(ctx context.Context, ip string) bool
 	BlockIp(ctx context.Context, ip string)
 	BlockIpPermanent(ctx context.Context, ip string)
 	UnblockIp(ip string)
@@ -53,7 +53,7 @@ func NewRateLimiter(bucket repository.BucketInterface, serverIp string) (*RateLi
 	}, nil
 }
 
-func (obj *RateLimiter) IsIpBlocked(ip string) bool {
+func (obj *RateLimiter) IsIpBlocked(ctx context.Context, ip string) bool {
 	log := logger.GetLogger()
 	obj.mu.RLock()
 	if slices.Contains(obj.permanentBlocked, ip) {
@@ -61,7 +61,7 @@ func (obj *RateLimiter) IsIpBlocked(ip string) bool {
 		return true
 	}
 	obj.mu.RUnlock()
-	bucketInfo, err := obj.bucket.Get(ip)
+	bucketInfo, err := obj.bucket.Get(ctx, ip)
 	if err != nil {
 		if errors.Is(err, repository.NoIpInSavedError) {
 			newBucketInfo := models.BucketModel{
@@ -70,7 +70,7 @@ func (obj *RateLimiter) IsIpBlocked(ip string) bool {
 				BlockedUntil:   time.Time{},
 				LastSeen:       time.Now(),
 			}
-			err = obj.bucket.Save(ip, newBucketInfo)
+			err = obj.bucket.Save(ctx, ip, newBucketInfo)
 			if err != nil {
 				log.Error("failed to save bucket",
 					zap.String("ip", ip),
@@ -97,7 +97,7 @@ func (obj *RateLimiter) BlockIp(ctx context.Context, ip string) {
 		BlockedUntil:   time.Now().Add(BlockDuration),
 		LastSeen:       time.Now(),
 	}
-	err := obj.bucket.Save(ip, bucketInfo)
+	err := obj.bucket.Save(ctx, ip, bucketInfo)
 	if err != nil {
 		log.Error("failed to save bucket",
 			zap.String("ip", ip),
@@ -137,7 +137,7 @@ func (obj *RateLimiter) Allow(ctx context.Context, ip string) bool {
 
 func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 	log := logger.GetLoggerWIthRequestId(ctx)
-	bucketInfo, err := obj.bucket.Get(ip)
+	bucketInfo, err := obj.bucket.Get(ctx, ip)
 	if err != nil {
 		if errors.Is(err, repository.NoIpInSavedError) {
 			newBucketInfo := models.BucketModel{
@@ -146,7 +146,7 @@ func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 				BlockedUntil:   time.Time{},
 				LastSeen:       time.Now(),
 			}
-			err = obj.bucket.Save(ip, newBucketInfo)
+			err = obj.bucket.Save(ctx, ip, newBucketInfo)
 			if err != nil {
 				log.Error("failed to save bucket",
 					zap.String("ip", ip),
@@ -163,7 +163,7 @@ func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 	bucketInfo.LastRefillTime = time.Now()
 	if bucketInfo.Count >= n {
 		bucketInfo.Count -= n
-		err = obj.bucket.Save(ip, bucketInfo)
+		err = obj.bucket.Save(ctx, ip, bucketInfo)
 		if err != nil {
 			log.Error("failed to save bucket",
 				zap.String("ip", ip),

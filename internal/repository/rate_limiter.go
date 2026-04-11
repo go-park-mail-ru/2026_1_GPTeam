@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -13,8 +14,8 @@ import (
 const TTLOneDay = 86400
 
 type BucketInterface interface {
-	Get(ip string) (models.BucketModel, error)
-	Save(ip string, bucket models.BucketModel) error
+	Get(ctx context.Context, ip string) (models.BucketModel, error)
+	Save(ctx context.Context, ip string, bucket models.BucketModel) error
 }
 
 type BucketRedis struct {
@@ -27,9 +28,13 @@ func NewBucketRedis(db *redis.Pool) *BucketRedis {
 	}
 }
 
-func (obj *BucketRedis) Get(ip string) (models.BucketModel, error) {
+func (obj *BucketRedis) Get(ctx context.Context, ip string) (models.BucketModel, error) {
 	log := logger.GetLogger()
-	conn := obj.db.Get()
+	conn, err := obj.db.GetContext(ctx)
+	if err != nil {
+		log.Error("failed to get redis connection", zap.Error(err))
+		return models.BucketModel{}, err
+	}
 	defer func() {
 		err := conn.Close()
 		if err != nil {
@@ -57,7 +62,7 @@ func (obj *BucketRedis) Get(ip string) (models.BucketModel, error) {
 	return *bucketInfo, nil
 }
 
-func (obj *BucketRedis) Save(ip string, bucket models.BucketModel) error {
+func (obj *BucketRedis) Save(ctx context.Context, ip string, bucket models.BucketModel) error {
 	log := logger.GetLogger()
 	serializedBucket, err := json.Marshal(bucket)
 	if err != nil {
@@ -67,7 +72,11 @@ func (obj *BucketRedis) Save(ip string, bucket models.BucketModel) error {
 			zap.Error(err))
 		return err
 	}
-	conn := obj.db.Get()
+	conn, err := obj.db.GetContext(ctx)
+	if err != nil {
+		log.Error("failed to get redis connection", zap.Error(err))
+		return err
+	}
 	defer func() {
 		err := conn.Close()
 		if err != nil {
