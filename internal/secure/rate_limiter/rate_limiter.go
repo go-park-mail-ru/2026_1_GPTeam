@@ -20,17 +20,16 @@ type RateLimiterInterface interface {
 	IsIpBlocked(ctx context.Context, ip string) bool
 	BlockIp(ctx context.Context, ip string)
 	BlockIpPermanent(ctx context.Context, ip string)
-	UnblockIp(ip string)
+	UnblockIp(ctx context.Context, ip string)
 	Allow(ctx context.Context, ip string) bool
 	IsTrustedIp(ip string) bool
 	AllowN(ctx context.Context, ip string, n int) bool
 }
 
 type RateLimiter struct {
-	mu               sync.RWMutex
-	permanentBlocked []string
-	trustedIps       []string
-	bucket           repository.BucketInterface
+	mu         sync.RWMutex
+	trustedIps []string
+	bucket     repository.BucketInterface
 }
 
 func NewRateLimiter(bucket repository.BucketInterface, serverIp string) (*RateLimiter, error) {
@@ -40,7 +39,6 @@ func NewRateLimiter(bucket repository.BucketInterface, serverIp string) (*RateLi
 		return &RateLimiter{}, WrongServerIpAddress
 	}
 	return &RateLimiter{
-		permanentBlocked: []string{},
 		trustedIps: []string{
 			"127.0.0.1",
 			"::1",
@@ -55,12 +53,17 @@ func NewRateLimiter(bucket repository.BucketInterface, serverIp string) (*RateLi
 
 func (obj *RateLimiter) IsIpBlocked(ctx context.Context, ip string) bool {
 	log := logger.GetLogger()
-	obj.mu.RLock()
-	if slices.Contains(obj.permanentBlocked, ip) {
+	permanentBlockedIps, err := obj.bucket.GetPermanentBlocked(ctx)
+	if err != nil {
+		log.Error("skip checking permanent blocked ips", zap.Error(err))
+	} else {
+		obj.mu.RLock()
+		if slices.Contains(permanentBlockedIps.Ips, ip) {
+			obj.mu.RUnlock()
+			return true
+		}
 		obj.mu.RUnlock()
-		return true
 	}
-	obj.mu.RUnlock()
 	bucketInfo, err := obj.bucket.Get(ctx, ip)
 	if err != nil {
 		if errors.Is(err, repository.NoIpInSavedError) {
@@ -109,26 +112,40 @@ func (obj *RateLimiter) BlockIp(ctx context.Context, ip string) {
 }
 
 func (obj *RateLimiter) BlockIpPermanent(ctx context.Context, ip string) {
+	log := logger.GetLoggerWIthRequestId(ctx)
 	obj.mu.Lock()
 	defer obj.mu.Unlock()
-	obj.permanentBlocked = append(obj.permanentBlocked, ip)
-	log := logger.GetLoggerWIthRequestId(ctx)
-	log.Warn("ip blocked permanent",
-		zap.String("ip", ip))
+	permanentBlockedIps, err := obj.bucket.GetPermanentBlocked(ctx)
+	if err != nil {
+		return
+	}
+	permanentBlockedIps.Ips = append(permanentBlockedIps.Ips, ip)
+	err = obj.bucket.SetPermanentBlocked(ctx, permanentBlockedIps)
+	if err == nil {
+		log.Warn("ip blocked permanent",
+			zap.String("ip", ip))
+	}
 }
 
-func (obj *RateLimiter) UnblockIp(ip string) {
+func (obj *RateLimiter) UnblockIp(ctx context.Context, ip string) {
+	log := logger.GetLogger()
 	obj.mu.Lock()
 	defer obj.mu.Unlock()
-	for i := 0; i < len(obj.permanentBlocked); i++ {
-		if obj.permanentBlocked[i] == ip {
-			obj.permanentBlocked[i] = obj.permanentBlocked[len(obj.permanentBlocked)-1]
-			obj.permanentBlocked = obj.permanentBlocked[:len(obj.permanentBlocked)-1]
+	permanentBlockedIps, err := obj.bucket.GetPermanentBlocked(ctx)
+	if err != nil {
+		return
+	}
+	for i := 0; i < len(permanentBlockedIps.Ips); i++ {
+		if permanentBlockedIps.Ips[i] == ip {
+			permanentBlockedIps.Ips[i] = permanentBlockedIps.Ips[len(permanentBlockedIps.Ips)-1]
+			permanentBlockedIps.Ips = permanentBlockedIps.Ips[:len(permanentBlockedIps.Ips)-1]
 			i--
 		}
 	}
-	log := logger.GetLogger()
-	log.Info("ip unblocked", zap.String("ip", ip))
+	err = obj.bucket.SetPermanentBlocked(ctx, permanentBlockedIps)
+	if err == nil {
+		log.Info("ip unblocked", zap.String("ip", ip))
+	}
 }
 
 func (obj *RateLimiter) Allow(ctx context.Context, ip string) bool {

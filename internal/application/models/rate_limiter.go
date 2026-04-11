@@ -8,3 +8,7 @@ type BucketModel struct {
 	BlockedUntil   time.Time
 	LastSeen       time.Time
 }
+
+type PermanentBlockedIps struct {
+	Ips []string
+}

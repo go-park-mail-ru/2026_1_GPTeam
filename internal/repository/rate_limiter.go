@@ -12,10 +12,13 @@ import (
 )
 
 const TTLOneDay = 86400
+const PermanentBlockedIpsKey = "permanent_blocked_ips"
 
 type BucketInterface interface {
 	Get(ctx context.Context, ip string) (models.BucketModel, error)
 	Save(ctx context.Context, ip string, bucket models.BucketModel) error
+	GetPermanentBlocked(ctx context.Context) (models.PermanentBlockedIps, error)
+	SetPermanentBlocked(ctx context.Context, ips models.PermanentBlockedIps) error
 }
 
 type BucketRedis struct {
@@ -36,7 +39,7 @@ func (obj *BucketRedis) Get(ctx context.Context, ip string) (models.BucketModel,
 		return models.BucketModel{}, err
 	}
 	defer func() {
-		err := conn.Close()
+		err = conn.Close()
 		if err != nil {
 			log.Error("failed to close redis connection", zap.Error(err))
 		}
@@ -78,7 +81,7 @@ func (obj *BucketRedis) Save(ctx context.Context, ip string, bucket models.Bucke
 		return err
 	}
 	defer func() {
-		err := conn.Close()
+		err = conn.Close()
 		if err != nil {
 			log.Error("failed to close redis connection", zap.Error(err))
 		}
@@ -95,6 +98,74 @@ func (obj *BucketRedis) Save(ctx context.Context, ip string, bucket models.Bucke
 		log.Error("error when saving bucket in redis",
 			zap.String("ip", ip),
 			zap.Any("bucket", bucket),
+			zap.String("result", result))
+		return ResultNotOkError
+	}
+	return nil
+}
+
+func (obj *BucketRedis) GetPermanentBlocked(ctx context.Context) (models.PermanentBlockedIps, error) {
+	log := logger.GetLogger()
+	conn, err := obj.db.GetContext(ctx)
+	if err != nil {
+		log.Error("failed to get redis connection", zap.Error(err))
+		return models.PermanentBlockedIps{}, err
+	}
+	defer func() {
+		err = conn.Close()
+		if err != nil {
+			log.Error("failed to close redis connection", zap.Error(err))
+		}
+	}()
+	data, err := redis.Bytes(conn.Do("GET", PermanentBlockedIpsKey))
+	if err != nil {
+		if errors.Is(err, redis.ErrNil) {
+			return models.PermanentBlockedIps{}, NoIpInSavedError
+		}
+		log.Error("redis error",
+			zap.Error(err))
+		return models.PermanentBlockedIps{}, err
+	}
+	blockedIps := &models.PermanentBlockedIps{}
+	err = json.Unmarshal(data, blockedIps)
+	if err != nil {
+		log.Error("unable to unmarshal bucket from redis",
+			zap.Error(err))
+		return models.PermanentBlockedIps{}, err
+	}
+	return *blockedIps, nil
+}
+
+func (obj *BucketRedis) SetPermanentBlocked(ctx context.Context, ips models.PermanentBlockedIps) error {
+	log := logger.GetLogger()
+	serialized, err := json.Marshal(ips)
+	if err != nil {
+		log.Error("unable to serialize",
+			zap.Any("ips", ips),
+			zap.Error(err))
+		return err
+	}
+	conn, err := obj.db.GetContext(ctx)
+	if err != nil {
+		log.Error("failed to get redis connection", zap.Error(err))
+		return err
+	}
+	defer func() {
+		err = conn.Close()
+		if err != nil {
+			log.Error("failed to close redis connection", zap.Error(err))
+		}
+	}()
+	result, err := redis.String(conn.Do("SET", PermanentBlockedIpsKey, serialized))
+	if err != nil {
+		log.Error("error when saving bucket in redis",
+			zap.Any("ips", ips),
+			zap.Error(err))
+		return err
+	}
+	if result != "OK" {
+		log.Error("error when saving bucket in redis",
+			zap.Any("ips", ips),
 			zap.String("result", result))
 		return ResultNotOkError
 	}
