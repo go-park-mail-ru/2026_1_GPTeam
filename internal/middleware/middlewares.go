@@ -220,12 +220,12 @@ func RateLimitMiddleware(next http.Handler, rateLimiter rate_limiter.RateLimiter
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		//if rateLimiter.IsTrustedIp(ip) {
-		//	log.Info("[rate limit middleware] trusted ip - skip",
-		//		zap.String("ip", ip))
-		//	next.ServeHTTP(w, r)
-		//	return
-		//}
+		if rateLimiter.IsTrustedIp(ip) {
+			log.Info("[rate limit middleware] trusted ip - skip",
+				zap.String("ip", ip))
+			next.ServeHTTP(w, r)
+			return
+		}
 		isBlocked := rateLimiter.IsIpBlocked(r.Context(), ip)
 		if isBlocked {
 			log.Warn("[rate limit middleware] ip blocked",
