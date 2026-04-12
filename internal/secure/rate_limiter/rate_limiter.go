@@ -178,7 +178,6 @@ func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 	duration := int(time.Since(bucketInfo.LastRefillTime).Milliseconds() / 500)
 	bucketInfo.Count = min(MaxCount, bucketInfo.Count+duration*RefillRateInHalfSecond)
 	bucketInfo.LastRefillTime = time.Now()
-	log.Info("allow ip", zap.String("ip", ip), zap.Int("count", bucketInfo.Count))
 	if bucketInfo.Count >= n {
 		bucketInfo.Count -= n
 		err = obj.bucket.Save(ctx, ip, bucketInfo)
