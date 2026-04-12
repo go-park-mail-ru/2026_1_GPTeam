@@ -558,3 +558,12 @@ func NewVoiceErrorResponse(code int, message string) VoiceErrorResponse {
 		Message: message,
 	}
 }
+
+type TooManyRequestsResponse SimpleResponse
+
+func NewTooManyRequestsResponse() TooManyRequestsResponse {
+	return TooManyRequestsResponse{
+		Code:    http.StatusTooManyRequests,
+		Message: "Слишком много запросов",
+	}
+}

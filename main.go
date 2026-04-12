@@ -15,8 +15,10 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/gomodule/redigo/redis"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -141,6 +143,40 @@ func main() {
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
 	secure.XssSanitizerInit()
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	redisUrl := fmt.Sprintf("redis://%s:%s/0", redisHost, redisPort)
+	redisPool := &redis.Pool{
+		MaxIdle:     10,
+		MaxActive:   50,
+		IdleTimeout: 240 * time.Second,
+		Wait:        true,
+		Dial: func() (redis.Conn, error) {
+			conn, err := redis.DialURL(redisUrl)
+			if err != nil {
+				return nil, fmt.Errorf("failed to connect to redis: %w", err)
+			}
+			return conn, nil
+		},
+		TestOnBorrow: func(conn redis.Conn, t time.Time) error {
+			if time.Since(t) < 30*time.Second {
+				return nil
+			}
+			_, err := conn.Do("PING")
+			return err
+		},
+	}
+	defer func() {
+		err = redisPool.Close()
+		if err != nil {
+			fmt.Println("redis pool close error", err)
+		}
+	}()
+	rateLimitBucket := repository.NewBucketRedis(redisPool)
+	rateLimiter, err := rate_limiter.NewRateLimiter(rateLimitBucket, os.Getenv("SERVER_IP"))
+	if err != nil {
+		return
+	}
 	log.Info("secure package initialized")
 
 	mux := http.NewServeMux()
@@ -168,6 +204,7 @@ func main() {
 	handler := middleware.CSRFMiddleware(mux, csrfService)
 	handler = middleware.AuthMiddleware(handler, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
+	handler = middleware.RateLimitMiddleware(handler, rateLimiter)
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
