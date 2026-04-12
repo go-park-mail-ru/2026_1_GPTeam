@@ -13,6 +13,9 @@ import (
 
 const TTLOneDay = 86400
 const PermanentBlockedIpsKey = "permanent_blocked_ips"
+const RedisOkResponse = "OK"
+const RedisMethodGet = "GET"
+const RedisMethodSet = "SET"
 
 type BucketInterface interface {
 	Get(ctx context.Context, ip string) (models.BucketModel, error)
@@ -44,7 +47,7 @@ func (obj *BucketRedis) Get(ctx context.Context, ip string) (models.BucketModel,
 			log.Error("failed to close redis connection", zap.Error(err))
 		}
 	}()
-	data, err := redis.Bytes(conn.Do("GET", ip))
+	data, err := redis.Bytes(redis.DoContext(conn, ctx, RedisMethodGet, ip))
 	if err != nil {
 		if errors.Is(err, redis.ErrNil) {
 			return models.BucketModel{}, NoIpInSavedError
@@ -86,7 +89,7 @@ func (obj *BucketRedis) Save(ctx context.Context, ip string, bucket models.Bucke
 			log.Error("failed to close redis connection", zap.Error(err))
 		}
 	}()
-	result, err := redis.String(conn.Do("SET", ip, serializedBucket, "EX", TTLOneDay))
+	result, err := redis.String(redis.DoContext(conn, ctx, RedisMethodSet, ip, serializedBucket, "EX", TTLOneDay))
 	if err != nil {
 		log.Error("error when saving bucket in redis",
 			zap.String("ip", ip),
@@ -94,7 +97,7 @@ func (obj *BucketRedis) Save(ctx context.Context, ip string, bucket models.Bucke
 			zap.Error(err))
 		return err
 	}
-	if result != "OK" {
+	if result != RedisOkResponse {
 		log.Error("error when saving bucket in redis",
 			zap.String("ip", ip),
 			zap.Any("bucket", bucket),
@@ -117,7 +120,7 @@ func (obj *BucketRedis) GetPermanentBlocked(ctx context.Context) (models.Permane
 			log.Error("failed to close redis connection", zap.Error(err))
 		}
 	}()
-	data, err := redis.Bytes(conn.Do("GET", PermanentBlockedIpsKey))
+	data, err := redis.Bytes(redis.DoContext(conn, ctx, RedisMethodGet, PermanentBlockedIpsKey))
 	if err != nil {
 		if errors.Is(err, redis.ErrNil) {
 			return models.PermanentBlockedIps{}, NoIpInSavedError
@@ -156,14 +159,14 @@ func (obj *BucketRedis) SetPermanentBlocked(ctx context.Context, ips models.Perm
 			log.Error("failed to close redis connection", zap.Error(err))
 		}
 	}()
-	result, err := redis.String(conn.Do("SET", PermanentBlockedIpsKey, serialized))
+	result, err := redis.String(redis.DoContext(conn, ctx, RedisMethodSet, PermanentBlockedIpsKey, serialized))
 	if err != nil {
 		log.Error("error when saving bucket in redis",
 			zap.Any("ips", ips),
 			zap.Error(err))
 		return err
 	}
-	if result != "OK" {
+	if result != RedisOkResponse {
 		log.Error("error when saving bucket in redis",
 			zap.Any("ips", ips),
 			zap.String("result", result))
