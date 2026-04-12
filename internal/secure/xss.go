@@ -19,5 +19,6 @@ func SanitizeXss(data string) string {
 	if data == "" {
 		return ""
 	}
+	XssSanitizerInit()
 	return strictPolicy.Sanitize(data)
 }

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"

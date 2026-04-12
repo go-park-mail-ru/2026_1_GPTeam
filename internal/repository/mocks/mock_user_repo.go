@@ -67,6 +67,22 @@ func (mr *MockUserRepositoryMockRecorder) GetBalanceByCurrency(ctx, userId, curr
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalanceByCurrency", reflect.TypeOf((*MockUserRepository)(nil).GetBalanceByCurrency), ctx, userId, currency)
 }
 
+// GetBalanceStat mocks base method.
+func (m *MockUserRepository) GetBalanceStat(ctx context.Context, userId int) (float64, float64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBalanceStat", ctx, userId)
+	ret0, _ := ret[0].(float64)
+	ret1, _ := ret[1].(float64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetBalanceStat indicates an expected call of GetBalanceStat.
+func (mr *MockUserRepositoryMockRecorder) GetBalanceStat(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalanceStat", reflect.TypeOf((*MockUserRepository)(nil).GetBalanceStat), ctx, userId)
+}
+
 // GetByEmail mocks base method.
 func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*models.UserModel, error) {
 	m.ctrl.T.Helper()

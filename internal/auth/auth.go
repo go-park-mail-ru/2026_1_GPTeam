@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate mockgen -source=auth.go -destination=mocks/auth.go -package=mocks
 type AuthenticationService interface {
 	GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userId int)
 	IsAuth(ctx context.Context, r *http.Request) (bool, int)
