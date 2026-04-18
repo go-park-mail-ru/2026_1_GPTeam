@@ -247,9 +247,9 @@ func RateLimitMiddleware(next http.Handler, rateLimiter rate_limiter.RateLimiter
 	})
 }
 
-func CspMiddleware(next http.Handler) http.Handler {
+func CSPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		secure.AddCspHeader(w)
+		secure.AddCSPHeader(w)
 		next.ServeHTTP(w, r)
 	})
 }

@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func AddCspHeader(w http.ResponseWriter) {
+func AddCSPHeader(w http.ResponseWriter) {
 	defaultSrc := "'self'"
 	scriptSrc := "'self'"
 	styleSrc := "'self' 'unsafe-inline'"
@@ -14,5 +14,5 @@ func AddCspHeader(w http.ResponseWriter) {
 	connectSrc := "'self'"
 	value := fmt.Sprintf("default-src %s; script-src %s; style-src %s; img-src %s; font-src %s; connect-src %s;",
 		defaultSrc, scriptSrc, styleSrc, imageSrc, fontSrc, connectSrc)
-	w.Header().Add("Content-Security-Policy", value)
+	w.Header().Set("Content-Security-Policy", value)
 }
