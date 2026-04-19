@@ -201,7 +201,8 @@ func main() {
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
 	mux.Handle("/img/", middleware.NoDirListing(fileServer))
 
-	handler := middleware.CSRFMiddleware(mux, csrfService)
+	handler := middleware.CSPMiddleware(mux)
+	handler = middleware.CSRFMiddleware(handler, csrfService)
 	handler = middleware.AuthMiddleware(handler, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.RateLimitMiddleware(handler, rateLimiter)
