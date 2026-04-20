@@ -365,7 +365,6 @@ type TransactionRequest struct {
 	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
-	Currency        string    `json:"currency"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
 	TransactionDate time.Time `json:"transaction_date"`
@@ -433,7 +432,6 @@ func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *T
 			Value:           transaction.Value,
 			Type:            transaction.Type,
 			Category:        transaction.Category,
-			Currency:        transaction.Currency,
 			Title:           transaction.Title,
 			Description:     transaction.Description,
 			CreatedAt:       transaction.CreatedAt,
@@ -565,5 +563,34 @@ func NewTooManyRequestsResponse() TooManyRequestsResponse {
 	return TooManyRequestsResponse{
 		Code:    http.StatusTooManyRequests,
 		Message: "Слишком много запросов",
+	}
+}
+
+type ShortAccount struct {
+	Id      int     `json:"id"`
+	Name    string  `json:"name"`
+	Balance float64 `json:"balance"`
+}
+
+func NewShortAccount(id int, name string, balance float64) ShortAccount {
+	return ShortAccount{
+		Id:      id,
+		Name:    name,
+		Balance: balance,
+	}
+}
+
+type ShortAccountsResponse struct {
+	SimpleResponse
+	Accounts []ShortAccount `json:"accounts"`
+}
+
+func NewShortAccountResponse(accounts []ShortAccount) ShortAccountsResponse {
+	return ShortAccountsResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "OK",
+		},
+		Accounts: accounts,
 	}
 }

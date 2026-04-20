@@ -132,7 +132,7 @@ func main() {
 	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
-	userHandler := web.NewUserHandler(userApp)
+	userHandler := web.NewUserHandler(userApp, accountApp)
 	authHandler := web.NewAuthHandler(authService, userApp, accountApp)
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
@@ -185,6 +185,7 @@ func main() {
 	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.SignUp)))
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Login)))
 	mux.Handle("/api/account", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccount)))
+	mux.Handle("/api/accounts", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccounts)))
 	mux.Handle("/api/profile", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPatch)(http.HandlerFunc(userHandler.ProfileHandler)))
 	mux.Handle("/api/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Balance)))
 	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))

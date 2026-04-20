@@ -51,3 +51,36 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		"account_id": accountId,
 	})
 }
+
+func (obj *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWIthRequestId(r.Context())
+	log.Info("get short accounts request")
+	authUser, ok := web_helpers.GetAuthUser(r)
+	if !ok {
+		log.Warn("user unauthorized")
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	accounts, err := obj.accountApp.GetAllAccountsByUserId(r.Context(), authUser.Id)
+	if err != nil {
+		if errors.Is(err, application.ErrAccountNotFound) {
+			response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+
+		response := web_helpers.NewInternalServerErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	log.Info("get short accounts",
+		zap.Any("accounts", accounts),
+		zap.Int("user_id", authUser.Id))
+	var shortAccounts []web_helpers.ShortAccount
+	for _, account := range accounts {
+		shortAccounts = append(shortAccounts, web_helpers.NewShortAccount(account.Id, account.Name, account.Balance))
+	}
+	response := web_helpers.NewShortAccountResponse(shortAccounts)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}

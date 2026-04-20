@@ -18,12 +18,14 @@ import (
 )
 
 type UserHandler struct {
-	userApp application.UserUseCase
+	userApp    application.UserUseCase
+	accountApp application.AccountUseCase
 }
 
-func NewUserHandler(userApp application.UserUseCase) *UserHandler {
+func NewUserHandler(userApp application.UserUseCase, accountApp application.AccountUseCase) *UserHandler {
 	return &UserHandler{
-		userApp: userApp,
+		userApp:    userApp,
+		accountApp: accountApp,
 	}
 }
 
@@ -48,7 +50,7 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats, err := obj.userApp.GetUserBalance(r.Context(), authUser.Id)
+	accounts, incomes, expenses, err := obj.accountApp.GetAllAccountsByUserIdWithBalance(r.Context(), authUser.Id)
 	if err != nil {
 		log.Error("failed to calculate user balance", zap.Error(err))
 		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
@@ -57,18 +59,19 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var balances []web_helpers.CurrencyBalance
-	for _, s := range stats {
+	for i := range len(accounts) {
 		balances = append(balances, web_helpers.CurrencyBalance{
-			Currency: s.Currency,
-			Balance:  s.Balance,
-			Income:   s.Income,
-			Expenses: s.Expenses,
+			Currency: accounts[i].Currency,
+			Balance:  accounts[i].Balance,
+			Income:   incomes[i],
+			Expenses: expenses[i],
 		})
 	}
 
 	response := web_helpers.NewBalanceResponse(balances)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
+
 func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLoggerWIthRequestId(r.Context())
 	log.Info("changing avatar")
