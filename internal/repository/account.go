@@ -32,7 +32,7 @@ func NewAccountPostgres(db DB) *AccountPostgres {
 }
 
 func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountModel) (int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `insert into account (name, balance, currency, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) returning id;`
 	args := []any{account.Name, account.Balance, account.Currency, account.CreatedAt, account.UpdatedAt}
 	var id int
@@ -63,7 +63,7 @@ func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountMo
 }
 
 func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId int, userId int) (int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `insert into account_user (account_id, user_id) VALUES ($1, $2) returning id;`
 	args := []any{accountId, userId}
 	var id int
@@ -94,7 +94,7 @@ func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId in
 }
 
 func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId int, accountId int) ([]int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `select id from account_user where user_id = $1 and account_id = $2`
 	args := []any{userId, accountId}
 	startTime := time.Now()
@@ -122,7 +122,7 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 }
 
 func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int) (int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `SELECT account_id FROM account_user WHERE user_id = $1 LIMIT 1`
 	args := []any{userId}
 	var accountId int
@@ -139,7 +139,7 @@ func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int
 }
 
 func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `select account.id, name, balance, currency, account.created_at, account.updated_at, coalesce(income, 0) as income, coalesce(expenses, 0) as expenses
 from account join account_user on account.id = account_user.account_id left join (
 select account_id, sum(case when transaction.type = 'INCOME' then transaction.value else 0 end) as income, sum(case when transaction.type = 'EXPENSE' then transaction.value else 0 end) as expenses
@@ -181,7 +181,7 @@ where account_user.user_id = $1;`
 }
 
 func (obj *AccountPostgres) GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `select account.id, name, balance, currency, created_at, updated_at from account join account_user on account.id = account_user.account_id where user_id = $1;`
 	args := []any{userId}
 	var accounts []models.AccountModel

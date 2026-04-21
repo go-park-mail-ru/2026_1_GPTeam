@@ -50,7 +50,7 @@ func (obj *Csrf) generateRandValue(ctx context.Context) (string, error) {
 	data := make([]byte, obj.randNonceLength)
 	_, err := rand.Read(data)
 	if err != nil {
-		log := logger.GetLoggerWIthRequestId(ctx)
+		log := logger.GetLoggerWithRequestId(ctx)
 		log.Error("Error generating random value",
 			zap.Error(err))
 		return "", err
@@ -72,7 +72,7 @@ func (obj *Csrf) generateCsrf(ctx context.Context, token string) (string, error)
 }
 
 func (obj *Csrf) ValidateCsrf(ctx context.Context, csrf string, token string) (bool, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	parts := strings.Split(csrf, ".")
 	if len(parts) != 2 {
 		log.Warn("Get invalid CSRF token")
@@ -94,7 +94,7 @@ func (obj *Csrf) ValidateCsrf(ctx context.Context, csrf string, token string) (b
 func (obj *Csrf) getCsrfValueFromToken(ctx context.Context, csrf string) (string, error) {
 	parts := strings.Split(csrf, ".")
 	if len(parts) != 2 {
-		log := logger.GetLoggerWIthRequestId(ctx)
+		log := logger.GetLoggerWithRequestId(ctx)
 		log.Warn("Get invalid CSRF value")
 		return "", InvalidCsrfError
 	}
@@ -129,7 +129,7 @@ func (obj *Csrf) SetCsrfCookie(ctx context.Context, w http.ResponseWriter, r *ht
 func (obj *Csrf) GetAccessToken(ctx context.Context, r *http.Request) (string, error) {
 	cookie, err := r.Cookie(auth.TokenName)
 	if err != nil {
-		log := logger.GetLoggerWIthRequestId(ctx)
+		log := logger.GetLoggerWithRequestId(ctx)
 		log.Warn("Failed to get access token",
 			zap.Error(err))
 		return "", err
@@ -140,7 +140,7 @@ func (obj *Csrf) GetAccessToken(ctx context.Context, r *http.Request) (string, e
 func (obj *Csrf) GetCsrfFromCookie(ctx context.Context, r *http.Request) string {
 	cookie, err := r.Cookie(CsrfCookieName)
 	if err != nil {
-		log := logger.GetLoggerWIthRequestId(ctx)
+		log := logger.GetLoggerWithRequestId(ctx)
 		log.Warn("Failed to get CSRF cookie",
 			zap.Error(err))
 		return ""
@@ -154,7 +154,7 @@ func (obj *Csrf) GetCsrfFromHeader(r *http.Request) string {
 }
 
 func (obj *Csrf) ValidateSecFetchSite(r *http.Request) bool {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	secFetchSite := r.Header.Get("Sec-Fetch-Site")
 	if secFetchSite == "" {
 		log.Info("[CSRF middleware] Sec-Fetch-Site header missing, relying on CSRF tokens")

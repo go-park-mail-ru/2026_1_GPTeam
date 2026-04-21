@@ -45,7 +45,7 @@ func (obj *Transaction) Update(ctx context.Context, transaction models.Transacti
 }
 
 func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId int) (int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return 0, err
@@ -64,7 +64,7 @@ func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId in
 }
 
 func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	transaction, err := obj.repository.Detail(ctx, transactionId)
 	if err != nil {
 		return models.TransactionModel{}, err

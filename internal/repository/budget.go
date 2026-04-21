@@ -32,7 +32,7 @@ func NewBudgetPostgres(db DB) *BudgetPostgres {
 }
 
 func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel) (int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `insert into budget (title, description, created_at, start_at, end_at, actual, target, currency, author) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id;`
 	endAt := pgtype.Timestamptz{
 		Time:  budget.EndAt,
@@ -77,7 +77,7 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 }
 
 func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `select title, description, created_at, start_at, end_at, updated_at, actual, target, currency, author, active from budget where id = $1 and active = true;`
 	var endAt pgtype.Timestamptz
 	budget := models.BudgetModel{Id: id}
@@ -103,7 +103,7 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 }
 
 func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `select id from budget where author = $1 and active = true;`
 	var ids []int
 	args := []any{userId}
@@ -144,7 +144,7 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 }
 
 func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `update budget set active = false where id = $1;`
 	args := []any{id}
 	startTime := time.Now()

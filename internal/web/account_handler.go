@@ -21,7 +21,7 @@ func NewAccountHandler(accountApp application.AccountUseCase) *AccountHandler {
 }
 
 func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get account request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -53,7 +53,7 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get short accounts request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {

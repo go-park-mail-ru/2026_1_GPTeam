@@ -39,7 +39,7 @@ func NewUser(repo repository.UserRepository, enumsApp EnumsUseCase) *User {
 }
 
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper (на будущее, так как надо сделать поддержку старых перцов и плавную миграцию на новый перец)
 	if err != nil {
 		log.Warn("failed to hash password",
@@ -73,7 +73,7 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 }
 
 func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, extension string) (string, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	avatarUrl := uuid.New().String() + extension
 	filePath := filepath.Join("./static", avatarUrl)
 	dst, err := os.Create(filePath)
@@ -104,7 +104,7 @@ func (obj *User) GetById(ctx context.Context, id int) (*models.UserModel, error)
 }
 
 func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	storedUser, err := obj.repository.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return nil, err
@@ -119,7 +119,7 @@ func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBod
 }
 
 func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	if !isAuth {
 		log.Warn("user is not authorized",
 			zap.Int("user_id", userId))
@@ -139,7 +139,7 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 }
 
 func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
 	if err != nil {
 		log.Warn("failed to update last login",
@@ -151,7 +151,7 @@ func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
 }
 
 func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	if profile.Password != nil {
 		bytes, err := bcrypt.GenerateFromPassword([]byte(*profile.Password), bcrypt.DefaultCost)
 		if err != nil {

@@ -99,7 +99,7 @@ func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
 }
 
 func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {
 		return false, -1
@@ -171,7 +171,7 @@ func (obj *Jwt) GenerateToken(userID int) (string, error) {
 }
 
 func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userId int, deviceId string) (string, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("generating new refresh token",
 		zap.Int("user_id", userId))
 	expirationTime := time.Now().Add(RefreshTokenExpirationTime)
@@ -210,7 +210,7 @@ func (obj *Jwt) GenerateRefreshToken(ctx context.Context, userId int, deviceId s
 }
 
 func (obj *Jwt) DeleteRefreshToken(ctx context.Context, tokenStr string) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("deleting refresh token")
 	token, err := obj.parseToken(tokenStr)
 	if err != nil {

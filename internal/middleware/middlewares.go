@@ -59,7 +59,7 @@ func NoDirListing(next http.Handler) http.Handler {
 
 func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, userApp application.UserUseCase) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log := logger.GetLoggerWIthRequestId(r.Context())
+		log := logger.GetLoggerWithRequestId(r.Context())
 		path := r.URL.Path
 		log.Info("[auth middleware] checking",
 			zap.String("path", path))
@@ -163,7 +163,7 @@ func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Hand
 			next.ServeHTTP(w, r)
 			return
 		}
-		log := logger.GetLoggerWIthRequestId(r.Context())
+		log := logger.GetLoggerWithRequestId(r.Context())
 		if !csrfService.ValidateSecFetchSite(r) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -212,7 +212,7 @@ func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Hand
 
 func RateLimitMiddleware(next http.Handler, rateLimiter rate_limiter.RateLimiterInterface) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log := logger.GetLoggerWIthRequestId(r.Context())
+		log := logger.GetLoggerWithRequestId(r.Context())
 		ip, err := rate_limiter.GetRealIp(r)
 		if err != nil {
 			log.Warn("[rate limit middleware] unable to get ip - return")

@@ -54,7 +54,7 @@ func (obj *TransactionHandler) Transaction(w http.ResponseWriter, r *http.Reques
 }
 
 func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("create transaction request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -136,7 +136,7 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get transactions request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -164,7 +164,7 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 }
 
 func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("update transaction request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -255,7 +255,7 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("delete transaction request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -299,7 +299,7 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get transaction request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {

@@ -39,7 +39,7 @@ func (obj *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get balance request")
 
 	authUser, ok := web_helpers.GetAuthUser(r)
@@ -73,7 +73,7 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("changing avatar")
 
 	err := r.ParseMultipartForm(5 << 20)
@@ -160,7 +160,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get profile request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -182,7 +182,7 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("update profile request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {

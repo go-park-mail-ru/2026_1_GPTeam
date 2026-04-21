@@ -32,7 +32,7 @@ func NewAuthHandler(auth auth.AuthenticationService, userUseCase application.Use
 }
 
 func (obj *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("logout request")
 	obj.authService.ClearOld(r.Context(), w, r)
 	log.Info("logout success")
@@ -41,7 +41,7 @@ func (obj *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("refresh token request")
 	isAuth, userId := obj.authService.Refresh(r.Context(), w, r)
 	authUser, ok := obj.userApp.IsAuthUserExists(r.Context(), isAuth, userId)
@@ -59,7 +59,7 @@ func (obj *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("sign up request")
 	var body web_helpers.SignupBodyRequest
 	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
@@ -163,7 +163,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("login request")
 	var userRequest web_helpers.LoginBodyRequest
 	if err := web_helpers.ReadRequestJSON(r, &userRequest); err != nil {

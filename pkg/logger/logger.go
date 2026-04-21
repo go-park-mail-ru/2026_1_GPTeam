@@ -69,7 +69,7 @@ func Close() error {
 	return multiErr
 }
 
-func GetLoggerWIthRequestId(ctx context.Context) *zap.Logger {
+func GetLoggerWithRequestId(ctx context.Context) *zap.Logger {
 	mu.RLock()
 	defer mu.RUnlock()
 	if logger == nil {

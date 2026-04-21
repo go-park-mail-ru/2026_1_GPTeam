@@ -44,7 +44,7 @@ func (obj *Account) LinkAccountAndUser(ctx context.Context, accountId int, userI
 }
 
 func (obj *Account) IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	ids, err := obj.repository.GetIdsByUserAndAccount(ctx, userId, accountId)
 	if err != nil {
 		return false
