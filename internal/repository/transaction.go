@@ -34,6 +34,18 @@ func NewTransactionPostgres(db DB) *TransactionPostgres {
 
 func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
+	var totalDuration time.Duration
+	dbTransaction, err := obj.db.Begin(ctx)
+	if err != nil {
+		log.Error("Failed to begin transaction", zap.Error(err))
+		return -1, err
+	}
+	defer func() {
+		err = dbTransaction.Rollback(ctx)
+		if err != nil {
+			log.Error("Failed to rollback transaction", zap.Error(err))
+		}
+	}()
 	query := `insert into transaction (user_id, account_id, value, type, category, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) returning id;`
 	args := []any{
 		transaction.UserId,
@@ -47,8 +59,9 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 	}
 	var id int
 	startTime := time.Now()
-	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
+	err = dbTransaction.QueryRow(ctx, query, args...).Scan(&id)
 	duration := time.Since(startTime)
+	totalDuration += duration
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
@@ -71,6 +84,50 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		return -1, err
 	}
 	log.Info("Query executed")
+	log = logger.GetLoggerWIthRequestId(ctx)
+	query = `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
+	args = []any{
+		transaction.Type,
+		transaction.Value,
+		transaction.AccountId,
+	}
+	startTime = time.Now()
+	_, err = dbTransaction.Exec(ctx, query, args...)
+	duration = time.Since(startTime)
+	totalDuration += duration
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	pgErr, ok = errors.AsType[*pgconn.PgError](err)
+	if ok {
+		log.Error("failed to update account (db error)",
+			zap.Int("account_id", transaction.AccountId),
+			zap.Int("user_id", transaction.UserId),
+			zap.Error(pgErr))
+		switch pgErr.Code {
+		case pgerrcode.ForeignKeyViolation:
+			return -1, TransactionAccountForeignKeyError
+		case pgerrcode.CheckViolation:
+			return -1, ConstraintError
+		case pgerrcode.UniqueViolation:
+			return -1, DuplicatedDataError
+		default:
+			return -1, pgErr
+		}
+	}
+	if err != nil {
+		log.Error("failed to update account (not db error)",
+			zap.Int("account_id", transaction.AccountId),
+			zap.Int("user_id", transaction.UserId),
+			zap.Error(err))
+		return -1, err
+	}
+	log.Info("Query executed")
+	log = logger.GetLoggerWIthRequestId(ctx)
+	err = dbTransaction.Commit(ctx)
+	if err != nil {
+		log.Error("failed to commit transaction", zap.Error(err))
+		return -1, err
+	}
+	log.Info("Transaction commited", zap.String("duration", duration.String()))
 	return id, nil
 }
 
