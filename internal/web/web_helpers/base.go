@@ -585,7 +585,7 @@ type ShortAccountsResponse struct {
 	Accounts []ShortAccount `json:"accounts"`
 }
 
-func NewShortAccountResponse(accounts []ShortAccount) ShortAccountsResponse {
+func NewShortAccountsResponse(accounts []ShortAccount) ShortAccountsResponse {
 	return ShortAccountsResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,

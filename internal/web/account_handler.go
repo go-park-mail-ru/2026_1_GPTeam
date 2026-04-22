@@ -81,6 +81,6 @@ func (obj *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	for _, account := range accounts {
 		shortAccounts = append(shortAccounts, web_helpers.NewShortAccount(account.Id, account.Name, account.Balance))
 	}
-	response := web_helpers.NewShortAccountResponse(shortAccounts)
+	response := web_helpers.NewShortAccountsResponse(shortAccounts)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

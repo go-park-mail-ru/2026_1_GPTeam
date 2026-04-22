@@ -59,7 +59,7 @@ func (obj *UserHandler) Balance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var balances []web_helpers.CurrencyBalance
-	for i := range len(accounts) {
+	for i := 0; i < len(accounts); i++ {
 		balances = append(balances, web_helpers.CurrencyBalance{
 			Currency: accounts[i].Currency,
 			Balance:  accounts[i].Balance,

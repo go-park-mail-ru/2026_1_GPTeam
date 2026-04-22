@@ -101,7 +101,7 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		log.Error("failed to commit transaction", zap.Error(err))
 		return -1, err
 	}
-	log.Info("Transaction commited", zap.String("duration", duration.String()))
+	log.Info("Transaction committed", zap.String("duration", duration.String()))
 	return id, nil
 }
 
@@ -161,8 +161,8 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 			log.Error("Failed to rollback transaction", zap.Error(err))
 		}
 	}()
-	query := `select value, type, account_id from transaction where id = $1;`
-	args := []any{transaction.Id}
+	query := `select value, type, account_id from transaction where id = $1 and deleted_at is null and user_id = $2;`
+	args := []any{transaction.Id, transaction.UserId}
 	var oldValue float64
 	var oldType string
 	var oldAccountId int
@@ -246,7 +246,7 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 		log.Error("failed to commit transaction", zap.Error(err))
 		return err
 	}
-	log.Info("Transaction commited", zap.String("duration", duration.String()))
+	log.Info("Transaction committed", zap.String("duration", duration.String()))
 	return nil
 }
 
@@ -324,7 +324,7 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 		log.Error("failed to commit transaction", zap.Error(err))
 		return 0, err
 	}
-	log.Info("Transaction commited", zap.String("duration", duration.String()))
+	log.Info("Transaction committed", zap.String("duration", duration.String()))
 	return id, nil
 }
 
