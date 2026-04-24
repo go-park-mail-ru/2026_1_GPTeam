@@ -29,7 +29,7 @@ func NewBudgetHandler(useCase application.BudgetUseCase, enumsApp application.En
 }
 
 func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get budgets request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -53,7 +53,7 @@ func (obj *BudgetHandler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get budget request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -114,7 +114,7 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("create budget request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -183,7 +183,7 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("delete budget request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {

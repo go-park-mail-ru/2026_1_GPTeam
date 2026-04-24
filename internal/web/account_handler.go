@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ func NewAccountHandler(accountApp application.AccountUseCase) *AccountHandler {
 }
 
 func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get account request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -50,4 +51,37 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		"code":       http.StatusOK,
 		"account_id": accountId,
 	})
+}
+
+func (obj *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWithRequestId(r.Context())
+	log.Info("get short accounts request")
+	authUser, ok := web_helpers.GetAuthUser(r)
+	if !ok {
+		log.Warn("user unauthorized")
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	accounts, err := obj.accountApp.GetAllAccountsByUserId(r.Context(), authUser.Id)
+	if err != nil {
+		if errors.Is(err, application.ErrAccountNotFound) || errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+
+		response := web_helpers.NewInternalServerErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	log.Info("get short accounts",
+		zap.Any("accounts", accounts),
+		zap.Int("user_id", authUser.Id))
+	var shortAccounts []web_helpers.ShortAccount
+	for _, account := range accounts {
+		shortAccounts = append(shortAccounts, web_helpers.NewShortAccount(account.Id, account.Name, account.Balance))
+	}
+	response := web_helpers.NewShortAccountsResponse(shortAccounts)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

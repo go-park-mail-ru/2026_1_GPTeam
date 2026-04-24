@@ -93,7 +93,7 @@ func (obj *RateLimiter) IsIpBlocked(ctx context.Context, ip string) bool {
 }
 
 func (obj *RateLimiter) BlockIp(ctx context.Context, ip string) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	bucketInfo := models.BucketModel{
 		Count:          MaxCount,
 		LastRefillTime: time.Now(),
@@ -112,7 +112,7 @@ func (obj *RateLimiter) BlockIp(ctx context.Context, ip string) {
 }
 
 func (obj *RateLimiter) BlockIpPermanent(ctx context.Context, ip string) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	obj.mu.Lock()
 	defer obj.mu.Unlock()
 	permanentBlockedIps, err := obj.bucket.GetPermanentBlocked(ctx)
@@ -153,7 +153,7 @@ func (obj *RateLimiter) Allow(ctx context.Context, ip string) bool {
 }
 
 func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	bucketInfo, err := obj.bucket.Get(ctx, ip)
 	if err != nil {
 		if errors.Is(err, repository.NoIpInSavedError) {
@@ -216,7 +216,7 @@ func GetRealIp(r *http.Request) (string, error) {
 	}
 	realIp, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		log := logger.GetLoggerWIthRequestId(r.Context())
+		log := logger.GetLoggerWithRequestId(r.Context())
 		log.Warn("unable to get ip", zap.Error(err))
 		return "", UnableToGetIp
 	}
