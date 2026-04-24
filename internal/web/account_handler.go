@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"go.uber.org/zap"
@@ -64,7 +65,7 @@ func (obj *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	accounts, err := obj.accountApp.GetAllAccountsByUserId(r.Context(), authUser.Id)
 	if err != nil {
-		if errors.Is(err, application.ErrAccountNotFound) {
+		if errors.Is(err, application.ErrAccountNotFound) || errors.Is(err, repository.NothingInTableError) {
 			response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
