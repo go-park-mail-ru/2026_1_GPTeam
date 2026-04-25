@@ -22,10 +22,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
-
-	//убрать эту херню после хакатона, это для добавления юзера админа при запуске
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -108,33 +104,6 @@ func main() {
 		return
 	}
 	userPostgres := repository.NewUserPostgres(pool)
-	go func() {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("Admin123"), bcrypt.DefaultCost)
-		if err != nil {
-			log.Error("Failed to hash password", zap.Error(err))
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		if _, err := userPostgres.Create(ctx, models.UserModel{
-			Username:  "admin",
-			Password:  string(hashedPassword),
-			Email:     "admin@mail.ru",
-			CreatedAt: time.Now(),
-			LastLogin: time.Now(),
-			AvatarUrl: "",
-			UpdatedAt: time.Now(),
-			Active:    true,
-			IsStaff:   true,
-		}); err != nil {
-			log.Error("Failed to seed admin", zap.Error(err))
-			return
-		}
-		log.Info("admin seeded")
-	}()
-
 	budgetPostgres := repository.NewBudgetPostgres(pool)
 	jwtPostgres := repository.NewJwtPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
