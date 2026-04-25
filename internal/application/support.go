@@ -13,6 +13,7 @@ type SupportUseCase interface {
 	Create(ctx context.Context, data web_helpers.SupportRequest, userId int) (int, error)
 	GetById(ctx context.Context, id int) (models.SupportModel, error)
 	GetAll(ctx context.Context) ([]models.SupportModel, error)
+	GetAllByUser(ctx context.Context, userId int) ([]models.SupportModel, error)
 	Update(ctx context.Context)
 	Delete(ctx context.Context, id int) error
 }
@@ -49,6 +50,11 @@ func (obj *Support) GetById(ctx context.Context, id int) (models.SupportModel, e
 
 func (obj *Support) GetAll(ctx context.Context) ([]models.SupportModel, error) {
 	supports, err := obj.repository.GetAll(ctx)
+	return supports, err
+}
+
+func (obj *Support) GetAllByUser(ctx context.Context, userId int) ([]models.SupportModel, error) {
+	supports, err := obj.repository.GetAllByUser(ctx, userId)
 	return supports, err
 }
 
