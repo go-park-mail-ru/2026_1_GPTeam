@@ -594,3 +594,48 @@ func NewShortAccountsResponse(accounts []ShortAccount) ShortAccountsResponse {
 		Accounts: accounts,
 	}
 }
+
+type SupportRequest struct {
+	Category string `json:"category"`
+	Message  string `json:"message"`
+}
+
+type ShortSupport struct {
+	Category string `json:"category"`
+	Message  string `json:"message"`
+}
+
+type SupportsResponse struct {
+	SimpleResponse
+	Supports []ShortSupport `json:"supports"`
+}
+
+func NewSupportsResponse(supports []ShortSupport) SupportsResponse {
+	return SupportsResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "OK",
+		},
+		Supports: supports,
+	}
+}
+
+type SupportResponse struct {
+	Id        int       `json:"id"`
+	Category  string    `json:"category"`
+	Message   string    `json:"message"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	User      User      `json:"user"`
+}
+
+func NewSupportResponse(user User, support models.SupportModel) SupportResponse {
+	return SupportResponse{
+		Id:        support.Id,
+		Category:  support.Category,
+		Message:   support.Message,
+		Status:    support.Status,
+		CreatedAt: support.CreatedAt,
+		User:      user,
+	}
+}
