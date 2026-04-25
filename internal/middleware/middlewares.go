@@ -159,7 +159,7 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 
 func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/auth/") {
+		if strings.HasPrefix(r.URL.Path, "/auth/") || strings.HasPrefix(r.URL.Path, "/support/") {
 			next.ServeHTTP(w, r)
 			return
 		}

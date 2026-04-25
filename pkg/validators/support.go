@@ -15,9 +15,5 @@ func ValidateSupport(body web_helpers.SupportRequest, authUser models.UserModel)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("message", err.Error()))
 	}
-	err = checkEqual(body.UserId, authUser.Id)
-	if err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("user_id", err.Error()))
-	}
 	return validationErrors
 }

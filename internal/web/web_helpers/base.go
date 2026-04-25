@@ -77,6 +77,7 @@ type AuthUser struct {
 }
 
 type User struct {
+	Id        int       `json:"id,omitempty"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
@@ -596,7 +597,6 @@ func NewShortAccountsResponse(accounts []ShortAccount) ShortAccountsResponse {
 }
 
 type SupportRequest struct {
-	UserId   int    `json:"user_id"`
 	Category string `json:"category"`
 	Message  string `json:"message"`
 }

@@ -52,7 +52,7 @@ func (obj *SupportHandler) Create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	id, err := obj.supportApp.Create(r.Context(), body, body.UserId)
+	id, err := obj.supportApp.Create(r.Context(), body, authUser.Id)
 	if err != nil {
 		if errors.Is(err, repository.DuplicatedDataError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})

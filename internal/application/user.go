@@ -131,6 +131,7 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 		return web_helpers.User{}, false
 	}
 	user := web_helpers.User{
+		Id:        storedUser.Id,
 		Username:  storedUser.Username,
 		Email:     storedUser.Email,
 		CreatedAt: storedUser.CreatedAt,
