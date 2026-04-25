@@ -168,3 +168,35 @@ func (obj *SupportHandler) GetAllByUser(w http.ResponseWriter, r *http.Request) 
 	response := web_helpers.NewSupportsResponse(shortSupports)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
+
+func (obj *SupportHandler) Update(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWithRequestId(r.Context())
+	log.Info("update support request")
+	idStr := r.PathValue("id")
+	supportId, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Warn("invalid support id",
+			zap.Error(err))
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("id", "Некорректный ID"),
+		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	var body web_helpers.UpdateSupportStatusRequest
+	if err = web_helpers.ReadRequestJSON(r, &body); err != nil {
+		log.Warn("failed to read body",
+			zap.Error(err))
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	err = obj.supportApp.Update(r.Context(), supportId, body.Status)
+	if err != nil {
+		response := web_helpers.NewInternalServerErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	response := web_helpers.NewOkResponse()
+	web_helpers.WriteResponseJSON(w, http.StatusOK, response)
+}

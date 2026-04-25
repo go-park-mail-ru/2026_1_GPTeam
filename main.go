@@ -206,6 +206,7 @@ func main() {
 	mux.Handle("/support/get_appeal/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.Detail), userApp)))
 	mux.Handle("/support/get_appeals", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(supportHandler.GetAllByUser)))
 	mux.Handle("/support/create_appeal", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(supportHandler.Create)))
+	mux.Handle("/support/update/{id}", middleware.MethodValidationMiddleware(http.MethodPut)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.Update), userApp)))
 	mux.Handle("/api/is_staff", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.IsStaff)))
 
 	handler := middleware.CSPMiddleware(mux)

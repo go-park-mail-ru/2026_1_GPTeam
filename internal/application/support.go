@@ -14,7 +14,7 @@ type SupportUseCase interface {
 	GetById(ctx context.Context, id int) (models.SupportModel, error)
 	GetAll(ctx context.Context) ([]models.SupportModel, error)
 	GetAllByUser(ctx context.Context, userId int) ([]models.SupportModel, error)
-	Update(ctx context.Context)
+	Update(ctx context.Context, id int, status string) error
 	Delete(ctx context.Context, id int) error
 }
 
@@ -58,8 +58,9 @@ func (obj *Support) GetAllByUser(ctx context.Context, userId int) ([]models.Supp
 	return supports, err
 }
 
-func (obj *Support) Update(ctx context.Context) {
-	panic("implement me")
+func (obj *Support) Update(ctx context.Context, id int, status string) error {
+	err := obj.repository.UpdateStatus(ctx, id, status)
+	return err
 }
 
 func (obj *Support) Delete(ctx context.Context, id int) error {

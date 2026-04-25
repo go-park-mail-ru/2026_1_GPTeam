@@ -654,3 +654,7 @@ func NewIsStaffResponse(isStaff bool) IsStaffResponse {
 		IsStaff: isStaff,
 	}
 }
+
+type UpdateSupportStatusRequest struct {
+	Status string `json:"status"`
+}

@@ -18,6 +18,7 @@ type SupportRepository interface {
 	GetById(ctx context.Context, id int) (models.SupportModel, error)
 	GetAll(ctx context.Context) ([]models.SupportModel, error)
 	GetAllByUser(ctx context.Context, userId int) ([]models.SupportModel, error)
+	UpdateStatus(ctx context.Context, id int, status string) error
 }
 
 type SupportPostgres struct {
@@ -167,4 +168,21 @@ func (obj *SupportPostgres) GetAllByUser(ctx context.Context, userId int) ([]mod
 	}
 	log.Info("Query executed")
 	return supports, nil
+}
+
+func (obj *SupportPostgres) UpdateStatus(ctx context.Context, id int, status string) error {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `update support set status = $1 where id = $2 and deleted = false;`
+	args := []any{status, id}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	if err != nil {
+		log.Error("failed to update status of support (not db error)",
+			zap.Error(err))
+		return err
+	}
+	log.Info("Query executed")
+	return nil
 }
