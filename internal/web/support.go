@@ -141,3 +141,30 @@ func (obj *SupportHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	response := web_helpers.NewSupportResponse(userResponse, support)
 	web_helpers.WriteResponseJSON(w, http.StatusOK, response)
 }
+
+func (obj *SupportHandler) GetAllByUser(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWithRequestId(r.Context())
+	log.Info("get all supports by user request")
+	authUser, ok := web_helpers.GetAuthUser(r)
+	if !ok {
+		log.Warn("user unauthorized")
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	supports, err := obj.supportApp.GetAllByUser(r.Context(), authUser.Id)
+	if err != nil {
+		response := web_helpers.NewInternalServerErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	var shortSupports []web_helpers.ShortSupport
+	for _, support := range supports {
+		shortSupports = append(shortSupports, web_helpers.ShortSupport{
+			Category: secure.SanitizeXss(support.Category),
+			Message:  secure.SanitizeXss(support.Message),
+		})
+	}
+	response := web_helpers.NewSupportsResponse(shortSupports)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}

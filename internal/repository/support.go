@@ -17,6 +17,7 @@ type SupportRepository interface {
 	Create(ctx context.Context, model models.SupportModel) (int, error)
 	GetById(ctx context.Context, id int) (models.SupportModel, error)
 	GetAll(ctx context.Context) ([]models.SupportModel, error)
+	GetAllByUser(ctx context.Context, userId int) ([]models.SupportModel, error)
 }
 
 type SupportPostgres struct {
@@ -98,7 +99,7 @@ func (obj *SupportPostgres) GetAll(ctx context.Context) ([]models.SupportModel, 
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
-		log.Error("failed to get transaction ids by user (not db error)",
+		log.Error("failed to get supports (not db error)",
 			zap.Error(err))
 		return []models.SupportModel{}, err
 	}
@@ -120,6 +121,47 @@ func (obj *SupportPostgres) GetAll(ctx context.Context) ([]models.SupportModel, 
 	}
 	if err = rows.Err(); err != nil {
 		log.Error("failed to get supports",
+			zap.Error(err))
+		return []models.SupportModel{}, err
+	}
+	log.Info("Query executed")
+	return supports, nil
+}
+
+func (obj *SupportPostgres) GetAllByUser(ctx context.Context, userId int) ([]models.SupportModel, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `select id, category, message, status, created_at, updated_at from support where deleted = false and user_id = $1;`
+	args := []any{userId}
+	var supports []models.SupportModel
+	startTime := time.Now()
+	rows, err := obj.db.Query(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	if err != nil {
+		log.Error("failed to get supports by user (not db error)",
+			zap.Int("user_id", userId),
+			zap.Error(err))
+		return []models.SupportModel{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		supportItem := models.SupportModel{
+			UserId:  userId,
+			Deleted: false,
+		}
+		err = rows.Scan(&supportItem.Id, &supportItem.CreatedAt, &supportItem.Message, &supportItem.Status, &supportItem.CreatedAt, &supportItem.UpdatedAt)
+		if err != nil {
+			log.Error("failed to scan support while getting supports by user",
+				zap.Error(err))
+			if errors.Is(err, pgx.ErrNoRows) {
+				return []models.SupportModel{}, InvalidDataInTableError
+			}
+			return supports, err
+		}
+		supports = append(supports, supportItem)
+	}
+	if err = rows.Err(); err != nil {
+		log.Error("failed to get supports by user",
 			zap.Error(err))
 		return []models.SupportModel{}, err
 	}
