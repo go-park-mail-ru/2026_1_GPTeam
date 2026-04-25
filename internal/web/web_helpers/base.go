@@ -639,3 +639,18 @@ func NewSupportResponse(user User, support models.SupportModel) SupportResponse 
 		User:      user,
 	}
 }
+
+type IsStaffResponse struct {
+	SimpleResponse
+	IsStaff bool `json:"is_staff"`
+}
+
+func NewIsStaffResponse(isStaff bool) IsStaffResponse {
+	return IsStaffResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "OK",
+		},
+		IsStaff: isStaff,
+	}
+}
