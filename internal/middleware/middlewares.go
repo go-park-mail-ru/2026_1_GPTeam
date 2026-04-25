@@ -254,6 +254,34 @@ func CSPMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func OnlyStaffMiddleware(next http.Handler, userApp application.UserUseCase) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := logger.GetLoggerWithRequestId(r.Context())
+		authUser, ok := web_helpers.GetAuthUser(r)
+		if !ok {
+			log.Warn("user unauthorized")
+			response := web_helpers.NewUnauthorizedErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		isStaff, err := userApp.IsStaff(r.Context(), authUser.Id)
+		if err != nil {
+			log.Warn("[Only Staff middleware] failed to get user", zap.Error(err))
+			response := web_helpers.NewInternalServerErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if !isStaff {
+			log.Warn("[Only Staff middleware] user is not staff",
+				zap.Int("user_id", authUser.Id))
+			response := web_helpers.NewNotFoundErrorResponse("Страницы не существует")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // мидлварки для тестов
 func SetUserCtx(ctx context.Context, user models.UserModel) context.Context {
 	return context.WithValue(ctx, models.UserContextKey, user)
