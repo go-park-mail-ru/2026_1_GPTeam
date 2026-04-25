@@ -608,10 +608,10 @@ type ShortSupport struct {
 
 type SupportsResponse struct {
 	SimpleResponse
-	Supports []ShortSupport `json:"supports"`
+	Supports []SupportResponse `json:"supports"`
 }
 
-func NewSupportsResponse(supports []ShortSupport) SupportsResponse {
+func NewSupportsResponse(supports []SupportResponse) SupportsResponse {
 	return SupportsResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,

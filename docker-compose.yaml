@@ -61,11 +61,8 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
-    read_only: true
-    security_opt:
-      - no-new-privileges:true
-    expose:
-      - "8080"
+    ports:
+      - "8080:8080"
     volumes:
       - ./static:/app/static
       - ./logs:/app/log

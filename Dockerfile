@@ -11,6 +11,7 @@ RUN go build -o main ./main.go
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/main .
+RUN chmod +x main
 COPY static/ ./static/
 COPY .env .
 

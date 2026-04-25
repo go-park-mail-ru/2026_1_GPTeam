@@ -109,7 +109,7 @@ func (obj *SupportPostgres) GetAll(ctx context.Context) ([]models.SupportModel, 
 		supportItem := models.SupportModel{
 			Deleted: false,
 		}
-		err = rows.Scan(&supportItem.Id, &supportItem.UserId, &supportItem.CreatedAt, &supportItem.Message, &supportItem.Status, &supportItem.CreatedAt, &supportItem.UpdatedAt)
+		err = rows.Scan(&supportItem.Id, &supportItem.UserId, &supportItem.Category, &supportItem.Message, &supportItem.Status, &supportItem.CreatedAt, &supportItem.UpdatedAt)
 		if err != nil {
 			log.Error("failed to scan support while getting all supports",
 				zap.Error(err))

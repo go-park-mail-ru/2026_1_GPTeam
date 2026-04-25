@@ -36,9 +36,9 @@ func NewUserPostgres(db DB) *UserPostgres {
 
 func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) (int, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `insert into "user" (username, password, email, last_login) VALUES ($1, $2, $3, $4) returning id;`
+	query := `insert into "user" (username, password, email, last_login, is_staff) VALUES ($1, $2, $3, $4, $5) returning id;`
 	lastLogin := pgtype.Timestamp{Valid: false}
-	args := []any{userInfo.Username, userInfo.Password, userInfo.Email, lastLogin}
+	args := []any{userInfo.Username, userInfo.Password, userInfo.Email, lastLogin, userInfo.IsStaff}
 	var id int
 	startTime := time.Now()
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)

@@ -78,21 +78,33 @@ func (obj *SupportHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (obj *SupportHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get all supports request")
+
 	supports, err := obj.supportApp.GetAll(r.Context())
 	if err != nil {
 		response := web_helpers.NewInternalServerErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	var shortSupports []web_helpers.ShortSupport
+
+	var fullSupports []web_helpers.SupportResponse
 	for _, support := range supports {
-		shortSupports = append(shortSupports, web_helpers.ShortSupport{
-			Category: secure.SanitizeXss(support.Category),
-			Message:  secure.SanitizeXss(support.Message),
-		})
+		user, err := obj.userApp.GetById(r.Context(), support.UserId)
+		if err != nil {
+			response := web_helpers.NewInternalServerErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		userResponse := web_helpers.User{
+			Username:  user.Username,
+			Email:     user.Email,
+			CreatedAt: user.CreatedAt,
+			AvatarUrl: user.AvatarUrl,
+		}
+		fullSupports = append(fullSupports, web_helpers.NewSupportResponse(userResponse, support))
 	}
+
 	log.Info("get all supports success", zap.Int("len", len(supports)))
-	response := web_helpers.NewSupportsResponse(shortSupports)
+	response := web_helpers.NewSupportsResponse(fullSupports)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -158,14 +170,23 @@ func (obj *SupportHandler) GetAllByUser(w http.ResponseWriter, r *http.Request) 
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	var shortSupports []web_helpers.ShortSupport
+	var fullSupports []web_helpers.SupportResponse
 	for _, support := range supports {
-		shortSupports = append(shortSupports, web_helpers.ShortSupport{
-			Category: secure.SanitizeXss(support.Category),
-			Message:  secure.SanitizeXss(support.Message),
-		})
+		user, err := obj.userApp.GetById(r.Context(), support.UserId)
+		if err != nil {
+			response := web_helpers.NewInternalServerErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		userResponse := web_helpers.User{
+			Username:  user.Username,
+			Email:     user.Email,
+			CreatedAt: user.CreatedAt,
+			AvatarUrl: user.AvatarUrl,
+		}
+		fullSupports = append(fullSupports, web_helpers.NewSupportResponse(userResponse, support))
 	}
-	response := web_helpers.NewSupportsResponse(shortSupports)
+	response := web_helpers.NewSupportsResponse(fullSupports)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
