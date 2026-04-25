@@ -199,3 +199,13 @@ func ValidateTransactionCategory(category string, allowedCategories []string) er
 	}
 	return TransactionCategoryNotAllowedError
 }
+
+func validateLength(text string, minLength int, maxLength int) error {
+	if len(text) < minLength {
+		return MinLengthError
+	}
+	if len(text) > maxLength {
+		return MaxLengthError
+	}
+	return nil
+}

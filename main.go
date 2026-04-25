@@ -108,6 +108,7 @@ func main() {
 	jwtPostgres := repository.NewJwtPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
 	accountPostgres := repository.NewAccountPostgres(pool)
+	supportPostgres := repository.NewPostgresSupport(pool)
 	log.Info("repositories initialized")
 
 	enumsApp := application.NewEnums(enumsPostgres)
@@ -125,10 +126,9 @@ func main() {
 	budgetApp := application.NewBudget(budgetPostgres)
 	transactionApp := application.NewTransaction(transactionPostgres)
 	accountApp := application.NewAccount(accountPostgres)
-
+	supportApp := application.NewSupport(supportPostgres)
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
 	voiceApp := application.NewVoiceTransactionService(groqClient, enumsApp)
-
 	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
@@ -138,6 +138,7 @@ func main() {
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
 	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
+	supportHandler := web.NewSupportHandler(supportApp, userApp)
 	log.Info("handlers initialized")
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
@@ -201,6 +202,9 @@ func main() {
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
 	mux.Handle("/img/", middleware.NoDirListing(fileServer))
+	mux.Handle("/support/get_appeals", middleware.MethodValidationMiddleware(http.MethodGet)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.GetAll), userApp)))
+	mux.Handle("/support/get_appeals/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.Detail), userApp)))
+	mux.Handle("/support/create_appeal", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(supportHandler.Create)))
 
 	handler := middleware.CSPMiddleware(mux)
 	handler = middleware.CSRFMiddleware(handler, csrfService)

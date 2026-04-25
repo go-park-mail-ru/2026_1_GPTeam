@@ -3,6 +3,9 @@ package validators
 import "fmt"
 
 var (
+	MinLengthError = fmt.Errorf("текст слишком короткий")
+	MaxLengthError = fmt.Errorf("текст слишком длинный")
+
 	ServerError = fmt.Errorf("ошибка сервера")
 
 	UsernameShortError        = fmt.Errorf("логин должен быть минимум 3 символа")
