@@ -209,3 +209,10 @@ func validateLength(text string, minLength int, maxLength int) error {
 	}
 	return nil
 }
+
+func checkEqual[T comparable](a, b T) error {
+	if a != b {
+		return NoEqualsError
+	}
+	return nil
+}

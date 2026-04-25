@@ -5,6 +5,7 @@ import "fmt"
 var (
 	MinLengthError = fmt.Errorf("текст слишком короткий")
 	MaxLengthError = fmt.Errorf("текст слишком длинный")
+	NoEqualsError  = fmt.Errorf("значения не совпадают")
 
 	ServerError = fmt.Errorf("ошибка сервера")
 

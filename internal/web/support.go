@@ -46,13 +46,13 @@ func (obj *SupportHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	body.Category = secure.SanitizeXss(body.Category)
 	body.Message = secure.SanitizeXss(body.Message)
-	validationErrors := validators.ValidateSupport(body)
+	validationErrors := validators.ValidateSupport(body, authUser)
 	if len(validationErrors) > 0 {
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	id, err := obj.supportApp.Create(r.Context(), body, authUser.Id)
+	id, err := obj.supportApp.Create(r.Context(), body, body.UserId)
 	if err != nil {
 		if errors.Is(err, repository.DuplicatedDataError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})

@@ -596,6 +596,7 @@ func NewShortAccountsResponse(accounts []ShortAccount) ShortAccountsResponse {
 }
 
 type SupportRequest struct {
+	UserId   int    `json:"user_id"`
 	Category string `json:"category"`
 	Message  string `json:"message"`
 }
