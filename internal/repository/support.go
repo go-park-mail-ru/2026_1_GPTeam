@@ -150,7 +150,7 @@ func (obj *SupportPostgres) GetAllByUser(ctx context.Context, userId int) ([]mod
 			UserId:  userId,
 			Deleted: false,
 		}
-		err = rows.Scan(&supportItem.Id, &supportItem.CreatedAt, &supportItem.Message, &supportItem.Status, &supportItem.CreatedAt, &supportItem.UpdatedAt)
+		err = rows.Scan(&supportItem.Id, &supportItem.Category, &supportItem.Message, &supportItem.Status, &supportItem.CreatedAt, &supportItem.UpdatedAt)
 		if err != nil {
 			log.Error("failed to scan support while getting supports by user",
 				zap.Error(err))

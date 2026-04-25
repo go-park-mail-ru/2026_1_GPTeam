@@ -172,19 +172,13 @@ func (obj *SupportHandler) GetAllByUser(w http.ResponseWriter, r *http.Request) 
 	}
 	var fullSupports []web_helpers.SupportResponse
 	for _, support := range supports {
-		user, err := obj.userApp.GetById(r.Context(), support.UserId)
-		if err != nil {
-			response := web_helpers.NewInternalServerErrorResponse()
-			web_helpers.WriteResponseJSON(w, response.Code, response)
-			return
-		}
-		userResponse := web_helpers.User{
-			Username:  user.Username,
-			Email:     user.Email,
-			CreatedAt: user.CreatedAt,
-			AvatarUrl: user.AvatarUrl,
-		}
-		fullSupports = append(fullSupports, web_helpers.NewSupportResponse(userResponse, support))
+		fullSupports = append(fullSupports, web_helpers.SupportResponse{
+			Id:        support.Id,
+			Category:  secure.SanitizeXss(support.Category),
+			Message:   secure.SanitizeXss(support.Message),
+			Status:    support.Status,
+			CreatedAt: support.CreatedAt,
+		})
 	}
 	response := web_helpers.NewSupportsResponse(fullSupports)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
