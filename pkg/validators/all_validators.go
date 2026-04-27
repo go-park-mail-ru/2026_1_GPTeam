@@ -1,6 +1,7 @@
 package validators
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -198,4 +199,11 @@ func ValidateTransactionCategory(category string, allowedCategories []string) er
 		}
 	}
 	return TransactionCategoryNotAllowedError
+}
+
+func ValidateTransactionAccountId(accountId int) error {
+	if accountId <= 0 {
+		return errors.New("account_id must be positive")
+	}
+	return nil
 }

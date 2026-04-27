@@ -40,12 +40,17 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		log.Error("Failed to begin transaction", zap.Error(err))
 		return -1, err
 	}
+
+	txCommitted := false
 	defer func() {
-		err = dbTransaction.Rollback(ctx)
-		if err != nil {
-			log.Error("Failed to rollback transaction", zap.Error(err))
+		if !txCommitted {
+			err = dbTransaction.Rollback(ctx)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				log.Error("Failed to rollback transaction", zap.Error(err))
+			}
 		}
 	}()
+
 	query := `insert into transaction (user_id, account_id, value, type, category, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) returning id;`
 	args := []any{
 		transaction.UserId,
@@ -63,10 +68,10 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 	duration := time.Since(startTime)
 	totalDuration += duration
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		log.Error("failed to create transaction (db error)",
-			zap.Error(pgErr))
+		log.Error("failed to create transaction (db error)", zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
 			return -1, TransactionDuplicatedDataError
@@ -79,11 +84,11 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		}
 	}
 	if err != nil {
-		log.Error("failed to create transaction (not db error)",
-			zap.Error(err))
+		log.Error("failed to create transaction (not db error)", zap.Error(err))
 		return -1, err
 	}
 	log.Info("Query executed")
+
 	query = `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
 	args = []any{
 		transaction.Type,
@@ -95,13 +100,15 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 	if err != nil {
 		return -1, err
 	}
+
 	log = logger.GetLoggerWithRequestId(ctx)
 	err = dbTransaction.Commit(ctx)
 	if err != nil {
 		log.Error("failed to commit transaction", zap.Error(err))
 		return -1, err
 	}
-	log.Info("Transaction committed", zap.String("duration", duration.String()))
+	txCommitted = true
+	log.Info("Transaction committed", zap.String("duration", totalDuration.String()))
 	return id, nil
 }
 
@@ -115,8 +122,7 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
-		log.Error("failed to get transaction ids by user (not db error)",
-			zap.Error(err))
+		log.Error("failed to get transaction ids by user (not db error)", zap.Error(err))
 		return []int{}, err
 	}
 	defer rows.Close()
@@ -124,8 +130,7 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		var id int
 		err = rows.Scan(&id)
 		if err != nil {
-			log.Error("failed to scan id while getting transaction ids by user",
-				zap.Error(err))
+			log.Error("failed to scan id while getting transaction ids by user", zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
 				return []int{}, InvalidDataInTableError
 			}
@@ -134,13 +139,11 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		ids = append(ids, id)
 	}
 	if err = rows.Err(); err != nil {
-		log.Error("failed to get transaction ids by user",
-			zap.Error(err))
+		log.Error("failed to get transaction ids by user", zap.Error(err))
 		return []int{}, err
 	}
 	if len(ids) == 0 {
-		log.Warn("no transactions found by user",
-			zap.Int("userId", userId))
+		log.Warn("no transactions found by user", zap.Int("userId", userId))
 		return []int{}, NothingInTableError
 	}
 	log.Info("Query executed")
@@ -155,12 +158,17 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 		log.Error("Failed to begin transaction", zap.Error(err))
 		return err
 	}
+
+	txCommitted := false
 	defer func() {
-		err = dbTransaction.Rollback(ctx)
-		if err != nil {
-			log.Error("Failed to rollback transaction", zap.Error(err))
+		if !txCommitted {
+			err = dbTransaction.Rollback(ctx)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				log.Error("Failed to rollback transaction", zap.Error(err))
+			}
 		}
 	}()
+
 	query := `select value, type, account_id from transaction where id = $1 and deleted_at is null and user_id = $2;`
 	args := []any{transaction.Id, transaction.UserId}
 	var oldValue float64
@@ -172,14 +180,14 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 	totalDuration += duration
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
-		log.Error("failed to get old transaction (not db error)",
-			zap.Error(err))
+		log.Error("failed to get old transaction (not db error)", zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return NothingInTableError
 		}
 		return err
 	}
 	log.Info("Query executed")
+
 	query = `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
 	args = []any{
 		transaction.AccountId,
@@ -197,12 +205,10 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 	duration = time.Since(startTime)
 	totalDuration += duration
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		log.Error("failed to update transaction (db error)",
-			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId),
-			zap.Error(pgErr))
+		log.Error("failed to update transaction (db error)", zap.Int("transaction_id", transaction.Id), zap.Int("user_id", transaction.UserId), zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
 			return TransactionAccountForeignKeyError
@@ -215,38 +221,34 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 		}
 	}
 	if err != nil {
-		log.Error("failed to update transaction (not db error)",
-			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId),
-			zap.Error(err))
+		log.Error("failed to update transaction (not db error)", zap.Int("transaction_id", transaction.Id), zap.Int("user_id", transaction.UserId), zap.Error(err))
 		return err
 	}
 	if res.RowsAffected() == 0 {
-		log.Warn("failed to update transaction (no rows affected)",
-			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId))
+		log.Warn("failed to update transaction (no rows affected)", zap.Int("transaction_id", transaction.Id), zap.Int("user_id", transaction.UserId))
 		return NothingInTableError
 	}
 	if res.RowsAffected() != 1 {
-		log.Warn("failed to update transaction (too many rows affected)",
-			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId))
+		log.Warn("failed to update transaction (too many rows affected)", zap.Int("transaction_id", transaction.Id), zap.Int("user_id", transaction.UserId))
 		return IncorrectRowsAffectedError
 	}
 	log.Info("Query executed")
+
 	if oldValue != transaction.Value || oldType != transaction.Type || oldAccountId != transaction.AccountId {
 		duration, err = updateBalance(ctx, dbTransaction, oldValue, oldType, oldAccountId, transaction)
 		if err != nil {
 			return err
 		}
 	}
+
 	log = logger.GetLoggerWithRequestId(ctx)
 	err = dbTransaction.Commit(ctx)
 	if err != nil {
 		log.Error("failed to commit transaction", zap.Error(err))
 		return err
 	}
-	log.Info("Transaction committed", zap.String("duration", duration.String()))
+	txCommitted = true
+	log.Info("Transaction committed", zap.String("duration", totalDuration.String()))
 	return nil
 }
 
@@ -258,12 +260,17 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 		log.Error("Failed to begin transaction", zap.Error(err))
 		return 0, err
 	}
+
+	txCommitted := false
 	defer func() {
-		err = dbTransaction.Rollback(ctx)
-		if err != nil {
-			log.Error("Failed to rollback transaction", zap.Error(err))
+		if !txCommitted {
+			err = dbTransaction.Rollback(ctx)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				log.Error("Failed to rollback transaction", zap.Error(err))
+			}
 		}
 	}()
+
 	query := `UPDATE transaction SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id, type, value, account_id;`
 	args := []any{transactionId}
 	var id int
@@ -275,14 +282,14 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
-		log.Error("failed to delete transaction (not db error)",
-			zap.Error(err))
+		log.Error("failed to delete transaction (not db error)", zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, NothingInTableError
 		}
 		return 0, err
 	}
 	log.Info("Query executed")
+
 	log = logger.GetLoggerWithRequestId(ctx)
 	query = `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) where id = $3;`
 	args = []any{
@@ -295,11 +302,10 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 	duration = time.Since(startTime)
 	totalDuration += duration
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		log.Error("failed to update account (db error)",
-			zap.Int("account_id", accountId),
-			zap.Error(pgErr))
+		log.Error("failed to update account (db error)", zap.Int("account_id", accountId), zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
 			return 0, TransactionAccountForeignKeyError
@@ -312,19 +318,19 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 		}
 	}
 	if err != nil {
-		log.Error("failed to update account (not db error)",
-			zap.Int("account_id", accountId),
-			zap.Error(err))
+		log.Error("failed to update account (not db error)", zap.Int("account_id", accountId), zap.Error(err))
 		return 0, err
 	}
 	log.Info("Query executed")
+
 	log = logger.GetLoggerWithRequestId(ctx)
 	err = dbTransaction.Commit(ctx)
 	if err != nil {
 		log.Error("failed to commit transaction", zap.Error(err))
 		return 0, err
 	}
-	log.Info("Transaction committed", zap.String("duration", duration.String()))
+	txCommitted = true
+	log.Info("Transaction committed", zap.String("duration", totalDuration.String()))
 	return id, nil
 }
 
@@ -340,8 +346,7 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
-		log.Error("failed to get transaction (not db error)",
-			zap.Error(err))
+		log.Error("failed to get transaction (not db error)", zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.TransactionModel{}, NothingInTableError
 		}
@@ -359,10 +364,7 @@ func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, transacti
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		log.Error("failed to update account (db error)",
-			zap.Int("account_id", transaction.AccountId),
-			zap.Int("user_id", transaction.UserId),
-			zap.Error(pgErr))
+		log.Error("failed to update account (db error)", zap.Int("account_id", transaction.AccountId), zap.Int("user_id", transaction.UserId), zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
 			return duration, TransactionAccountForeignKeyError
@@ -375,10 +377,7 @@ func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, transacti
 		}
 	}
 	if err != nil {
-		log.Error("failed to update account (not db error)",
-			zap.Int("account_id", transaction.AccountId),
-			zap.Int("user_id", transaction.UserId),
-			zap.Error(err))
+		log.Error("failed to update account (not db error)", zap.Int("account_id", transaction.AccountId), zap.Int("user_id", transaction.UserId), zap.Error(err))
 		return duration, err
 	}
 	log.Info("Query executed")
