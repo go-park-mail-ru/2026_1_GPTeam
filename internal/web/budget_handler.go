@@ -79,7 +79,7 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	budget, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
+	budget, category, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
 	if err != nil {
 		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
 			response := web_helpers.NewForbiddenErrorResponse()
@@ -104,7 +104,8 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		EndAt:       budget.EndAt,
 		Actual:      int(budget.Actual),
 		Target:      int(budget.Target),
-		Currency:    budget.Currency,
+		Currency:    "RUB",
+		Category:    category,
 	}
 	log.Info("get budget success",
 		zap.Int("user_id", authUser.Id),
@@ -153,10 +154,11 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		EndAt:       body.EndAt,
 		Actual:      0,
 		Target:      float64(body.Target),
-		Currency:    body.Currency,
+		Currency:    "RUB",
 		Author:      authUser.Id,
 	}
-	id, err := obj.budgetApp.Create(r.Context(), budget)
+	category := body.Category
+	id, err := obj.budgetApp.Create(r.Context(), budget, category)
 	if err != nil {
 		if errors.Is(err, repository.DuplicatedDataError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})

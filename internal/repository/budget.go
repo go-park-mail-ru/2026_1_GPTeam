@@ -19,6 +19,8 @@ type BudgetRepository interface {
 	GetById(ctx context.Context, id int) (models.BudgetModel, error)
 	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
 	Delete(ctx context.Context, id int) error
+	GetCategoryOfBudget(ctx context.Context, id int) (string, error)
+	LinkBudgetAndCategory(ctx context.Context, budgetId int, category string) error
 }
 
 type BudgetPostgres struct {
@@ -153,6 +155,53 @@ func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
 		log.Error("failed to delete budget (not db error)",
+			zap.Error(err))
+		return err
+	}
+	log.Info("Query executed")
+	return nil
+}
+
+func (obj *BudgetPostgres) GetCategoryOfBudget(ctx context.Context, id int) (string, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `select category from budget_category where budget_id = $1 limit 1;`
+	args := []any{id}
+	startTime := time.Now()
+	var category string
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&category)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if ok {
+		log.Error("failed to get category of budget (db error)",
+			zap.Error(pgErr))
+		switch pgErr.Code {
+		case pgerrcode.UniqueViolation:
+			return "", DuplicatedDataError
+		default:
+			return "", pgErr
+		}
+	}
+	if err != nil {
+		log.Error("failed to get category of budget (not db error)",
+			zap.Error(err))
+		return "", err
+	}
+	log.Info("Query executed")
+	return category, nil
+}
+
+func (obj *BudgetPostgres) LinkBudgetAndCategory(ctx context.Context, budgetId int, category string) error {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `insert into budget_category(budget_id, category) values ($1, $2);`
+	args := []any{budgetId, category}
+	startTime := time.Now()
+	_, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	if err != nil {
+		log.Error("failed to link budget category (not db error)",
+			zap.Int("budget_id", budgetId),
 			zap.Error(err))
 		return err
 	}
