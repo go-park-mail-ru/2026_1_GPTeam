@@ -74,7 +74,6 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Тип приводим к UPPERCASE, а категорию просто тримим, чтобы не сломать кириллицу
 	body.Type = strings.ToUpper(strings.TrimSpace(body.Type))
 	body.Category = strings.TrimSpace(body.Category)
 	body.Title = secure.SanitizeXss(strings.TrimSpace(body.Title))
@@ -84,7 +83,6 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 		body,
 		obj.enumsApp.GetTransactionTypes(),
 		obj.enumsApp.GetCategoryTypes(),
-		obj.enumsApp.GetCurrencyCodes(),
 	)
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while creating transaction", zap.Any("validationErrors", validationErrors))
@@ -200,7 +198,6 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Аналогично create: Type в UPPERCASE, Category оставляем в оригинале
 	body.Type = strings.ToUpper(strings.TrimSpace(body.Type))
 	body.Category = strings.TrimSpace(body.Category)
 	body.Title = secure.SanitizeXss(strings.TrimSpace(body.Title))
@@ -210,7 +207,6 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		body,
 		obj.enumsApp.GetTransactionTypes(),
 		obj.enumsApp.GetCategoryTypes(),
-		obj.enumsApp.GetCurrencyCodes(),
 	)
 	if len(validationErrors) > 0 {
 		log.Warn("validation error while updating transaction", zap.Int("user_id", authUser.Id), zap.Any("validationErrors", validationErrors))
@@ -337,15 +333,11 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	currency, err := obj.accountApp.GetCurrencyByAccountId(r.Context(), transaction.AccountId)
-	if err != nil {
-		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-		return
-	}
+
 	transaction.Title = secure.SanitizeXss(transaction.Title)
 	transaction.Description = secure.SanitizeXss(transaction.Description)
 	log.Info("get transaction success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
-	response := web_helpers.NewTransactionDetailSuccessResponse(transaction, currency)
+
+	response := web_helpers.NewTransactionDetailSuccessResponse(transaction)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

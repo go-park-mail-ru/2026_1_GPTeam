@@ -408,19 +408,13 @@ type TransactionResponse struct {
 	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
-	Currency        string    `json:"currency"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
 	CreatedAt       time.Time `json:"created_at"`
 	TransactionDate time.Time `json:"transaction_date"`
 }
 
-type TransactionDetailSuccessResponse struct {
-	SimpleResponse
-	Transaction TransactionResponse `json:"transaction"`
-}
-
-func NewTransactionDetailSuccessResponse(transaction models.TransactionModel, currency string) *TransactionDetailSuccessResponse {
+func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *TransactionDetailSuccessResponse {
 	return &TransactionDetailSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
@@ -433,13 +427,17 @@ func NewTransactionDetailSuccessResponse(transaction models.TransactionModel, cu
 			Value:           transaction.Value,
 			Type:            transaction.Type,
 			Category:        transaction.Category,
-			Currency:        currency,
 			Title:           transaction.Title,
 			Description:     transaction.Description,
 			CreatedAt:       transaction.CreatedAt,
 			TransactionDate: transaction.TransactionDate,
 		},
 	}
+}
+
+type TransactionDetailSuccessResponse struct {
+	SimpleResponse
+	Transaction TransactionResponse `json:"transaction"`
 }
 
 type TransactionUpdateSuccessResponse SimpleResponse
@@ -528,7 +526,6 @@ type TransactionDraftData struct {
 	Value       float64   `json:"value"`
 	Type        string    `json:"type"`
 	Category    string    `json:"category"`
-	Currency    string    `json:"currency"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	RecordedAt  time.Time `json:"recorded_at"`

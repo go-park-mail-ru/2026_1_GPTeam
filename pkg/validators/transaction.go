@@ -2,7 +2,7 @@ package validators
 
 import "github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 
-func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes []string, categoryTypes []string, currencyCodes []string) []web_helpers.FieldError {
+func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes []string, categoryTypes []string) []web_helpers.FieldError {
 	var validationErrors []web_helpers.FieldError
 	err := ValidateTransactionAccountId(body.AccountId)
 	if err != nil {
