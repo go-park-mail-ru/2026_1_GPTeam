@@ -159,7 +159,7 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 
 func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/auth/") {
+		if strings.HasPrefix(r.URL.Path, "/auth/") || strings.HasPrefix(r.URL.Path, "/support/") {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -250,6 +250,34 @@ func RateLimitMiddleware(next http.Handler, rateLimiter rate_limiter.RateLimiter
 func CSPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		secure.AddCSPHeader(w)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func OnlyStaffMiddleware(next http.Handler, userApp application.UserUseCase) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := logger.GetLoggerWithRequestId(r.Context())
+		authUser, ok := web_helpers.GetAuthUser(r)
+		if !ok {
+			log.Warn("user unauthorized")
+			response := web_helpers.NewUnauthorizedErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		isStaff, err := userApp.IsStaff(r.Context(), authUser.Id)
+		if err != nil {
+			log.Warn("[Only Staff middleware] failed to get user", zap.Error(err))
+			response := web_helpers.NewInternalServerErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if !isStaff {
+			log.Warn("[Only Staff middleware] user is not staff",
+				zap.Int("user_id", authUser.Id))
+			response := web_helpers.NewNotFoundErrorResponse("Страницы не существует")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

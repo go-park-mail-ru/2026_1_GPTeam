@@ -207,3 +207,20 @@ func ValidateTransactionAccountId(accountId int) error {
 	}
 	return nil
 }
+
+func validateLength(text string, minLength int, maxLength int) error {
+	if len(text) < minLength {
+		return MinLengthError
+	}
+	if len(text) > maxLength {
+		return MaxLengthError
+	}
+	return nil
+}
+
+func checkEqual[T comparable](a, b T) error {
+	if a != b {
+		return NoEqualsError
+	}
+	return nil
+}

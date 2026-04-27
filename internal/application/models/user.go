@@ -16,6 +16,7 @@ type UserModel struct {
 	AvatarUrl string
 	UpdatedAt time.Time
 	Active    bool
+	IsStaff   bool
 }
 
 type UpdateUserProfile struct {
