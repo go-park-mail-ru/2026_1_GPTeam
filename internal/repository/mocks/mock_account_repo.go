@@ -94,3 +94,62 @@ func (mr *MockAccountRepositoryMockRecorder) LinkAccountAndUser(ctx, accountId, 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkAccountAndUser", reflect.TypeOf((*MockAccountRepository)(nil).LinkAccountAndUser), ctx, accountId, userId)
 }
+
+// GetById mocks base method.
+func (m *MockAccountRepository) GetById(ctx context.Context, userId, accountId int) (models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetById", ctx, userId, accountId)
+	ret0, _ := ret[0].(models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetById indicates an expected call of GetById.
+func (mr *MockAccountRepositoryMockRecorder) GetById(ctx, userId, accountId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetById", reflect.TypeOf((*MockAccountRepository)(nil).GetById), ctx, userId, accountId)
+}
+
+// GetByUserId mocks base method.
+func (m *MockAccountRepository) GetByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByUserId", ctx, userId)
+	ret0, _ := ret[0].([]models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByUserId indicates an expected call of GetByUserId.
+func (mr *MockAccountRepositoryMockRecorder) GetByUserId(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByUserId", reflect.TypeOf((*MockAccountRepository)(nil).GetByUserId), ctx, userId)
+}
+
+// Update mocks base method.
+func (m *MockAccountRepository) Update(ctx context.Context, userId, accountId int, account models.AccountUpdateModel) (models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", ctx, userId, accountId, account)
+	ret0, _ := ret[0].(models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockAccountRepositoryMockRecorder) Update(ctx, userId, accountId, account interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockAccountRepository)(nil).Update), ctx, userId, accountId, account)
+}
+
+// Delete mocks base method.
+func (m *MockAccountRepository) Delete(ctx context.Context, userId, accountId int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, userId, accountId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockAccountRepositoryMockRecorder) Delete(ctx, userId, accountId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAccountRepository)(nil).Delete), ctx, userId, accountId)
+}

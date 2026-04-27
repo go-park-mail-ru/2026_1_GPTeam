@@ -20,3 +20,5 @@ var UnableToGetAccountUserIdsError = errors.New("unable to read ids from account
 var IncorrectRowsAffectedError = errors.New("unexpected value of 'rows affected'")
 var ResultNotOkError = errors.New("result not ok")
 var NoIpInSavedError = errors.New("no ip saved")
+
+var ErrAccountNotFound = errors.New("account not found")

@@ -98,3 +98,77 @@ func (mr *MockAccountUseCaseMockRecorder) LinkAccountAndUser(ctx, accountId, use
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkAccountAndUser", reflect.TypeOf((*MockAccountUseCase)(nil).LinkAccountAndUser), ctx, accountId, userId)
 }
+
+// CreateForUser mocks base method.
+func (m *MockAccountUseCase) CreateForUser(ctx context.Context, userId int, account models.AccountCreateModel) (models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateForUser", ctx, userId, account)
+	ret0, _ := ret[0].(models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateForUser indicates an expected call of CreateForUser.
+func (mr *MockAccountUseCaseMockRecorder) CreateForUser(ctx, userId, account any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateForUser", reflect.TypeOf((*MockAccountUseCase)(nil).CreateForUser), ctx, userId, account)
+}
+
+// GetById mocks base method.
+func (m *MockAccountUseCase) GetById(ctx context.Context, userId, accountId int) (models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetById", ctx, userId, accountId)
+	ret0, _ := ret[0].(models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetById indicates an expected call of GetById.
+func (mr *MockAccountUseCaseMockRecorder) GetById(ctx, userId, accountId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetById", reflect.TypeOf((*MockAccountUseCase)(nil).GetById), ctx, userId, accountId)
+}
+
+// GetByUserId mocks base method.
+func (m *MockAccountUseCase) GetByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByUserId", ctx, userId)
+	ret0, _ := ret[0].([]models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByUserId indicates an expected call of GetByUserId.
+func (mr *MockAccountUseCaseMockRecorder) GetByUserId(ctx, userId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByUserId", reflect.TypeOf((*MockAccountUseCase)(nil).GetByUserId), ctx, userId)
+}
+
+// Update mocks base method.
+func (m *MockAccountUseCase) Update(ctx context.Context, userId, accountId int, account models.AccountUpdateModel) (models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", ctx, userId, accountId, account)
+	ret0, _ := ret[0].(models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockAccountUseCaseMockRecorder) Update(ctx, userId, accountId, account any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockAccountUseCase)(nil).Update), ctx, userId, accountId, account)
+}
+
+// Delete mocks base method.
+func (m *MockAccountUseCase) Delete(ctx context.Context, userId, accountId int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, userId, accountId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockAccountUseCaseMockRecorder) Delete(ctx, userId, accountId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAccountUseCase)(nil).Delete), ctx, userId, accountId)
+}
