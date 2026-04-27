@@ -33,76 +33,74 @@ func NewTransactionPostgres(db DB) *TransactionPostgres {
 }
 
 func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
-	log := logger.GetLoggerWithRequestId(ctx)
-	var totalDuration time.Duration
-	dbTransaction, err := obj.db.Begin(ctx)
-	if err != nil {
-		log.Error("Failed to begin transaction", zap.Error(err))
-		return -1, err
-	}
-	defer func() {
-		err = dbTransaction.Rollback(ctx)
-		if err != nil {
-			log.Error("Failed to rollback transaction", zap.Error(err))
-		}
-	}()
-	query := `insert into transaction (user_id, account_id, value, type, category, title, description, transaction_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) returning id;`
-	args := []any{
-		transaction.UserId,
-		transaction.AccountId,
-		transaction.Value,
-		transaction.Type,
-		transaction.Category,
-		transaction.Title,
-		transaction.Description,
-		transaction.TransactionDate,
-	}
 	var id int
-	startTime := time.Now()
-	err = dbTransaction.QueryRow(ctx, query, args...).Scan(&id)
-	duration := time.Since(startTime)
-	totalDuration += duration
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	pgErr, ok := errors.AsType[*pgconn.PgError](err)
-	if ok {
-		log.Error("failed to create transaction (db error)",
-			zap.Error(pgErr))
-		switch pgErr.Code {
-		case pgerrcode.UniqueViolation:
-			return -1, TransactionDuplicatedDataError
-		case pgerrcode.CheckViolation:
-			return -1, ConstraintError
-		case pgerrcode.ForeignKeyViolation:
-			return -1, TransactionAccountForeignKeyError
-		default:
-			return -1, pgErr
+	err := pgx.BeginFunc(ctx, obj.db, func(dbTransaction pgx.Tx) error {
+		log := logger.GetLoggerWithRequestId(ctx)
+		var totalDuration time.Duration
+		query := `insert into transaction (user_id, account_id, value, type, category, title, description, transaction_date) values ($1, $2, $3, $4, $5, $6, $7, $8) returning id;`
+		args := []any{
+			transaction.UserId,
+			transaction.AccountId,
+			transaction.Value,
+			transaction.Type,
+			transaction.Category,
+			transaction.Title,
+			transaction.Description,
+			transaction.TransactionDate,
 		}
-	}
-	if err != nil {
-		log.Error("failed to create transaction (not db error)",
-			zap.Error(err))
-		return -1, err
-	}
-	log.Info("Query executed")
-	query = `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
-	args = []any{
-		transaction.Type,
-		transaction.Value,
-		transaction.AccountId,
-	}
-	duration, err = execBalanceChangeQuery(ctx, dbTransaction, transaction, query, args...)
-	totalDuration += duration
-	if err != nil {
-		return -1, err
-	}
-	log = logger.GetLoggerWithRequestId(ctx)
-	err = dbTransaction.Commit(ctx)
-	if err != nil {
-		log.Error("failed to commit transaction", zap.Error(err))
-		return -1, err
-	}
-	log.Info("Transaction committed", zap.String("duration", duration.String()))
-	return id, nil
+		startTime := time.Now()
+		err := dbTransaction.QueryRow(ctx, query, args...).Scan(&id)
+		duration := time.Since(startTime)
+		totalDuration += duration
+		log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			log.Error("failed to create transaction (db error)",
+				zap.Error(pgErr))
+			switch pgErr.Code {
+			case pgerrcode.UniqueViolation:
+				return TransactionDuplicatedDataError
+			case pgerrcode.CheckViolation:
+				return ConstraintError
+			case pgerrcode.ForeignKeyViolation:
+				return TransactionAccountForeignKeyError
+			default:
+				return pgErr
+			}
+		}
+		if err != nil {
+			log.Error("failed to create transaction (not db error)",
+				zap.Error(err))
+			return err
+		}
+		log.Info("Query executed")
+		query = `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
+		args = []any{
+			transaction.Type,
+			transaction.Value,
+			transaction.AccountId,
+		}
+		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		totalDuration += duration
+		if err != nil {
+			return err
+		}
+		query = `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+		args = []any{
+			transaction.Type,
+			transaction.Value,
+			transaction.UserId,
+			transaction.Category,
+		}
+		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		totalDuration += duration
+		if err != nil {
+			return err
+		}
+		log.Info("Transaction committed", zap.String("duration", duration.String()))
+		return nil
+	})
+	return id, err
 }
 
 func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
@@ -251,81 +249,58 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 }
 
 func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (int, error) {
-	log := logger.GetLoggerWithRequestId(ctx)
-	var totalDuration time.Duration
-	dbTransaction, err := obj.db.Begin(ctx)
-	if err != nil {
-		log.Error("Failed to begin transaction", zap.Error(err))
-		return 0, err
-	}
-	defer func() {
-		err = dbTransaction.Rollback(ctx)
-		if err != nil {
-			log.Error("Failed to rollback transaction", zap.Error(err))
-		}
-	}()
-	query := `UPDATE transaction SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id, type, value, account_id;`
-	args := []any{transactionId}
 	var id int
-	var transactionType string
-	var transactionValue float64
-	var accountId int
-	startTime := time.Now()
-	err = dbTransaction.QueryRow(ctx, query, args...).Scan(&id, &transactionType, &transactionValue, &accountId)
-	duration := time.Since(startTime)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	if err != nil {
-		log.Error("failed to delete transaction (not db error)",
-			zap.Error(err))
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, NothingInTableError
+	err := pgx.BeginFunc(ctx, obj.db, func(dbTransaction pgx.Tx) error {
+		log := logger.GetLoggerWithRequestId(ctx)
+		var totalDuration time.Duration
+		query := `UPDATE transaction SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id, type, value, account_id, user_id, category;`
+		args := []any{transactionId}
+		var transactionType string
+		var transactionValue float64
+		var accountId int
+		var userId int
+		var category string
+		startTime := time.Now()
+		err := dbTransaction.QueryRow(ctx, query, args...).Scan(&id, &transactionType, &transactionValue, &accountId, &userId, &category)
+		duration := time.Since(startTime)
+		log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+		if err != nil {
+			log.Error("failed to delete transaction (not db error)",
+				zap.Error(err))
+			if errors.Is(err, pgx.ErrNoRows) {
+				return NothingInTableError
+			}
+			return err
 		}
-		return 0, err
-	}
-	log.Info("Query executed")
-	log = logger.GetLoggerWithRequestId(ctx)
-	query = `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) where id = $3;`
-	args = []any{
-		transactionType,
-		transactionValue,
-		accountId,
-	}
-	startTime = time.Now()
-	_, err = dbTransaction.Exec(ctx, query, args...)
-	duration = time.Since(startTime)
-	totalDuration += duration
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	pgErr, ok := errors.AsType[*pgconn.PgError](err)
-	if ok {
-		log.Error("failed to update account (db error)",
-			zap.Int("account_id", accountId),
-			zap.Error(pgErr))
-		switch pgErr.Code {
-		case pgerrcode.ForeignKeyViolation:
-			return 0, TransactionAccountForeignKeyError
-		case pgerrcode.CheckViolation:
-			return 0, ConstraintError
-		case pgerrcode.UniqueViolation:
-			return 0, DuplicatedDataError
-		default:
-			return 0, pgErr
+		log.Info("Query executed")
+		log = logger.GetLoggerWithRequestId(ctx)
+		query = `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) where id = $3;`
+		args = []any{
+			transactionType,
+			transactionValue,
+			accountId,
 		}
-	}
-	if err != nil {
-		log.Error("failed to update account (not db error)",
-			zap.Int("account_id", accountId),
-			zap.Error(err))
-		return 0, err
-	}
-	log.Info("Query executed")
-	log = logger.GetLoggerWithRequestId(ctx)
-	err = dbTransaction.Commit(ctx)
-	if err != nil {
-		log.Error("failed to commit transaction", zap.Error(err))
-		return 0, err
-	}
-	log.Info("Transaction committed", zap.String("duration", duration.String()))
-	return id, nil
+		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		totalDuration += duration
+		if err != nil {
+			return err
+		}
+		query = `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+		args = []any{
+			transactionType,
+			transactionValue,
+			userId,
+			category,
+		}
+		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		totalDuration += duration
+		if err != nil {
+			return err
+		}
+		log.Info("Transaction committed", zap.String("duration", duration.String()))
+		return nil
+	})
+	return id, err
 }
 
 func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (models.TransactionModel, error) {
@@ -351,7 +326,7 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 	return transaction, nil
 }
 
-func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, transaction models.TransactionModel, query string, args ...any) (time.Duration, error) {
+func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, query string, args ...any) (time.Duration, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
 	startTime := time.Now()
 	_, err := dbTransaction.Exec(ctx, query, args...)
@@ -359,9 +334,7 @@ func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, transacti
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		log.Error("failed to update account (db error)",
-			zap.Int("account_id", transaction.AccountId),
-			zap.Int("user_id", transaction.UserId),
+		log.Error("failed to update balance (db error)",
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
@@ -375,9 +348,7 @@ func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, transacti
 		}
 	}
 	if err != nil {
-		log.Error("failed to update account (not db error)",
-			zap.Int("account_id", transaction.AccountId),
-			zap.Int("user_id", transaction.UserId),
+		log.Error("failed to update balance (not db error)",
 			zap.Error(err))
 		return duration, err
 	}
@@ -394,7 +365,7 @@ func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldValue float64, 
 			oldValue,
 			oldAccountId,
 		}
-		duration, err := execBalanceChangeQuery(ctx, dbTransaction, transaction, query, args...)
+		duration, err := execBalanceChangeQuery(ctx, dbTransaction, query, args...)
 		totalDuration += duration
 		if err != nil {
 			return totalDuration, err
@@ -405,7 +376,7 @@ func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldValue float64, 
 			transaction.Value,
 			transaction.AccountId,
 		}
-		duration, err = execBalanceChangeQuery(ctx, dbTransaction, transaction, query, args...)
+		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
 		totalDuration += duration
 		return totalDuration, err
 	}
@@ -418,7 +389,7 @@ func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldValue float64, 
 			transaction.Value,
 			transaction.AccountId,
 		}
-		duration, err := execBalanceChangeQuery(ctx, dbTransaction, transaction, query, args...)
+		duration, err := execBalanceChangeQuery(ctx, dbTransaction, query, args...)
 		totalDuration += duration
 		return totalDuration, err
 	}
@@ -429,7 +400,7 @@ func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldValue float64, 
 		diff,
 		transaction.AccountId,
 	}
-	duration, err := execBalanceChangeQuery(ctx, dbTransaction, transaction, query, args...)
+	duration, err := execBalanceChangeQuery(ctx, dbTransaction, query, args...)
 	totalDuration += duration
 	return totalDuration, err
 }
