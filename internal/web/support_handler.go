@@ -62,7 +62,7 @@ func (obj *SupportHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, repository.ConstraintError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
-			response.Message = "ведены некорректные данные"
+			response.Message = "Введены некорректные данные"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
@@ -208,6 +208,11 @@ func (obj *SupportHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	err = obj.supportApp.Update(r.Context(), supportId, body.Status)
 	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("Заявка не найдена")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
 		response := web_helpers.NewInternalServerErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
