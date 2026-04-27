@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/currency_converter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -15,10 +16,10 @@ import (
 
 //go:generate mockgen -source=transaction.go -destination=mocks/transaction.go -package=mocks
 type TransactionRepository interface {
-	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
+	Create(ctx context.Context, transaction models.TransactionModel, account models.AccountModel) (int, error)
 	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
-	Update(ctx context.Context, transaction models.TransactionModel) error
-	Delete(ctx context.Context, transactionId int) (int, error)
+	Update(ctx context.Context, transaction models.TransactionModel, oldTransaction models.TransactionModel, account models.AccountModel, oldAccount models.AccountModel) error
+	Delete(ctx context.Context, transactionId int, account models.AccountModel) (int, error)
 	Detail(ctx context.Context, transactionId int) (models.TransactionModel, error)
 }
 
@@ -32,7 +33,7 @@ func NewTransactionPostgres(db DB) *TransactionPostgres {
 	}
 }
 
-func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
+func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel, account models.AccountModel) (int, error) {
 	var id int
 	err := pgx.BeginFunc(ctx, obj.db, func(dbTransaction pgx.Tx) error {
 		log := logger.GetLoggerWithRequestId(ctx)
@@ -74,25 +75,20 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 			return err
 		}
 		log.Info("Query executed")
-		query = `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
-		args = []any{
+		accQuery := `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
+		accArgs := []any{
 			transaction.Type,
 			transaction.Value,
 			transaction.AccountId,
 		}
-		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
-		totalDuration += duration
-		if err != nil {
-			return err
-		}
-		query = `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
-		args = []any{
+		budgetQuery := `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+		budgetArgs := []any{
 			transaction.Type,
-			transaction.Value,
+			currency_converter.ConvertToRub(transaction.Value, account.Currency),
 			transaction.UserId,
 			transaction.Category,
 		}
-		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		duration, err = execBalanceChangeQuery(ctx, dbTransaction, accQuery, accArgs, budgetQuery, budgetArgs)
 		totalDuration += duration
 		if err != nil {
 			return err
@@ -145,110 +141,77 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 	return ids, nil
 }
 
-func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel) error {
-	log := logger.GetLoggerWithRequestId(ctx)
-	var totalDuration time.Duration
-	dbTransaction, err := obj.db.Begin(ctx)
-	if err != nil {
-		log.Error("Failed to begin transaction", zap.Error(err))
-		return err
-	}
-	defer func() {
-		err = dbTransaction.Rollback(ctx)
+func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.TransactionModel, oldTransaction models.TransactionModel, account models.AccountModel, oldAccount models.AccountModel) error {
+	err := pgx.BeginFunc(ctx, obj.db, func(dbTransaction pgx.Tx) error {
+		log := logger.GetLoggerWithRequestId(ctx)
+		var totalDuration time.Duration
+		query := `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
+		args := []any{
+			transaction.AccountId,
+			transaction.Value,
+			transaction.Type,
+			transaction.Category,
+			transaction.Title,
+			transaction.Description,
+			transaction.TransactionDate,
+			transaction.Id,
+			transaction.UserId,
+		}
+		startTime := time.Now()
+		res, err := dbTransaction.Exec(ctx, query, args...)
+		duration := time.Since(startTime)
+		totalDuration += duration
+		log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			log.Error("failed to update transaction (db error)",
+				zap.Int("transaction_id", transaction.Id),
+				zap.Int("user_id", transaction.UserId),
+				zap.Error(pgErr))
+			switch pgErr.Code {
+			case pgerrcode.ForeignKeyViolation:
+				return TransactionAccountForeignKeyError
+			case pgerrcode.CheckViolation:
+				return ConstraintError
+			case pgerrcode.UniqueViolation:
+				return DuplicatedDataError
+			default:
+				return pgErr
+			}
+		}
 		if err != nil {
-			log.Error("Failed to rollback transaction", zap.Error(err))
-		}
-	}()
-	query := `select value, type, account_id from transaction where id = $1 and deleted_at is null and user_id = $2;`
-	args := []any{transaction.Id, transaction.UserId}
-	var oldValue float64
-	var oldType string
-	var oldAccountId int
-	startTime := time.Now()
-	err = dbTransaction.QueryRow(ctx, query, args...).Scan(&oldValue, &oldType, &oldAccountId)
-	duration := time.Since(startTime)
-	totalDuration += duration
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	if err != nil {
-		log.Error("failed to get old transaction (not db error)",
-			zap.Error(err))
-		if errors.Is(err, pgx.ErrNoRows) {
-			return NothingInTableError
-		}
-		return err
-	}
-	log.Info("Query executed")
-	query = `update transaction set (account_id, value, type, category, title, description, transaction_date) = ($1, $2, $3, $4, $5, $6, $7) where id = $8 and user_id = $9 and deleted_at is null;`
-	args = []any{
-		transaction.AccountId,
-		transaction.Value,
-		transaction.Type,
-		transaction.Category,
-		transaction.Title,
-		transaction.Description,
-		transaction.TransactionDate,
-		transaction.Id,
-		transaction.UserId,
-	}
-	startTime = time.Now()
-	res, err := dbTransaction.Exec(ctx, query, args...)
-	duration = time.Since(startTime)
-	totalDuration += duration
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	pgErr, ok := errors.AsType[*pgconn.PgError](err)
-	if ok {
-		log.Error("failed to update transaction (db error)",
-			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId),
-			zap.Error(pgErr))
-		switch pgErr.Code {
-		case pgerrcode.ForeignKeyViolation:
-			return TransactionAccountForeignKeyError
-		case pgerrcode.CheckViolation:
-			return ConstraintError
-		case pgerrcode.UniqueViolation:
-			return DuplicatedDataError
-		default:
-			return pgErr
-		}
-	}
-	if err != nil {
-		log.Error("failed to update transaction (not db error)",
-			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId),
-			zap.Error(err))
-		return err
-	}
-	if res.RowsAffected() == 0 {
-		log.Warn("failed to update transaction (no rows affected)",
-			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId))
-		return NothingInTableError
-	}
-	if res.RowsAffected() != 1 {
-		log.Warn("failed to update transaction (too many rows affected)",
-			zap.Int("transaction_id", transaction.Id),
-			zap.Int("user_id", transaction.UserId))
-		return IncorrectRowsAffectedError
-	}
-	log.Info("Query executed")
-	if oldValue != transaction.Value || oldType != transaction.Type || oldAccountId != transaction.AccountId {
-		duration, err = updateBalance(ctx, dbTransaction, oldValue, oldType, oldAccountId, transaction)
-		if err != nil {
+			log.Error("failed to update transaction (not db error)",
+				zap.Int("transaction_id", transaction.Id),
+				zap.Int("user_id", transaction.UserId),
+				zap.Error(err))
 			return err
 		}
-	}
-	log = logger.GetLoggerWithRequestId(ctx)
-	err = dbTransaction.Commit(ctx)
-	if err != nil {
-		log.Error("failed to commit transaction", zap.Error(err))
-		return err
-	}
-	log.Info("Transaction committed", zap.String("duration", duration.String()))
-	return nil
+		if res.RowsAffected() == 0 {
+			log.Warn("failed to update transaction (no rows affected)",
+				zap.Int("transaction_id", transaction.Id),
+				zap.Int("user_id", transaction.UserId))
+			return NothingInTableError
+		}
+		if res.RowsAffected() != 1 {
+			log.Warn("failed to update transaction (too many rows affected)",
+				zap.Int("transaction_id", transaction.Id),
+				zap.Int("user_id", transaction.UserId))
+			return IncorrectRowsAffectedError
+		}
+		log.Info("Query executed")
+		if oldTransaction.Category != transaction.Category || oldTransaction.Value != transaction.Value || oldTransaction.Type != transaction.Type || oldTransaction.AccountId != transaction.AccountId {
+			duration, err = updateBalance(ctx, dbTransaction, oldTransaction, transaction, oldAccount, account)
+			if err != nil {
+				return err
+			}
+		}
+		log.Info("Transaction committed", zap.String("duration", duration.String()))
+		return nil
+	})
+	return err
 }
 
-func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (int, error) {
+func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int, account models.AccountModel) (int, error) {
 	var id int
 	err := pgx.BeginFunc(ctx, obj.db, func(dbTransaction pgx.Tx) error {
 		log := logger.GetLoggerWithRequestId(ctx)
@@ -274,25 +237,20 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int) (
 		}
 		log.Info("Query executed")
 		log = logger.GetLoggerWithRequestId(ctx)
-		query = `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) where id = $3;`
-		args = []any{
+		accQuery := `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) where id = $3;`
+		accArgs := []any{
 			transactionType,
 			transactionValue,
 			accountId,
 		}
-		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
-		totalDuration += duration
-		if err != nil {
-			return err
-		}
-		query = `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
-		args = []any{
+		budgetQuery := `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+		budgetArgs := []any{
 			transactionType,
-			transactionValue,
+			currency_converter.ConvertToRub(transactionValue, account.Currency),
 			userId,
 			category,
 		}
-		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		duration, err = execBalanceChangeQuery(ctx, dbTransaction, accQuery, accArgs, budgetQuery, budgetArgs)
 		totalDuration += duration
 		if err != nil {
 			return err
@@ -326,15 +284,15 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 	return transaction, nil
 }
 
-func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, query string, args ...any) (time.Duration, error) {
+func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, accQuery string, accArgs []any, budgetQuery string, budgetArgs []any) (time.Duration, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
 	startTime := time.Now()
-	_, err := dbTransaction.Exec(ctx, query, args...)
+	_, err := dbTransaction.Exec(ctx, accQuery, accArgs...)
 	duration := time.Since(startTime)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	log = logger.ModifyLoggerWithDBQuery(log, accQuery, accArgs, duration)
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
-		log.Error("failed to update balance (db error)",
+		log.Error("failed to update account (db error)",
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
@@ -348,7 +306,33 @@ func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, query str
 		}
 	}
 	if err != nil {
-		log.Error("failed to update balance (not db error)",
+		log.Error("failed to update account (not db error)",
+			zap.Error(err))
+		return duration, err
+	}
+	log.Info("Query executed")
+	log = logger.GetLoggerWithRequestId(ctx)
+	startTime = time.Now()
+	_, err = dbTransaction.Exec(ctx, budgetQuery, budgetArgs...)
+	duration += time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, budgetQuery, budgetArgs, duration)
+	pgErr, ok = errors.AsType[*pgconn.PgError](err)
+	if ok {
+		log.Error("failed to update budget (db error)",
+			zap.Error(pgErr))
+		switch pgErr.Code {
+		case pgerrcode.ForeignKeyViolation:
+			return duration, TransactionAccountForeignKeyError
+		case pgerrcode.CheckViolation:
+			return duration, ConstraintError
+		case pgerrcode.UniqueViolation:
+			return duration, DuplicatedDataError
+		default:
+			return duration, pgErr
+		}
+	}
+	if err != nil {
+		log.Error("failed to update budget (not db error)",
 			zap.Error(err))
 		return duration, err
 	}
@@ -356,51 +340,125 @@ func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, query str
 	return duration, nil
 }
 
-func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldValue float64, oldType string, oldAccountId int, transaction models.TransactionModel) (time.Duration, error) {
+func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldTransaction models.TransactionModel, transaction models.TransactionModel, oldAccount models.AccountModel, account models.AccountModel) (time.Duration, error) {
 	var totalDuration time.Duration
-	if oldAccountId != transaction.AccountId {
-		query := `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) where id = $3;`
-		args := []any{
-			oldType,
-			oldValue,
-			oldAccountId,
+	if oldTransaction.AccountId != transaction.AccountId {
+		accQuery := `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) where id = $3;`
+		accArgs := []any{
+			oldTransaction.Type,
+			oldTransaction.Value,
+			oldTransaction.AccountId,
 		}
-		duration, err := execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		budgetQuery := `update budget set actual = greatest(0, least(budget.target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+		budgetArgs := []any{
+			oldTransaction.Type,
+			currency_converter.ConvertToRub(oldTransaction.Value, oldAccount.Currency),
+			oldTransaction.UserId,
+			oldTransaction.Category,
+		}
+		duration, err := execBalanceChangeQuery(ctx, dbTransaction, accQuery, accArgs, budgetQuery, budgetArgs)
 		totalDuration += duration
 		if err != nil {
 			return totalDuration, err
 		}
-		query = `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
-		args = []any{
+		accQuery = `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
+		accArgs = []any{
 			transaction.Type,
 			transaction.Value,
 			transaction.AccountId,
 		}
-		duration, err = execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		budgetQuery = `update budget set actual = greatest(0, least(budget.target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+		budgetArgs = []any{
+			transaction.Type,
+			currency_converter.ConvertToRub(transaction.Value, account.Currency),
+			transaction.UserId,
+			transaction.Category,
+		}
+		duration, err = execBalanceChangeQuery(ctx, dbTransaction, accQuery, accArgs, budgetQuery, budgetArgs)
 		totalDuration += duration
 		return totalDuration, err
 	}
-	if oldType != transaction.Type {
-		query := `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) + (case when $3 = 'INCOME' then $4 else -1 * $4 end) where id = $5;`
-		args := []any{
-			oldType,
-			oldValue,
+	if oldTransaction.Type != transaction.Type {
+		accQuery := `update account set balance = balance + (case when $1 = 'INCOME' then -1 * $2 else $2 end) + (case when $3 = 'INCOME' then $4 else -1 * $4 end) where id = $5;`
+		accArgs := []any{
+			oldTransaction.Type,
+			currency_converter.ConvertToRub(oldTransaction.Value, account.Currency),
 			transaction.Type,
-			transaction.Value,
+			currency_converter.ConvertToRub(transaction.Value, account.Currency),
 			transaction.AccountId,
 		}
-		duration, err := execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+		budgetQuery := `update budget set actual = greatest(0, least(budget.target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end) + (case when $3 = 'INCOME' then $4 else -1 * $4 end))) where author = $5 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $6);`
+		budgetArgs := []any{
+			oldTransaction.Type,
+			currency_converter.ConvertToRub(oldTransaction.Value, account.Currency),
+			transaction.Type,
+			transaction.Value,
+			transaction.UserId,
+			transaction.Category,
+		}
+		duration, err := execBalanceChangeQuery(ctx, dbTransaction, accQuery, accArgs, budgetQuery, budgetArgs)
 		totalDuration += duration
 		return totalDuration, err
 	}
-	diff := transaction.Value - oldValue
-	query := `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
-	args := []any{
+	diff := transaction.Value - oldTransaction.Value
+	accQuery := `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
+	accArgs := []any{
 		transaction.Type,
 		diff,
 		transaction.AccountId,
 	}
-	duration, err := execBalanceChangeQuery(ctx, dbTransaction, query, args...)
+	budgetQuery := `update budget set actual = greatest(0, least(budget.target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+	budgetArgs := []any{
+		transaction.Type,
+		currency_converter.ConvertToRub(diff, account.Currency),
+		transaction.UserId,
+		transaction.Category,
+	}
+	duration, err := execBalanceChangeQuery(ctx, dbTransaction, accQuery, accArgs, budgetQuery, budgetArgs)
 	totalDuration += duration
+	if err != nil {
+		return totalDuration, err
+	}
+	if oldTransaction.Category != transaction.Category {
+		log := logger.GetLoggerWithRequestId(ctx)
+		query := `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+		args := []any{
+			oldTransaction.Type,
+			currency_converter.ConvertToRub(oldTransaction.Value, oldAccount.Currency),
+			oldTransaction.UserId,
+			oldTransaction.Category,
+		}
+		startTime := time.Now()
+		_, err = dbTransaction.Exec(ctx, query, args...)
+		duration = time.Since(startTime)
+		totalDuration += duration
+		log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+		if err != nil {
+			log.Error("failed to update budget (not db error)",
+				zap.Error(err))
+			return totalDuration, err
+		}
+		log.Info("Query executed")
+		log = logger.GetLoggerWithRequestId(ctx)
+		query = `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+		args = []any{
+			transaction.Type,
+			currency_converter.ConvertToRub(transaction.Value, account.Currency),
+			transaction.UserId,
+			transaction.Category,
+		}
+		startTime = time.Now()
+		_, err = dbTransaction.Exec(ctx, query, args...)
+		duration = time.Since(startTime)
+		totalDuration += duration
+		log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+		if err != nil {
+			log.Error("failed to update budget (not db error)",
+				zap.Error(err))
+			return totalDuration, err
+		}
+		log.Info("Query executed")
+		return totalDuration, nil
+	}
 	return totalDuration, err
 }

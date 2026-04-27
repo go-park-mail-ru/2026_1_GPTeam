@@ -8,6 +8,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 )
@@ -19,6 +20,7 @@ type AccountRepository interface {
 	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
 	GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error)
 	GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
+	GetById(ctx context.Context, id int) (models.AccountModel, error)
 }
 
 type AccountPostgres struct {
@@ -212,4 +214,27 @@ func (obj *AccountPostgres) GetAllAccountsByUserId(ctx context.Context, userId i
 	}
 	log.Info("Query executed")
 	return accounts, nil
+}
+
+func (obj *AccountPostgres) GetById(ctx context.Context, id int) (models.AccountModel, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `select name, balance, currency, created_at, updated_at from account where id = $1;`
+	args := []any{id}
+	account := models.AccountModel{
+		Id: id,
+	}
+	startTime := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&account.Name, &account.Balance, &account.Currency, &account.CreatedAt, &account.UpdatedAt)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	if err != nil {
+		log.Error("failed to get account (not db error)",
+			zap.Error(err))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.AccountModel{}, NothingInTableError
+		}
+		return models.AccountModel{}, err
+	}
+	log.Info("Query executed")
+	return account, nil
 }
