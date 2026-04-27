@@ -181,6 +181,9 @@ func (obj *SupportPostgres) UpdateStatus(ctx context.Context, id int, status str
 	if err != nil {
 		log.Error("failed to update status of support (not db error)",
 			zap.Error(err))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return NothingInTableError
+		}
 		return err
 	}
 	log.Info("Query executed")
