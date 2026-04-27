@@ -9,6 +9,7 @@ type TransactionModel struct {
 	Value           float64
 	Type            string
 	Category        string
+	Currency        string
 	Title           string
 	Description     string
 	CreatedAt       time.Time

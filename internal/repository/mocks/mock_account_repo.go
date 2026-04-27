@@ -153,3 +153,36 @@ func (mr *MockAccountRepositoryMockRecorder) Delete(ctx, userId, accountId inter
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAccountRepository)(nil).Delete), ctx, userId, accountId)
 }
+
+// GetAllAccountsByUserId mocks base method.
+func (m *MockAccountRepository) GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllAccountsByUserId", ctx, userId)
+	ret0, _ := ret[0].([]models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllAccountsByUserId indicates an expected call of GetAllAccountsByUserId.
+func (mr *MockAccountRepositoryMockRecorder) GetAllAccountsByUserId(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAccountsByUserId", reflect.TypeOf((*MockAccountRepository)(nil).GetAllAccountsByUserId), ctx, userId)
+}
+
+
+// GetAllAccountsByUserIdWithBalance mocks base method.
+func (m *MockAccountRepository) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllAccountsByUserIdWithBalance", ctx, userId)
+	ret0, _ := ret[0].([]models.AccountModel)
+	ret1, _ := ret[1].([]float64)
+	ret2, _ := ret[2].([]float64)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// GetAllAccountsByUserIdWithBalance indicates an expected call of GetAllAccountsByUserIdWithBalance.
+func (mr *MockAccountRepositoryMockRecorder) GetAllAccountsByUserIdWithBalance(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAccountsByUserIdWithBalance", reflect.TypeOf((*MockAccountRepository)(nil).GetAllAccountsByUserIdWithBalance), ctx, userId)
+}

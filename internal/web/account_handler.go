@@ -38,7 +38,7 @@ func accountToResponse(account models.AccountModel) web_helpers.AccountResponse 
 }
 
 func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get base account request")
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -242,7 +242,7 @@ func (obj *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request)
 }
 
 func (obj *AccountHandler) writeAccountError(w http.ResponseWriter, r *http.Request, err error) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Warn("account request failed", zap.Error(err))
 
 	if errors.Is(err, application.ErrAccountNotFound) || errors.Is(err, repository.ErrAccountNotFound) {

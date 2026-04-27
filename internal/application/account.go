@@ -17,15 +17,14 @@ type AccountUseCase interface {
 	LinkAccountAndUser(ctx context.Context, accountId int, userId int) error
 	IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool
 	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
-<<<<<<< HEAD
+
 	GetById(ctx context.Context, userId int, accountId int) (models.AccountModel, error)
 	GetByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
-	Update(ctx context.Context, userId int, accountId int, account models.AccountUpdateModel) (models.AccountModel, error)
-	Delete(ctx context.Context, userId int, accountId int) error
-=======
 	GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error)
 	GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
->>>>>>> origin/dev
+
+	Update(ctx context.Context, userId int, accountId int, account models.AccountUpdateModel) (models.AccountModel, error)
+	Delete(ctx context.Context, userId int, accountId int) error
 }
 
 type Account struct {
