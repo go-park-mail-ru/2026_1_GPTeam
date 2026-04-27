@@ -25,6 +25,7 @@ type UserUseCase interface {
 	UpdateLastLogin(ctx context.Context, userId int) error
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
+	IsStaff(ctx context.Context, userId int) (bool, error)
 }
 type User struct {
 	repository repository.UserRepository
@@ -130,6 +131,7 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 		return web_helpers.User{}, false
 	}
 	user := web_helpers.User{
+		Id:        storedUser.Id,
 		Username:  storedUser.Username,
 		Email:     storedUser.Email,
 		CreatedAt: storedUser.CreatedAt,
@@ -164,4 +166,12 @@ func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (
 		profile.Password = &hashedPassword
 	}
 	return obj.repository.Update(ctx, profile)
+}
+
+func (obj *User) IsStaff(ctx context.Context, userId int) (bool, error) {
+	user, err := obj.GetById(ctx, userId)
+	if err != nil {
+		return false, err
+	}
+	return user.IsStaff, nil
 }

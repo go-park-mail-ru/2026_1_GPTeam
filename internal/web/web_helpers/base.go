@@ -77,6 +77,7 @@ type AuthUser struct {
 }
 
 type User struct {
+	Id        int       `json:"id,omitempty"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
@@ -593,4 +594,68 @@ func NewShortAccountsResponse(accounts []ShortAccount) ShortAccountsResponse {
 		},
 		Accounts: accounts,
 	}
+}
+
+type SupportRequest struct {
+	Category string `json:"category"`
+	Message  string `json:"message"`
+}
+
+type ShortSupport struct {
+	Category string `json:"category"`
+	Message  string `json:"message"`
+}
+
+type SupportsResponse struct {
+	SimpleResponse
+	Supports []SupportResponse `json:"supports"`
+}
+
+func NewSupportsResponse(supports []SupportResponse) SupportsResponse {
+	return SupportsResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "OK",
+		},
+		Supports: supports,
+	}
+}
+
+type SupportResponse struct {
+	Id        int       `json:"id"`
+	Category  string    `json:"category"`
+	Message   string    `json:"message"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	User      User      `json:"user"`
+}
+
+func NewSupportResponse(user User, support models.SupportModel) SupportResponse {
+	return SupportResponse{
+		Id:        support.Id,
+		Category:  support.Category,
+		Message:   support.Message,
+		Status:    support.Status,
+		CreatedAt: support.CreatedAt,
+		User:      user,
+	}
+}
+
+type IsStaffResponse struct {
+	SimpleResponse
+	IsStaff bool `json:"is_staff"`
+}
+
+func NewIsStaffResponse(isStaff bool) IsStaffResponse {
+	return IsStaffResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "OK",
+		},
+		IsStaff: isStaff,
+	}
+}
+
+type UpdateSupportStatusRequest struct {
+	Status string `json:"status"`
 }

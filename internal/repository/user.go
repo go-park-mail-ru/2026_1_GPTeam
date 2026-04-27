@@ -22,7 +22,6 @@ type UserRepository interface {
 	UpdateLastLogin(ctx context.Context, userId int, lastLogin time.Time) error
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 	UpdateAvatar(ctx context.Context, id int, avatarUrl string) error
-	GetBalanceByCurrency(ctx context.Context, userId int, currency string) (float64, float64, error)
 }
 
 type UserPostgres struct {
@@ -37,9 +36,9 @@ func NewUserPostgres(db DB) *UserPostgres {
 
 func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) (int, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `insert into "user" (username, password, email, last_login) VALUES ($1, $2, $3, $4) returning id;`
+	query := `insert into "user" (username, password, email, last_login, is_staff) VALUES ($1, $2, $3, $4, $5) returning id;`
 	lastLogin := pgtype.Timestamp{Valid: false}
-	args := []any{userInfo.Username, userInfo.Password, userInfo.Email, lastLogin}
+	args := []any{userInfo.Username, userInfo.Password, userInfo.Email, lastLogin, userInfo.IsStaff}
 	var id int
 	startTime := time.Now()
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
@@ -69,7 +68,7 @@ func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) 
 
 func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where id = $1;`
+	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active, is_staff from "user" where id = $1;`
 	args := []any{id}
 	var lastLogin pgtype.Timestamp
 	user := models.UserModel{Id: id}
@@ -77,7 +76,7 @@ func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel
 	err := obj.db.QueryRow(ctx, query, args...).Scan(
 		&user.Id, &user.Username, &user.Password, &user.Email,
 		&user.CreatedAt, &lastLogin, &user.AvatarUrl,
-		&user.UpdatedAt, &user.Active,
+		&user.UpdatedAt, &user.Active, &user.IsStaff,
 	)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
@@ -98,7 +97,7 @@ func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel
 
 func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*models.UserModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where username = $1;`
+	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active, is_staff from "user" where username = $1;`
 	args := []any{username}
 	var lastLogin pgtype.Timestamp
 	user := models.UserModel{}
@@ -106,7 +105,7 @@ func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*m
 	err := obj.db.QueryRow(ctx, query, args...).Scan(
 		&user.Id, &user.Username, &user.Password, &user.Email,
 		&user.CreatedAt, &lastLogin, &user.AvatarUrl,
-		&user.UpdatedAt, &user.Active,
+		&user.UpdatedAt, &user.Active, &user.IsStaff,
 	)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
@@ -127,7 +126,7 @@ func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*m
 
 func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (*models.UserModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active from "user" where email = $1;`
+	query := `select id, username, password, email, created_at, last_login, avatar_url, updated_at, active, is_staff from "user" where email = $1;`
 	args := []any{email}
 	var lastLogin pgtype.Timestamp
 	user := models.UserModel{}
@@ -135,7 +134,7 @@ func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (*models.
 	err := obj.db.QueryRow(ctx, query, args...).Scan(
 		&user.Id, &user.Username, &user.Password, &user.Email,
 		&user.CreatedAt, &lastLogin, &user.AvatarUrl,
-		&user.UpdatedAt, &user.Active,
+		&user.UpdatedAt, &user.Active, &user.IsStaff,
 	)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
@@ -244,36 +243,4 @@ func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl str
 	}
 	log.Info("Query executed")
 	return nil
-}
-
-func (obj *UserPostgres) GetBalanceByCurrency(ctx context.Context, userId int, currency string) (float64, float64, error) {
-	log := logger.GetLoggerWithRequestId(ctx)
-	var income, expenses float64
-	query := `
-		SELECT 
-			COALESCE(SUM(t.value) FILTER (WHERE t.type = 'INCOME'), 0) AS income,
-			COALESCE(SUM(t.value) FILTER (WHERE t.type = 'EXPENSE'), 0) AS expenses
-		FROM transaction t
-		JOIN account a ON t.account_id = a.id
-		WHERE t.user_id = $1 
-		  AND t.currency = $2 
-		  AND t.deleted_at IS NULL;`
-	args := []any{
-		userId,
-		currency,
-	}
-	startTime := time.Now()
-	err := obj.db.QueryRow(ctx, query, args...).Scan(&income, &expenses)
-	duration := time.Since(startTime)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	if err != nil {
-		log.Error("failed to get balance by currency",
-			zap.Int("user_id", userId),
-			zap.String("currency", currency),
-			zap.Error(err),
-		)
-		return 0, 0, err
-	}
-	log.Info("Query executed")
-	return income, expenses, nil
 }
