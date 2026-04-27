@@ -132,7 +132,7 @@ func main() {
 	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
-	userHandler := web.NewUserHandler(userApp)
+	userHandler := web.NewUserHandler(userApp, accountApp)
 	authHandler := web.NewAuthHandler(authService, userApp, accountApp)
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
@@ -203,7 +203,8 @@ func main() {
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
 	mux.Handle("/img/", middleware.NoDirListing(fileServer))
 
-	handler := middleware.CSRFMiddleware(mux, csrfService)
+	handler := middleware.CSPMiddleware(mux)
+	handler = middleware.CSRFMiddleware(handler, csrfService)
 	handler = middleware.AuthMiddleware(handler, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
 	handler = middleware.RateLimitMiddleware(handler, rateLimiter)

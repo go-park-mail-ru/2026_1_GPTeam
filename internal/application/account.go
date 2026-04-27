@@ -17,10 +17,15 @@ type AccountUseCase interface {
 	LinkAccountAndUser(ctx context.Context, accountId int, userId int) error
 	IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool
 	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
+<<<<<<< HEAD
 	GetById(ctx context.Context, userId int, accountId int) (models.AccountModel, error)
 	GetByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
 	Update(ctx context.Context, userId int, accountId int, account models.AccountUpdateModel) (models.AccountModel, error)
 	Delete(ctx context.Context, userId int, accountId int) error
+=======
+	GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error)
+	GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
+>>>>>>> origin/dev
 }
 
 type Account struct {
@@ -103,7 +108,7 @@ func (obj *Account) LinkAccountAndUser(ctx context.Context, accountId int, userI
 }
 
 func (obj *Account) IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	ids, err := obj.repository.GetIdsByUserAndAccount(ctx, userId, accountId)
 	if err != nil {
 		return false
@@ -115,4 +120,14 @@ func (obj *Account) IsUserAuthorOfAccount(ctx context.Context, userId int, accou
 		return false
 	}
 	return true
+}
+
+func (obj *Account) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
+	accounts, income, expenses, err := obj.repository.GetAllAccountsByUserIdWithBalance(ctx, userId)
+	return accounts, income, expenses, err
+}
+
+func (obj *Account) GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
+	accounts, err := obj.repository.GetAllAccountsByUserId(ctx, userId)
+	return accounts, err
 }

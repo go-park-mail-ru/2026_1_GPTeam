@@ -24,9 +24,5 @@ func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes [
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("category", err.Error()))
 	}
-	err = ValidateCurrency(body.Currency, currencyCodes)
-	if err != nil {
-		validationErrors = append(validationErrors, web_helpers.NewFieldError("currency", err.Error()))
-	}
 	return validationErrors
 }

@@ -61,7 +61,7 @@ func mapAccountPgError(ctx context.Context, err error, action string) error {
 }
 
 func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountModel) (int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `insert into account (name, balance, currency, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) returning id;`
 	args := []any{account.Name, account.Balance, account.Currency, account.CreatedAt, account.UpdatedAt}
 	var id int
@@ -77,7 +77,7 @@ func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountMo
 }
 
 func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId int, userId int) (int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `insert into account_user (account_id, user_id) VALUES ($1, $2) returning id;`
 	args := []any{accountId, userId}
 	var id int
@@ -93,7 +93,7 @@ func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId in
 }
 
 func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId int, accountId int) ([]int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `select id from account_user where user_id = $1 and account_id = $2`
 	args := []any{userId, accountId}
 	startTime := time.Now()
@@ -119,7 +119,7 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 }
 
 func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int) (int, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `SELECT account_id FROM account_user WHERE user_id = $1 LIMIT 1`
 	args := []any{userId}
 	var accountId int
@@ -134,6 +134,7 @@ func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int
 	return accountId, nil
 }
 
+<<<<<<< HEAD
 func (obj *AccountPostgres) GetById(ctx context.Context, userId int, accountId int) (models.AccountModel, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
 	query := `
@@ -190,10 +191,84 @@ func (obj *AccountPostgres) GetByUserId(ctx context.Context, userId int) ([]mode
 	if rows.Err() != nil {
 		log.Error("failed while reading accounts", zap.Error(rows.Err()))
 		return nil, rows.Err()
+=======
+func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `select account.id, name, balance, currency, account.created_at, account.updated_at, coalesce(income, 0) as income, coalesce(expenses, 0) as expenses
+from account join account_user on account.id = account_user.account_id left join (
+select account_id, sum(case when transaction.type = 'INCOME' then transaction.value else 0 end) as income, sum(case when transaction.type = 'EXPENSE' then transaction.value else 0 end) as expenses
+from transaction where deleted_at is null and transaction_date >= date_trunc('month', now()) group by account_id
+) transactions on account.id = transactions.account_id
+where account_user.user_id = $1;`
+	args := []any{userId}
+	var accounts []models.AccountModel
+	var incomes, expenses []float64
+	startTime := time.Now()
+	rows, err := obj.db.Query(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	if err != nil {
+		log.Error("failed to get accounts by user",
+			zap.Error(err))
+		return []models.AccountModel{}, []float64{}, []float64{}, UnableToGetAccountUserIdsError
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var account models.AccountModel
+		var income, expense float64
+		if err = rows.Scan(&account.Id, &account.Name, &account.Balance, &account.Currency, &account.CreatedAt, &account.UpdatedAt, &income, &expense); err != nil {
+			log.Error("failed to get accounts by user",
+				zap.Error(err))
+			return []models.AccountModel{}, []float64{}, []float64{}, UnableToGetAccountUserIdsError
+		}
+		accounts = append(accounts, account)
+		incomes = append(incomes, income)
+		expenses = append(expenses, expense)
+	}
+	if len(accounts) == 0 {
+		log.Warn("no accounts found",
+			zap.Error(NothingInTableError))
+		return []models.AccountModel{}, []float64{}, []float64{}, NothingInTableError
+	}
+	log.Info("Query executed")
+	return accounts, incomes, expenses, nil
+}
+
+func (obj *AccountPostgres) GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `select account.id, name, balance, currency, created_at, updated_at from account join account_user on account.id = account_user.account_id where user_id = $1;`
+	args := []any{userId}
+	var accounts []models.AccountModel
+	startTime := time.Now()
+	rows, err := obj.db.Query(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	if err != nil {
+		log.Error("failed to get accounts by user",
+			zap.Error(err))
+		return []models.AccountModel{}, UnableToGetAccountUserIdsError
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var account models.AccountModel
+		err = rows.Scan(&account.Id, &account.Name, &account.Balance, &account.Currency, &account.CreatedAt, &account.UpdatedAt)
+		if err != nil {
+			log.Error("failed to get accounts by user",
+				zap.Error(err))
+			return []models.AccountModel{}, UnableToGetAccountUserIdsError
+		}
+		accounts = append(accounts, account)
+	}
+	if len(accounts) == 0 {
+		log.Warn("no accounts found",
+			zap.Error(NothingInTableError))
+		return []models.AccountModel{}, NothingInTableError
+>>>>>>> origin/dev
 	}
 	log.Info("Query executed")
 	return accounts, nil
 }
+<<<<<<< HEAD
 
 func (obj *AccountPostgres) Update(ctx context.Context, userId int, accountId int, account models.AccountUpdateModel) (models.AccountModel, error) {
 	log := logger.GetLoggerWIthRequestId(ctx)
@@ -257,3 +332,5 @@ func (obj *AccountPostgres) Delete(ctx context.Context, userId int, accountId in
 	log.Info("account deleted", zap.Int("account_id", accountId), zap.Int("user_id", userId))
 	return nil
 }
+=======
+>>>>>>> origin/dev

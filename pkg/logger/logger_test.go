@@ -48,7 +48,7 @@ func TestGetLoggerWIthRequestId(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			c.setupLogger()
-			log := GetLoggerWIthRequestId(c.ctx)
+			log := GetLoggerWithRequestId(c.ctx)
 			require.NotNil(t, log)
 		})
 	}

@@ -365,7 +365,6 @@ type TransactionRequest struct {
 	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
-	Currency        string    `json:"currency"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
 	TransactionDate time.Time `json:"transaction_date"`
@@ -433,7 +432,6 @@ func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *T
 			Value:           transaction.Value,
 			Type:            transaction.Type,
 			Category:        transaction.Category,
-			Currency:        transaction.Currency,
 			Title:           transaction.Title,
 			Description:     transaction.Description,
 			CreatedAt:       transaction.CreatedAt,

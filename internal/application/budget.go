@@ -46,7 +46,7 @@ func (obj *Budget) Delete(ctx context.Context, budgetId int, user models.UserMod
 }
 
 func (obj *Budget) GetById(ctx context.Context, id int, user models.UserModel) (models.BudgetModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	budget, err := obj.repository.GetById(ctx, id)
 	if !obj.IsUserAuthorOfBudget(budget, user) {
 		log.Warn("user is not author of budget",

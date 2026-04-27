@@ -113,7 +113,7 @@ func NewGroqClient(apiKey, proxyStr string) *GroqClient {
 }
 
 func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename string) (string, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -213,7 +213,7 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 }
 
 func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, types, categories, currencies []string) (*models.TransactionDraft, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 
 	if strings.TrimSpace(transcript) == "" {
 		return nil, fmt.Errorf("empty transcript")

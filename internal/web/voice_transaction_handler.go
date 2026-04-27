@@ -30,7 +30,7 @@ func NewVoiceHandler(voiceSvc application.VoiceTransactionUseCase, es applicatio
 
 func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("voice: create transaction request")
 
 	_, ok := web_helpers.GetAuthUser(r)
@@ -103,7 +103,6 @@ func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Req
 		Value:           draft.Value,
 		Type:            draft.Type,
 		Category:        draft.Category,
-		Currency:        draft.Currency,
 		TransactionDate: draft.Date,
 	}
 
