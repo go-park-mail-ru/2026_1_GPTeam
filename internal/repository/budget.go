@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate go run go.uber.org/mock/mockgen@latest -source=budget.go -destination=mocks/budget.go -package=mocks
 type BudgetRepository interface {
 	Create(ctx context.Context, budget models.BudgetModel) (int, error)
 	GetById(ctx context.Context, id int) (models.BudgetModel, error)

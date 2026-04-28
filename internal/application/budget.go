@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -source=budget.go -destination=mocks/budget.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=budget.go -destination=mocks/budget.go -package=mocks
 type BudgetUseCase interface {
 	Create(ctx context.Context, budget models.BudgetModel, categories []string) (int, error)
 	Delete(ctx context.Context, budgetId int, user models.UserModel) error

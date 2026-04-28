@@ -17,6 +17,7 @@ const RedisOkResponse = "OK"
 const RedisMethodGet = "GET"
 const RedisMethodSet = "SET"
 
+//go:generate go run go.uber.org/mock/mockgen@latest -source=rate_limiter.go -destination=mocks/rate_limiter.go -package=mocks
 type BucketInterface interface {
 	Get(ctx context.Context, ip string) (models.BucketModel, error)
 	Save(ctx context.Context, ip string, bucket models.BucketModel) error

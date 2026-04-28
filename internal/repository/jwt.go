@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -source=jwt.go -destination=mocks/jwt.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=jwt.go -destination=mocks/jwt.go -package=mocks
 type JwtRepository interface {
 	Create(ctx context.Context, token models.RefreshTokenModel) error
 	DeleteByUuid(ctx context.Context, uuid string) error

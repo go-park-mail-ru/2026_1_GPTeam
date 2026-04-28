@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate go run go.uber.org/mock/mockgen@latest -source=user.go -destination=mocks/user.go -package=mocks
 type UserRepository interface {
 	Create(ctx context.Context, userInfo models.UserModel) (int, error)
 	GetByID(ctx context.Context, id int) (*models.UserModel, error)

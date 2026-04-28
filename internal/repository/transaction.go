@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -source=transaction.go -destination=mocks/transaction.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=transaction.go -destination=mocks/transaction.go -package=mocks
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction models.TransactionModel, account models.AccountModel) (int, error)
 	GetIdsByUserId(ctx context.Context, userId int) ([]int, error)
