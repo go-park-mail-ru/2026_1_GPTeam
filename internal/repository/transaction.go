@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -20,6 +21,15 @@ type TransactionRepository interface {
 	Update(ctx context.Context, transaction models.TransactionModel) error
 	Delete(ctx context.Context, transactionId int) (int, error)
 	Detail(ctx context.Context, transactionId int) (models.TransactionModel, error)
+	Search(ctx context.Context, userId int, filters TransactionFilters) ([]models.TransactionModel, error)
+}
+
+type TransactionFilters struct {
+	StartDate      *time.Time
+	EndDate        *time.Time
+	Category       *string
+	AccountID      *int
+	SearchQuery    *string
 }
 
 type TransactionPostgres struct {
@@ -354,6 +364,83 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 	}
 	log.Info("Query executed")
 	return transaction, nil
+}
+
+func (obj *TransactionPostgres) Search(ctx context.Context, userId int, filters TransactionFilters) ([]models.TransactionModel, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+
+	query := `select id, user_id, account_id, value, type, category, title, description, created_at, transaction_date, updated_at from transaction where user_id = $1 and deleted_at is null`
+	args := []any{userId}
+	argIndex := 2
+
+	if filters.StartDate != nil {
+		query += ` and transaction_date >= $` + fmt.Sprint(argIndex)
+		args = append(args, *filters.StartDate)
+		argIndex++
+	}
+
+	if filters.EndDate != nil {
+		query += ` and transaction_date <= $` + fmt.Sprint(argIndex)
+		args = append(args, *filters.EndDate)
+		argIndex++
+	}
+
+	if filters.Category != nil {
+		query += ` and category = $` + fmt.Sprint(argIndex)
+		args = append(args, *filters.Category)
+		argIndex++
+	}
+
+	if filters.AccountID != nil {
+		query += ` and account_id = $` + fmt.Sprint(argIndex)
+		args = append(args, *filters.AccountID)
+		argIndex++
+	}
+
+	if filters.SearchQuery != nil && *filters.SearchQuery != "" {
+		query += ` and (title ILIKE $` + fmt.Sprint(argIndex) + ` or description ILIKE $` + fmt.Sprint(argIndex) + `)`
+		searchPattern := "%" + *filters.SearchQuery + "%"
+		args = append(args, searchPattern)
+		argIndex++
+	}
+
+	query += ` order by transaction_date desc, created_at desc`
+
+	var transactions []models.TransactionModel
+	startTime := time.Now()
+	rows, err := obj.db.Query(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	if err != nil {
+		log.Error("failed to search transactions (not db error)", zap.Error(err))
+		return []models.TransactionModel{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var transaction models.TransactionModel
+		err = rows.Scan(&transaction.Id, &transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
+		if err != nil {
+			log.Error("failed to scan transaction while searching", zap.Error(err))
+			if errors.Is(err, pgx.ErrNoRows) {
+				return []models.TransactionModel{}, InvalidDataInTableError
+			}
+			return transactions, err
+		}
+		transactions = append(transactions, transaction)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Error("failed to search transactions", zap.Error(err))
+		return []models.TransactionModel{}, err
+	}
+
+	if len(transactions) == 0 {
+		log.Warn("no transactions found with filters", zap.Int("userId", userId))
+		return []models.TransactionModel{}, NothingInTableError
+	}
+	log.Info("Query executed")
+	return transactions, nil
 }
 
 func execBalanceChangeQuery(ctx context.Context, dbTransaction pgx.Tx, transaction models.TransactionModel, query string, args ...any) (time.Duration, error) {

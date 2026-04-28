@@ -32,7 +32,6 @@ func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsA
 	}
 }
 
-// Transactions /transactions — GET (список) и POST (создать)
 func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -42,7 +41,15 @@ func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// Transaction /transactions/{id} — GET (детали), DELETE (удалить), PUT (обновить)
+func (obj *TransactionHandler) Search(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response := web_helpers.NewMethodNotAllowedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	obj.searchTransactions(w, r)
+}
+
 func (obj *TransactionHandler) Transaction(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -164,6 +171,80 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 	}
 	log.Info("get transaction ids success", zap.Int("user_id", authUser.Id), zap.Ints("transaction_ids", ids))
 	response := web_helpers.NewTransactionsIdsResponse(ids)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *TransactionHandler) searchTransactions(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWithRequestId(r.Context())
+	log.Info("search transactions request")
+	authUser, ok := web_helpers.GetAuthUser(r)
+	if !ok {
+		log.Warn("user unauthorized")
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	query := r.URL.Query()
+	filters := repository.TransactionFilters{}
+
+	if startDateStr := query.Get("start_date"); startDateStr != "" {
+		startDate, err := time.Parse(time.RFC3339, startDateStr)
+		if err == nil {
+			filters.StartDate = &startDate
+		}
+	}
+	if endDateStr := query.Get("end_date"); endDateStr != "" {
+		endDate, err := time.Parse(time.RFC3339, endDateStr)
+		if err == nil {
+			filters.EndDate = &endDate
+		}
+	}
+	if category := query.Get("category"); category != "" {
+		filters.Category = &category
+	}
+	if accountIDStr := query.Get("account_id"); accountIDStr != "" {
+		accountID, err := strconv.Atoi(accountIDStr)
+		if err == nil {
+			filters.AccountID = &accountID
+		}
+	}
+	if searchQuery := query.Get("q"); searchQuery != "" {
+		filters.SearchQuery = &searchQuery
+	}
+
+	transactions, err := obj.transactionApp.Search(r.Context(), authUser.Id, filters)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewTransactionsSearchResponse([]web_helpers.TransactionWithCurrency{})
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	// кешируем валюту по account_id чтобы не делать N запросов на одинаковые счета
+	currencyCache := make(map[int]string)
+	result := make([]web_helpers.TransactionWithCurrency, 0, len(transactions))
+	for _, t := range transactions {
+		if _, exists := currencyCache[t.AccountId]; !exists {
+			currency, err := obj.accountApp.GetCurrencyByAccountId(r.Context(), t.AccountId)
+			if err != nil {
+				log.Warn("failed to get currency", zap.Int("account_id", t.AccountId), zap.Error(err))
+				currency = ""
+			}
+			currencyCache[t.AccountId] = currency
+		}
+		result = append(result, web_helpers.TransactionWithCurrency{
+			TransactionModel: t,
+			Currency:         currencyCache[t.AccountId],
+		})
+	}
+
+	log.Info("search transactions success", zap.Int("user_id", authUser.Id), zap.Int("count", len(result)))
+	response := web_helpers.NewTransactionsSearchResponse(result)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -334,10 +415,19 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	currency, err := obj.accountApp.GetCurrencyByAccountId(r.Context(), transaction.AccountId)
+	if err != nil {
+		log.Warn("failed to get currency for transaction", zap.Int("account_id", transaction.AccountId), zap.Error(err))
+		currency = ""
+	}
+
 	transaction.Title = secure.SanitizeXss(transaction.Title)
 	transaction.Description = secure.SanitizeXss(transaction.Description)
 	log.Info("get transaction success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
 
-	response := web_helpers.NewTransactionDetailSuccessResponse(transaction)
+	response := web_helpers.NewTransactionDetailSuccessResponse(web_helpers.TransactionWithCurrency{
+		TransactionModel: transaction,
+		Currency:         currency,
+	})
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

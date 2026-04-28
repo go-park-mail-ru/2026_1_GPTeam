@@ -401,6 +401,13 @@ func NewTransactionDeleteSuccessResponse(id int) *TransactionDeleteSuccessRespon
 	}
 }
 
+// TransactionWithCurrency — модель транзакции с валютой, полученной из связанного счёта.
+// Используется только на уровне хэндлера, модель TransactionModel не меняется.
+type TransactionWithCurrency struct {
+	models.TransactionModel
+	Currency string
+}
+
 type TransactionResponse struct {
 	Id              int       `json:"id"`
 	UserId          int       `json:"user_id"`
@@ -410,34 +417,40 @@ type TransactionResponse struct {
 	Category        string    `json:"category"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
+	Currency        string    `json:"currency"`
 	CreatedAt       time.Time `json:"created_at"`
 	TransactionDate time.Time `json:"transaction_date"`
 }
 
-func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *TransactionDetailSuccessResponse {
-	return &TransactionDetailSuccessResponse{
-		SimpleResponse: SimpleResponse{
-			Code:    http.StatusOK,
-			Message: "Ok",
-		},
-		Transaction: TransactionResponse{
-			Id:              transaction.Id,
-			UserId:          transaction.UserId,
-			AccountId:       transaction.AccountId,
-			Value:           transaction.Value,
-			Type:            transaction.Type,
-			Category:        transaction.Category,
-			Title:           transaction.Title,
-			Description:     transaction.Description,
-			CreatedAt:       transaction.CreatedAt,
-			TransactionDate: transaction.TransactionDate,
-		},
+func newTransactionResponse(t TransactionWithCurrency) TransactionResponse {
+	return TransactionResponse{
+		Id:              t.Id,
+		UserId:          t.UserId,
+		AccountId:       t.AccountId,
+		Value:           t.Value,
+		Type:            t.Type,
+		Category:        t.Category,
+		Title:           t.Title,
+		Description:     t.Description,
+		Currency:        t.Currency,
+		CreatedAt:       t.CreatedAt,
+		TransactionDate: t.TransactionDate,
 	}
 }
 
 type TransactionDetailSuccessResponse struct {
 	SimpleResponse
 	Transaction TransactionResponse `json:"transaction"`
+}
+
+func NewTransactionDetailSuccessResponse(t TransactionWithCurrency) *TransactionDetailSuccessResponse {
+	return &TransactionDetailSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Transaction: newTransactionResponse(t),
+	}
 }
 
 type TransactionUpdateSuccessResponse SimpleResponse
@@ -656,4 +669,32 @@ func NewIsStaffResponse(isStaff bool) IsStaffResponse {
 
 type UpdateSupportStatusRequest struct {
 	Status string `json:"status"`
+}
+
+type TransactionsSearchResponse struct {
+	SimpleResponse
+	Transactions []TransactionResponse `json:"transactions"`
+}
+
+func NewTransactionsSearchResponse(transactions []TransactionWithCurrency) TransactionsSearchResponse {
+	items := make([]TransactionResponse, 0, len(transactions))
+	for _, t := range transactions {
+		items = append(items, newTransactionResponse(t))
+	}
+	return TransactionsSearchResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Transactions: items,
+	}
+}
+
+type MethodNotAllowedErrorResponse SimpleResponse
+
+func NewMethodNotAllowedErrorResponse() MethodNotAllowedErrorResponse {
+	return MethodNotAllowedErrorResponse{
+		Code:    http.StatusMethodNotAllowed,
+		Message: "Метод не поддерживается",
+	}
 }

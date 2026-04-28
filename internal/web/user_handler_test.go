@@ -25,7 +25,7 @@ func ptr(s string) *string {
 func TestUserHandler_Profile(t *testing.T) {
 	t.Parallel()
 
-	testUserVal := models.UserModel{Id: 1, Username: "testuser", Email: "test@test.com"}
+	testUserVal := &models.UserModel{Id: 1, Username: "testuser", Email: "test@test.com"}
 
 	cases := []struct {
 		name         string
@@ -52,7 +52,8 @@ func TestUserHandler_Profile(t *testing.T) {
 			defer ctrl.Finish()
 
 			userApp := appmocks.NewMockUserUseCase(ctrl)
-			handler := NewUserHandler(userApp)
+			accountApp := appmocks.NewMockAccountUseCase(ctrl)
+			handler := NewUserHandler(userApp, accountApp)
 
 			req := httptest.NewRequest(http.MethodGet, "/profile", nil).WithContext(c.ctx)
 			w := httptest.NewRecorder()
@@ -66,35 +67,35 @@ func TestUserHandler_Profile(t *testing.T) {
 func TestUserHandler_UpdateProfile(t *testing.T) {
 	t.Parallel()
 
-	testUserVal := models.UserModel{Id: 1, Username: "testuser", Email: "test@test.com"}
+	testUserVal := &models.UserModel{Id: 1, Username: "testuser", Email: "test@test.com"}
 
 	cases := []struct {
 		name         string
 		body         any
 		ctx          context.Context
-		setupMocks   func(userApp *appmocks.MockUserUseCase)
+		setupMocks   func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase)
 		expectedCode int
 	}{
 		{
 			name:         "unauthorized",
 			body:         web_helpers.UpdateUserProfileRequest{},
 			ctx:          context.Background(),
-			setupMocks:   func(userApp *appmocks.MockUserUseCase) {},
+			setupMocks:   func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
 			expectedCode: http.StatusUnauthorized,
 		},
 		{
 			name:         "validation error",
 			body:         web_helpers.UpdateUserProfileRequest{},
 			ctx:          context.WithValue(context.Background(), "user", testUserVal),
-			setupMocks:   func(userApp *appmocks.MockUserUseCase) {},
+			setupMocks:   func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
 			expectedCode: http.StatusBadRequest,
 		},
 		{
 			name: "success",
 			body: web_helpers.UpdateUserProfileRequest{Username: ptr("newname")},
 			ctx:  context.WithValue(context.Background(), "user", testUserVal),
-			setupMocks: func(userApp *appmocks.MockUserUseCase) {
-				userApp.EXPECT().Update(gomock.Any(), gomock.Any()).Return(&models.UserModel{Username: "newname"}, nil)
+			setupMocks: func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
+				userApp.EXPECT().Update(gomock.Any(), gomock.Any()).Return(&models.UserModel{Id: testUserVal.Id, Username: "newname", Email: testUserVal.Email}, nil)
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -108,11 +109,13 @@ func TestUserHandler_UpdateProfile(t *testing.T) {
 			defer ctrl.Finish()
 
 			userApp := appmocks.NewMockUserUseCase(ctrl)
-			c.setupMocks(userApp)
-			handler := NewUserHandler(userApp)
+			accountApp := appmocks.NewMockAccountUseCase(ctrl)
+			c.setupMocks(userApp, accountApp)
+			handler := NewUserHandler(userApp, accountApp)
 
 			bodyBytes, _ := json.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPatch, "/profile", bytes.NewReader(bodyBytes)).WithContext(c.ctx)
+			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			handler.ProfileHandler(w, req)
 
@@ -124,33 +127,36 @@ func TestUserHandler_UpdateProfile(t *testing.T) {
 func TestUserHandler_Balance(t *testing.T) {
 	t.Parallel()
 
-	testUserVal := models.UserModel{Id: 1, Username: "testuser"}
+	testUserVal := &models.UserModel{Id: 1, Username: "testuser"}
 
 	cases := []struct {
 		name         string
 		ctx          context.Context
-		setupMocks   func(userApp *appmocks.MockUserUseCase)
+		setupMocks   func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase)
 		expectedCode int
 	}{
 		{
 			name:         "unauthorized",
 			ctx:          context.Background(),
-			setupMocks:   func(userApp *appmocks.MockUserUseCase) {},
+			setupMocks:   func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
 			expectedCode: http.StatusUnauthorized,
 		},
 		{
 			name: "error",
 			ctx:  context.WithValue(context.Background(), "user", testUserVal),
-			setupMocks: func(userApp *appmocks.MockUserUseCase) {
-				userApp.EXPECT().GetUserBalance(gomock.Any(), testUserVal.Id).Return(nil, errors.New("db error"))
+			setupMocks: func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
+				accountApp.EXPECT().GetAllAccountsByUserIdWithBalance(gomock.Any(), testUserVal.Id).Return(nil, nil, nil, errors.New("db error"))
 			},
 			expectedCode: http.StatusInternalServerError,
 		},
 		{
 			name: "success",
 			ctx:  context.WithValue(context.Background(), "user", testUserVal),
-			setupMocks: func(userApp *appmocks.MockUserUseCase) {
-				userApp.EXPECT().GetUserBalance(gomock.Any(), testUserVal.Id).Return([]models.CurrencyStat{{Currency: "RUB", Balance: 100}}, nil)
+			setupMocks: func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
+				accounts := []models.AccountModel{{Currency: "RUB", Balance: 100}}
+				incomes := []float64{50}
+				expenses := []float64{25}
+				accountApp.EXPECT().GetAllAccountsByUserIdWithBalance(gomock.Any(), testUserVal.Id).Return(accounts, incomes, expenses, nil)
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -164,8 +170,9 @@ func TestUserHandler_Balance(t *testing.T) {
 			defer ctrl.Finish()
 
 			userApp := appmocks.NewMockUserUseCase(ctrl)
-			c.setupMocks(userApp)
-			handler := NewUserHandler(userApp)
+			accountApp := appmocks.NewMockAccountUseCase(ctrl)
+			c.setupMocks(userApp, accountApp)
+			handler := NewUserHandler(userApp, accountApp)
 
 			req := httptest.NewRequest(http.MethodGet, "/balance", nil).WithContext(c.ctx)
 			w := httptest.NewRecorder()
@@ -187,9 +194,10 @@ func TestUserHandler_UploadAvatar(t *testing.T) {
 		defer ctrl.Finish()
 
 		userApp := appmocks.NewMockUserUseCase(ctrl)
+		accountApp := appmocks.NewMockAccountUseCase(ctrl)
 		userApp.EXPECT().UploadAvatar(gomock.Any(), testUserPtr.Id, gomock.Any(), gomock.Any()).Return("avatar.png", nil)
 
-		handler := NewUserHandler(userApp)
+		handler := NewUserHandler(userApp, accountApp)
 
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
@@ -212,7 +220,8 @@ func TestUserHandler_UploadAvatar(t *testing.T) {
 		defer ctrl.Finish()
 
 		userApp := appmocks.NewMockUserUseCase(ctrl)
-		handler := NewUserHandler(userApp)
+		accountApp := appmocks.NewMockAccountUseCase(ctrl)
+		handler := NewUserHandler(userApp, accountApp)
 
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
