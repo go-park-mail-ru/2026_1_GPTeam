@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,7 +16,9 @@ import (
 
 func newTransactionPostgres(t *testing.T) (*TransactionPostgres, pgxmock.PgxPoolIface) {
 	t.Helper()
-	mock, err := pgxmock.NewPool()
+	mock, err := pgxmock.NewPool(
+		pgxmock.QueryMatcherOption(pgxmock.QueryMatcherRegexp),
+	)
 	require.NoError(t, err)
 	return NewTransactionPostgres(mock), mock
 }
@@ -34,10 +37,22 @@ func validTransactionModel(txDate time.Time) models.TransactionModel {
 	}
 }
 
+func validAccountModel(date time.Time) models.AccountModel {
+	return models.AccountModel{
+		Id:        55,
+		Name:      "name",
+		Balance:   100000,
+		Currency:  "RUB",
+		CreatedAt: date,
+		UpdatedAt: date,
+	}
+}
+
 func TestTransactionPostgres_Create(t *testing.T) {
 	t.Parallel()
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
 	tx := validTransactionModel(txDate)
+	account := validAccountModel(txDate)
 
 	t.Run("success", func(t *testing.T) {
 		repo, mock := newTransactionPostgres(t)
@@ -53,7 +68,7 @@ func TestTransactionPostgres_Create(t *testing.T) {
 
 		mock.ExpectCommit()
 
-		id, err := repo.Create(context.Background(), tx)
+		id, err := repo.Create(context.Background(), tx, account)
 		require.NoError(t, err)
 		require.Equal(t, 42, id)
 		require.NoError(t, mock.ExpectationsWereMet())
@@ -69,7 +84,7 @@ func TestTransactionPostgres_Create(t *testing.T) {
 			WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
 		mock.ExpectRollback()
 
-		_, err := repo.Create(context.Background(), tx)
+		_, err := repo.Create(context.Background(), tx, account)
 		require.ErrorIs(t, err, TransactionDuplicatedDataError)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
@@ -110,6 +125,9 @@ func TestTransactionPostgres_Update(t *testing.T) {
 	t.Parallel()
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
 	tx := validTransactionModel(txDate)
+	oldTx := validTransactionModel(txDate.Add(24 * time.Hour))
+	account := validAccountModel(txDate)
+	oldAccount := validAccountModel(txDate)
 
 	t.Run("success", func(t *testing.T) {
 		repo, mock := newTransactionPostgres(t)
@@ -130,7 +148,7 @@ func TestTransactionPostgres_Update(t *testing.T) {
 
 		mock.ExpectCommit()
 
-		err := repo.Update(context.Background(), tx)
+		err := repo.Update(context.Background(), tx, oldTx, account, oldAccount)
 		require.NoError(t, err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
@@ -144,7 +162,7 @@ func TestTransactionPostgres_Update(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 		mock.ExpectRollback()
 
-		err := repo.Update(context.Background(), tx)
+		err := repo.Update(context.Background(), tx, oldTx, account, oldAccount)
 		require.ErrorIs(t, err, NothingInTableError)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
@@ -152,6 +170,8 @@ func TestTransactionPostgres_Update(t *testing.T) {
 
 func TestTransactionPostgres_Delete(t *testing.T) {
 	t.Parallel()
+	date := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
+	account := validAccountModel(date)
 
 	t.Run("success", func(t *testing.T) {
 		repo, mock := newTransactionPostgres(t)
@@ -159,15 +179,22 @@ func TestTransactionPostgres_Delete(t *testing.T) {
 		mock.ExpectBegin()
 		mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
 			WithArgs(42).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "type", "value", "account_id"}).AddRow(42, "expense", float64(100), 1))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "type", "value", "account_id", "user_id", "category"}).
+				AddRow(42, "EXPENSE", float64(100), 55, 7, "food"))
 
 		mock.ExpectExec(`update account set balance`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+			WithArgs("EXPENSE", float64(100), 55).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		mock.ExpectExec(`update budget set actual`).
+			WithArgs("EXPENSE", float64(100), 7, "food").
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		mock.ExpectCommit()
+		mock.ExpectRollback()
 
-		id, err := repo.Delete(context.Background(), 42)
+		id, err := repo.Delete(context.Background(), 42, account)
+
 		require.NoError(t, err)
 		require.Equal(t, 42, id)
 		require.NoError(t, mock.ExpectationsWereMet())
@@ -178,11 +205,12 @@ func TestTransactionPostgres_Delete(t *testing.T) {
 
 		mock.ExpectBegin()
 		mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
-			WithArgs(42).
+			WithArgs(4).
 			WillReturnError(pgx.ErrNoRows)
 		mock.ExpectRollback()
+		mock.ExpectRollback()
 
-		_, err := repo.Delete(context.Background(), 42)
+		_, err := repo.Delete(context.Background(), 4, account)
 		require.ErrorIs(t, err, NothingInTableError)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})

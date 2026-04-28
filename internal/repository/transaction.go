@@ -26,11 +26,11 @@ type TransactionRepository interface {
 }
 
 type TransactionFilters struct {
-	StartDate      *time.Time
-	EndDate        *time.Time
-	Category       *string
-	AccountID      *int
-	SearchQuery    *string
+	StartDate   *time.Time
+	EndDate     *time.Time
+	Category    *string
+	AccountID   *int
+	SearchQuery *string
 }
 
 type TransactionPostgres struct {
