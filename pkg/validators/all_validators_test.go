@@ -252,11 +252,11 @@ func TestValidateBudget(t *testing.T) {
 		body := web_helpers.BudgetRequest{
 			Title:       "Vacation",
 			Description: "Savings",
-			Currency:    "USD",
 			Target:      1000,
 			Actual:      500,
 			StartAt:     time.Now().AddDate(0, 0, 1),
 			EndAt:       time.Now().AddDate(0, 1, 0),
+			Currency:    "RUB", // ДОБАВЛЕНО: Теперь бюджет имеет валидную валюту
 		}
 		errs := validators.ValidateBudget(body, currencies)
 		require.Empty(t, errs)
@@ -266,11 +266,11 @@ func TestValidateBudget(t *testing.T) {
 		body := web_helpers.BudgetRequest{
 			Title:       "",
 			Description: "",
-			Currency:    "GBP",
 			Target:      -1,
 			Actual:      -1,
 			StartAt:     time.Now().AddDate(0, 0, -2),
 			EndAt:       time.Now().AddDate(0, 0, -5),
+			Currency:    "EUR", // ДОБАВЛЕНО: Невалидная валюта для этого теста
 		}
 		errs := validators.ValidateBudget(body, currencies)
 		require.Len(t, errs, 7)
@@ -380,7 +380,6 @@ func TestValidateTransactionCategory(t *testing.T) {
 func TestValidateTransaction(t *testing.T) {
 	allowedTypes := []string{"income", "expense"}
 	categories := []string{"food", "salary"}
-	currencies := []string{"RUB", "USD", "EUR"}
 
 	testCases := []struct {
 		Name   string
@@ -390,72 +389,72 @@ func TestValidateTransaction(t *testing.T) {
 		{
 			"All correct",
 			web_helpers.TransactionRequest{
+				AccountId:   1, // ИСПРАВЛЕНО: добавили AccountId
 				Title:       "Test",
 				Description: "Desc",
 				Value:       100,
 				Type:        "income",
 				Category:    "salary",
-				Currency:    "RUB",
 			},
 			0,
 		},
 		{
 			"Empty title",
 			web_helpers.TransactionRequest{
+				AccountId:   1, // ИСПРАВЛЕНО
 				Title:       "",
 				Description: "Desc",
 				Value:       100,
 				Type:        "income",
 				Category:    "salary",
-				Currency:    "RUB",
 			},
 			1,
 		},
 		{
 			"Negative value",
 			web_helpers.TransactionRequest{
+				AccountId:   1, // ИСПРАВЛЕНО
 				Title:       "Test",
 				Description: "Desc",
 				Value:       -1,
 				Type:        "income",
 				Category:    "salary",
-				Currency:    "RUB",
 			},
 			1,
 		},
 		{
 			"Invalid type and category",
 			web_helpers.TransactionRequest{
+				AccountId:   1, // ИСПРАВЛЕНО
 				Title:       "Test",
 				Description: "Desc",
 				Value:       100,
 				Type:        "wrong",
 				Category:    "wrong",
-				Currency:    "RUB",
 			},
 			2,
 		},
 		{
-			"Invalid currency",
+			"Invalid AccountId", // ИСПРАВЛЕНО: Заменили проверку валюты на проверку AccountId
 			web_helpers.TransactionRequest{
+				AccountId:   0, // Ошибка здесь
 				Title:       "Test",
 				Description: "Desc",
 				Value:       100,
 				Type:        "income",
 				Category:    "salary",
-				Currency:    "GBP",
 			},
 			1,
 		},
 		{
 			"All wrong",
 			web_helpers.TransactionRequest{
-				Title:       "",
-				Description: "",
-				Value:       -1,
-				Type:        "wrong",
-				Category:    "wrong",
-				Currency:    "GBP",
+				AccountId:   0,       // 1 ошибка
+				Title:       "",      // 2 ошибка
+				Description: "",      // 3 ошибка
+				Value:       -1,      // 4 ошибка
+				Type:        "wrong", // 5 ошибка
+				Category:    "wrong", // 6 ошибка
 			},
 			6,
 		},
@@ -464,7 +463,7 @@ func TestValidateTransaction(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			errs := validators.ValidateTransaction(testCase.Body, allowedTypes, categories, currencies)
+			errs := validators.ValidateTransaction(testCase.Body, allowedTypes, categories)
 			require.Len(t, errs, testCase.errLen)
 		})
 	}

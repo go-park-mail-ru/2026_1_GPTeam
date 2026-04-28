@@ -8,12 +8,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p 5432" ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p 5432"]
       interval: 5s
       timeout: 5s
       retries: 5
-    expose:
-      - "5432"
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -23,13 +23,13 @@ services:
     image: redis:latest
     container_name: gpteam-redis
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    expose:
-      - "6379"
+    ports:
+      - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
@@ -38,6 +38,7 @@ services:
   migrations:
     image: ghcr.io/jackc/tern:latest
     container_name: gpteam-db-migrations
+    network_mode: host # <--- ВЫНЕСЛИ МИГРАЦИИ НА ХОСТ
     volumes:
       - ./db/migrations:/migrations
     working_dir: /migrations
@@ -46,13 +47,11 @@ services:
       db:
         condition: service_healthy
     environment:
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=localhost # <--- ТЕПЕРЬ СТУЧИМСЯ ЧЕРЕЗ ЛОКАЛХОСТ
       - POSTGRES_PORT=5432
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-    networks:
-      - gpteam-network
 
   app:
     build: .
@@ -61,23 +60,17 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
-    read_only: true
-    security_opt:
-      - no-new-privileges:true
-    expose:
-      - "8080"
+    network_mode: host
     volumes:
       - ./static:/app/static
       - ./logs:/app/log
     env_file:
       - .env
     environment:
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=localhost
       - POSTGRES_PORT=5432
-      - REDIS_HOST=redis
+      - REDIS_HOST=localhost
       - REDIS_PORT=6379
-    networks:
-      - gpteam-network
 
 volumes:
   postgres_data:

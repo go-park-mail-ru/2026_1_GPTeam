@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	models "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockAccountRepository is a mock of AccountRepository interface.
@@ -63,6 +63,53 @@ func (m *MockAccountRepository) GetAccountIdByUserId(ctx context.Context, userId
 func (mr *MockAccountRepositoryMockRecorder) GetAccountIdByUserId(ctx, userId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountIdByUserId", reflect.TypeOf((*MockAccountRepository)(nil).GetAccountIdByUserId), ctx, userId)
+}
+
+// GetAllAccountsByUserId mocks base method.
+func (m *MockAccountRepository) GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllAccountsByUserId", ctx, userId)
+	ret0, _ := ret[0].([]models.AccountModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllAccountsByUserId indicates an expected call of GetAllAccountsByUserId.
+func (mr *MockAccountRepositoryMockRecorder) GetAllAccountsByUserId(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAccountsByUserId", reflect.TypeOf((*MockAccountRepository)(nil).GetAllAccountsByUserId), ctx, userId)
+}
+
+// GetAllAccountsByUserIdWithBalance mocks base method.
+func (m *MockAccountRepository) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllAccountsByUserIdWithBalance", ctx, userId)
+	ret0, _ := ret[0].([]models.AccountModel)
+	ret1, _ := ret[1].([]float64)
+	ret2, _ := ret[2].([]float64)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// GetAllAccountsByUserIdWithBalance indicates an expected call of GetAllAccountsByUserIdWithBalance.
+func (mr *MockAccountRepositoryMockRecorder) GetAllAccountsByUserIdWithBalance(ctx, userId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAccountsByUserIdWithBalance", reflect.TypeOf((*MockAccountRepository)(nil).GetAllAccountsByUserIdWithBalance), ctx, userId)
+}
+
+// GetCurrencyByAccountId mocks base method.
+func (m *MockAccountRepository) GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCurrencyByAccountId", ctx, accountId)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCurrencyByAccountId indicates an expected call of GetCurrencyByAccountId.
+func (mr *MockAccountRepositoryMockRecorder) GetCurrencyByAccountId(ctx, accountId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrencyByAccountId", reflect.TypeOf((*MockAccountRepository)(nil).GetCurrencyByAccountId), ctx, accountId)
 }
 
 // GetIdsByUserAndAccount mocks base method.

@@ -10,7 +10,7 @@ import (
 	time "time"
 
 	models "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockUserRepository is a mock of UserRepository interface.
@@ -49,38 +49,6 @@ func (m *MockUserRepository) Create(ctx context.Context, userInfo models.UserMod
 func (mr *MockUserRepositoryMockRecorder) Create(ctx, userInfo interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockUserRepository)(nil).Create), ctx, userInfo)
-}
-
-// GetBalanceByCurrency mocks base method.
-func (m *MockUserRepository) GetBalanceByCurrency(ctx context.Context, userId int, currency string) (float64, float64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBalanceByCurrency", ctx, userId, currency)
-	ret0, _ := ret[0].(float64)
-	ret1, _ := ret[1].(float64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetBalanceByCurrency indicates an expected call of GetBalanceByCurrency.
-func (mr *MockUserRepositoryMockRecorder) GetBalanceByCurrency(ctx, userId, currency interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalanceByCurrency", reflect.TypeOf((*MockUserRepository)(nil).GetBalanceByCurrency), ctx, userId, currency)
-}
-
-// GetBalanceStat mocks base method.
-func (m *MockUserRepository) GetBalanceStat(ctx context.Context, userId int) (float64, float64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBalanceStat", ctx, userId)
-	ret0, _ := ret[0].(float64)
-	ret1, _ := ret[1].(float64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetBalanceStat indicates an expected call of GetBalanceStat.
-func (mr *MockUserRepositoryMockRecorder) GetBalanceStat(ctx, userId interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalanceStat", reflect.TypeOf((*MockUserRepository)(nil).GetBalanceStat), ctx, userId)
 }
 
 // GetByEmail mocks base method.

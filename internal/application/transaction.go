@@ -17,6 +17,7 @@ type TransactionUseCase interface {
 	Delete(ctx context.Context, transactionId int, userId int) (int, error)
 	Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error)
 	IsUserAuthorOfTransaction(user models.UserModel, transaction models.TransactionModel) bool
+	Search(ctx context.Context, userId int, filters repository.TransactionFilters) ([]models.TransactionModel, error)
 }
 
 type Transaction struct {
@@ -80,4 +81,9 @@ func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId in
 
 func (obj *Transaction) IsUserAuthorOfTransaction(user models.UserModel, transaction models.TransactionModel) bool {
 	return transaction.UserId == user.Id
+}
+
+func (obj *Transaction) Search(ctx context.Context, userId int, filters repository.TransactionFilters) ([]models.TransactionModel, error) {
+	transactions, err := obj.repository.Search(ctx, userId, filters)
+	return transactions, err
 }

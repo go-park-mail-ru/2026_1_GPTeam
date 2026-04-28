@@ -17,6 +17,7 @@ type AccountUseCase interface {
 	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
 	GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error)
 	GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
+	GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error)
 }
 
 type Account struct {
@@ -66,4 +67,8 @@ func (obj *Account) GetAllAccountsByUserIdWithBalance(ctx context.Context, userI
 func (obj *Account) GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
 	accounts, err := obj.repository.GetAllAccountsByUserId(ctx, userId)
 	return accounts, err
+}
+
+func (obj *Account) GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error) {
+	return obj.repository.GetCurrencyByAccountId(ctx, accountId)
 }

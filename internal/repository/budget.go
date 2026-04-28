@@ -104,7 +104,7 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 
 func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]int, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `select id from budget where author = $1 and active = true;`
+	query := `select id from budget where author = $1 and active = true order by start_at desc;`
 	var ids []int
 	args := []any{userId}
 	startTime := time.Now()

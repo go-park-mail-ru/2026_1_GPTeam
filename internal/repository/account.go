@@ -19,6 +19,7 @@ type AccountRepository interface {
 	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
 	GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error)
 	GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
+	GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error)
 }
 
 type AccountPostgres struct {
@@ -212,4 +213,22 @@ func (obj *AccountPostgres) GetAllAccountsByUserId(ctx context.Context, userId i
 	}
 	log.Info("Query executed")
 	return accounts, nil
+}
+
+func (obj *AccountPostgres) GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `select currency from account where id = $1;`
+	args := []any{accountId}
+	var currency string
+	timeStart := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&currency)
+	duration := time.Since(timeStart)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	if err != nil {
+		log.Error("failed to get currency by account",
+			zap.Error(err))
+		return "", err
+	}
+	log.Info("Query executed")
+	return currency, nil
 }
