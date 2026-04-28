@@ -252,7 +252,7 @@ func TestValidateBudget(t *testing.T) {
 		body := web_helpers.BudgetRequest{
 			Title:       "Vacation",
 			Description: "Savings",
-			Currency:    "USD",
+			Currency:    "RUB",
 			Target:      1000,
 			Actual:      500,
 			StartAt:     time.Now().AddDate(0, 0, 1),
@@ -399,6 +399,7 @@ func TestValidateTransaction(t *testing.T) {
 		{
 			"All correct",
 			web_helpers.TransactionRequest{
+				AccountId:   1, // ИСПРАВЛЕНО: добавили AccountId
 				Title:       "Test",
 				Description: "Desc",
 				Value:       100,
@@ -410,6 +411,7 @@ func TestValidateTransaction(t *testing.T) {
 		{
 			"Empty title",
 			web_helpers.TransactionRequest{
+				AccountId:   1, // ИСПРАВЛЕНО
 				Title:       "",
 				Description: "Desc",
 				Value:       100,
@@ -421,6 +423,7 @@ func TestValidateTransaction(t *testing.T) {
 		{
 			"Negative value",
 			web_helpers.TransactionRequest{
+				AccountId:   1, // ИСПРАВЛЕНО
 				Title:       "Test",
 				Description: "Desc",
 				Value:       -1,
@@ -432,6 +435,7 @@ func TestValidateTransaction(t *testing.T) {
 		{
 			"Invalid type and category",
 			web_helpers.TransactionRequest{
+				AccountId:   1, // ИСПРАВЛЕНО
 				Title:       "Test",
 				Description: "Desc",
 				Value:       100,
@@ -441,15 +445,28 @@ func TestValidateTransaction(t *testing.T) {
 			2,
 		},
 		{
+			"Invalid AccountId", // ИСПРАВЛЕНО: Заменили проверку валюты на проверку AccountId
+			web_helpers.TransactionRequest{
+				AccountId:   0, // Ошибка здесь
+				Title:       "Test",
+				Description: "Desc",
+				Value:       100,
+				Type:        "income",
+				Category:    "salary",
+			},
+			1,
+		},
+		{
 			"All wrong",
 			web_helpers.TransactionRequest{
-				Title:       "",
-				Description: "",
-				Value:       -1,
-				Type:        "wrong",
-				Category:    "wrong",
+				AccountId:   0,       // 1 ошибка
+				Title:       "",      // 2 ошибка
+				Description: "",      // 3 ошибка
+				Value:       -1,      // 4 ошибка
+				Type:        "wrong", // 5 ошибка
+				Category:    "wrong", // 6 ошибка
 			},
-			5,
+			6,
 		},
 	}
 

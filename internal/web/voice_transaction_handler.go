@@ -127,7 +127,6 @@ func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Req
 		Value:       draft.Value,
 		Type:        draft.Type,
 		Category:    draft.Category,
-		Currency:    draft.Currency,
 		Title:       draft.Title,
 		Description: draft.Description,
 		RecordedAt:  draft.RecordedAt,

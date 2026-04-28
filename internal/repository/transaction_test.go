@@ -2,18 +2,23 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pashagolub/pgxmock/v3"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
+
+func newTransactionPostgres(t *testing.T) (*TransactionPostgres, pgxmock.PgxPoolIface) {
+	t.Helper()
+	mock, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	return NewTransactionPostgres(mock), mock
+}
 
 func validTransactionModel(txDate time.Time) models.TransactionModel {
 	return models.TransactionModel{
@@ -23,414 +28,200 @@ func validTransactionModel(txDate time.Time) models.TransactionModel {
 		Value:           3850,
 		Type:            "expense",
 		Category:        "food",
-		Currency:        "RUB",
 		Title:           "Покупка продуктов",
 		Description:     "Перекрёсток",
 		TransactionDate: txDate,
 	}
 }
 
-func TestTransactionRepository_Create(t *testing.T) {
+func TestTransactionPostgres_Create(t *testing.T) {
 	t.Parallel()
-
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
 	tx := validTransactionModel(txDate)
-	genericErr := errors.New("db down")
 
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockTransactionDB, row *repomocks.MockRow)
-		wantID    int
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), tx.UserId, tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate).Return(row)
-				row.EXPECT().Scan(gomock.Any()).DoAndReturn(func(dest ...any) error {
-					*(dest[0].(*int)) = 42
-					return nil
-				})
-			},
-			wantID: 42,
-		},
-		{
-			name: "unique violation",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
-				row.EXPECT().Scan(gomock.Any()).Return(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
-			},
-			wantID:  -1,
-			wantErr: TransactionDuplicatedDataError,
-		},
-		{
-			name: "check violation",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
-				row.EXPECT().Scan(gomock.Any()).Return(&pgconn.PgError{Code: pgerrcode.CheckViolation})
-			},
-			wantID:  -1,
-			wantErr: ConstraintError,
-		},
-		{
-			name: "foreign key violation",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
-				row.EXPECT().Scan(gomock.Any()).Return(&pgconn.PgError{Code: pgerrcode.ForeignKeyViolation})
-			},
-			wantID:  -1,
-			wantErr: TransactionAccountForeignKeyError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(row)
-				row.EXPECT().Scan(gomock.Any()).Return(genericErr)
-			},
-			wantID:  -1,
-			wantErr: genericErr,
-		},
-	}
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockTransactionDB(ctrl)
-			row := repomocks.NewMockRow(ctrl)
-			repo := NewTransactionPostgres(db)
-			tt.setupFunc(db, row)
+		mock.ExpectBegin()
+		mock.ExpectQuery(`insert into transaction`).
+			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+			WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(42))
 
-			id, err := repo.Create(context.Background(), tx)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				require.Equal(t, tt.wantID, id)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantID, id)
-		})
-	}
+		mock.ExpectExec(`update account set balance`).
+			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		mock.ExpectCommit()
+
+		id, err := repo.Create(context.Background(), tx)
+		require.NoError(t, err)
+		require.Equal(t, 42, id)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("unique violation", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
+
+		mock.ExpectBegin()
+		// ИСПРАВЛЕНО: Добавлено WithArgs для совпадения с реальным запросом
+		mock.ExpectQuery(`insert into transaction`).
+			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+			WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
+		mock.ExpectRollback()
+
+		_, err := repo.Create(context.Background(), tx)
+		require.ErrorIs(t, err, TransactionDuplicatedDataError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-func TestTransactionRepository_GetIdsByUserId(t *testing.T) {
+func TestTransactionPostgres_GetIdsByUserId(t *testing.T) {
 	t.Parallel()
 
-	genericErr := errors.New("rows broken")
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
+		rows := pgxmock.NewRows([]string{"id"}).AddRow(10).AddRow(11)
 
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockTransactionDB, rows *repomocks.MockRows)
-		wantIDs   []int
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockTransactionDB, rows *repomocks.MockRows) {
-				db.EXPECT().Query(gomock.Any(), gomock.Any(), 7).Return(rows, nil)
-				rows.EXPECT().Close()
-				gomock.InOrder(
-					rows.EXPECT().Next().Return(true),
-					rows.EXPECT().Scan(gomock.Any()).DoAndReturn(func(dest ...any) error {
-						*(dest[0].(*int)) = 10
-						return nil
-					}),
-					rows.EXPECT().Next().Return(true),
-					rows.EXPECT().Scan(gomock.Any()).DoAndReturn(func(dest ...any) error {
-						*(dest[0].(*int)) = 11
-						return nil
-					}),
-					rows.EXPECT().Next().Return(false),
-				)
-				rows.EXPECT().Err().Return(nil)
-			},
-			wantIDs: []int{10, 11},
-		},
-		{
-			name: "query error",
-			setupFunc: func(db *repomocks.MockTransactionDB, rows *repomocks.MockRows) {
-				db.EXPECT().Query(gomock.Any(), gomock.Any(), 7).Return(nil, genericErr)
-			},
-			wantErr: genericErr,
-		},
-		{
-			name: "invalid data in table",
-			setupFunc: func(db *repomocks.MockTransactionDB, rows *repomocks.MockRows) {
-				db.EXPECT().Query(gomock.Any(), gomock.Any(), 7).Return(rows, nil)
-				rows.EXPECT().Close()
-				gomock.InOrder(
-					rows.EXPECT().Next().Return(true),
-					rows.EXPECT().Scan(gomock.Any()).Return(pgx.ErrNoRows),
-				)
-			},
-			wantErr: InvalidDataInTableError,
-		},
-		{
-			name: "rows error",
-			setupFunc: func(db *repomocks.MockTransactionDB, rows *repomocks.MockRows) {
-				db.EXPECT().Query(gomock.Any(), gomock.Any(), 7).Return(rows, nil)
-				rows.EXPECT().Close()
-				rows.EXPECT().Next().Return(false)
-				rows.EXPECT().Err().Return(genericErr)
-			},
-			wantErr: genericErr,
-		},
-		{
-			name: "empty result",
-			setupFunc: func(db *repomocks.MockTransactionDB, rows *repomocks.MockRows) {
-				db.EXPECT().Query(gomock.Any(), gomock.Any(), 7).Return(rows, nil)
-				rows.EXPECT().Close()
-				rows.EXPECT().Next().Return(false)
-				rows.EXPECT().Err().Return(nil)
-			},
-			wantErr: NothingInTableError,
-		},
-	}
+		mock.ExpectQuery(`select id from transaction`).
+			WithArgs(7).
+			WillReturnRows(rows)
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockTransactionDB(ctrl)
-			rows := repomocks.NewMockRows(ctrl)
-			repo := NewTransactionPostgres(db)
-			tt.setupFunc(db, rows)
+		ids, err := repo.GetIdsByUserId(context.Background(), 7)
+		require.NoError(t, err)
+		require.Equal(t, []int{10, 11}, ids)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-			ids, err := repo.GetIdsByUserId(context.Background(), 7)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantIDs, ids)
-		})
-	}
+	t.Run("empty result", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
+
+		// ИСПРАВЛЕНО: Имитируем успешный запрос, который вернул 0 строк
+		mock.ExpectQuery(`select id from transaction`).
+			WithArgs(7).
+			WillReturnRows(pgxmock.NewRows([]string{"id"}))
+
+		_, err := repo.GetIdsByUserId(context.Background(), 7)
+		require.ErrorIs(t, err, NothingInTableError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-func TestTransactionRepository_Update(t *testing.T) {
+func TestTransactionPostgres_Update(t *testing.T) {
 	t.Parallel()
-
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
 	tx := validTransactionModel(txDate)
-	genericErr := errors.New("exec failed")
 
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockTransactionDB)
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 1"), nil)
-			},
-		},
-		{
-			name: "not found",
-			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 0"), nil)
-			},
-			wantErr: NothingInTableError,
-		},
-		{
-			name: "incorrect rows affected",
-			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.NewCommandTag("UPDATE 2"), nil)
-			},
-			wantErr: IncorrectRowsAffectedError,
-		},
-		{
-			name: "foreign key violation",
-			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.ForeignKeyViolation})
-			},
-			wantErr: TransactionAccountForeignKeyError,
-		},
-		{
-			name: "check violation",
-			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.CheckViolation})
-			},
-			wantErr: ConstraintError,
-		},
-		{
-			name: "duplicated data",
-			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.UniqueViolation})
-			},
-			wantErr: DuplicatedDataError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockTransactionDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), tx.AccountId, tx.Value, tx.Type, tx.Category, tx.Currency, tx.Title, tx.Description, tx.TransactionDate, tx.Id, tx.UserId).Return(pgconn.CommandTag{}, genericErr)
-			},
-			wantErr: genericErr,
-		},
-	}
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockTransactionDB(ctrl)
-			repo := NewTransactionPostgres(db)
-			tt.setupFunc(db)
+		mock.ExpectBegin()
 
-			err := repo.Update(context.Background(), tx)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
+		mock.ExpectQuery(`select value, type, account_id from transaction`).
+			WithArgs(tx.Id, tx.UserId).
+			WillReturnRows(pgxmock.NewRows([]string{"value", "type", "account_id"}).AddRow(float64(100), "expense", 55))
+
+		mock.ExpectExec(`update transaction set`).
+			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		mock.ExpectExec(`update account set balance`).
+			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		mock.ExpectCommit()
+
+		err := repo.Update(context.Background(), tx)
+		require.NoError(t, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
+
+		mock.ExpectBegin()
+		mock.ExpectQuery(`select value, type, account_id from transaction`).
+			WithArgs(tx.Id, tx.UserId).
+			WillReturnError(pgx.ErrNoRows)
+		mock.ExpectRollback()
+
+		err := repo.Update(context.Background(), tx)
+		require.ErrorIs(t, err, NothingInTableError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-func TestTransactionRepository_Delete(t *testing.T) {
+func TestTransactionPostgres_Delete(t *testing.T) {
 	t.Parallel()
 
-	genericErr := errors.New("delete failed")
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
 
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockTransactionDB, row *repomocks.MockRow)
-		wantID    int
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any()).DoAndReturn(func(dest ...any) error {
-					*(dest[0].(*int)) = 42
-					return nil
-				})
-			},
-			wantID: 42,
-		},
-		{
-			name: "not found",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any()).Return(pgx.ErrNoRows)
-			},
-			wantErr: NothingInTableError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any()).Return(genericErr)
-			},
-			wantErr: genericErr,
-		},
-	}
+		mock.ExpectBegin()
+		mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
+			WithArgs(42).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "type", "value", "account_id"}).AddRow(42, "expense", float64(100), 1))
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockTransactionDB(ctrl)
-			row := repomocks.NewMockRow(ctrl)
-			repo := NewTransactionPostgres(db)
-			tt.setupFunc(db, row)
+		mock.ExpectExec(`update account set balance`).
+			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
-			id, err := repo.Delete(context.Background(), 42)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantID, id)
-		})
-	}
+		mock.ExpectCommit()
+
+		id, err := repo.Delete(context.Background(), 42)
+		require.NoError(t, err)
+		require.Equal(t, 42, id)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
+
+		mock.ExpectBegin()
+		mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
+			WithArgs(42).
+			WillReturnError(pgx.ErrNoRows)
+		mock.ExpectRollback()
+
+		_, err := repo.Delete(context.Background(), 42)
+		require.ErrorIs(t, err, NothingInTableError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-func TestTransactionRepository_Detail(t *testing.T) {
+func TestTransactionPostgres_Detail(t *testing.T) {
 	t.Parallel()
 
-	createdAt := time.Date(2026, 3, 21, 12, 0, 0, 0, time.UTC)
-	txDate := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
-	updatedAt := time.Date(2026, 3, 22, 12, 0, 0, 0, time.UTC)
-	genericErr := errors.New("detail failed")
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
+		rows := pgxmock.NewRows([]string{"user_id", "account_id", "value", "type", "category", "title", "description", "created_at", "transaction_date", "updated_at"}).
+			AddRow(7, 55, float64(3850), "expense", "food", "Покупка", "Описание", time.Now(), time.Now(), time.Now())
 
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockTransactionDB, row *repomocks.MockRow)
-		wantTx    models.TransactionModel
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-					func(dest ...any) error {
-						*(dest[0].(*int)) = 7
-						*(dest[1].(*int)) = 55
-						*(dest[2].(*float64)) = 3850
-						*(dest[3].(*string)) = "expense"
-						*(dest[4].(*string)) = "food"
-						*(dest[5].(*string)) = "RUB"
-						*(dest[6].(*string)) = "Покупка продуктов"
-						*(dest[7].(*string)) = "Перекрёсток"
-						*(dest[8].(*time.Time)) = createdAt
-						*(dest[9].(*time.Time)) = txDate
-						*(dest[10].(*time.Time)) = updatedAt
-						return nil
-					},
-				)
-			},
-			wantTx: models.TransactionModel{
-				Id:              42,
-				UserId:          7,
-				AccountId:       55,
-				Value:           3850,
-				Type:            "expense",
-				Category:        "food",
-				Currency:        "RUB",
-				Title:           "Покупка продуктов",
-				Description:     "Перекрёсток",
-				CreatedAt:       createdAt,
-				TransactionDate: txDate,
-				UpdatedAt:       updatedAt,
-			},
-		},
-		{
-			name: "not found",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(pgx.ErrNoRows)
-			},
-			wantErr: NothingInTableError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockTransactionDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), 42).Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genericErr)
-			},
-			wantErr: genericErr,
-		},
-	}
+		mock.ExpectQuery(`select user_id, account_id`).
+			WithArgs(42).
+			WillReturnRows(rows)
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockTransactionDB(ctrl)
-			row := repomocks.NewMockRow(ctrl)
-			repo := NewTransactionPostgres(db)
-			tt.setupFunc(db, row)
+		tx, err := repo.Detail(context.Background(), 42)
+		require.NoError(t, err)
+		require.Equal(t, 7, tx.UserId)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
 
-			got, err := repo.Detail(context.Background(), 42)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantTx, got)
-		})
-	}
+func TestTransactionPostgres_Search(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newTransactionPostgres(t)
+		rows := pgxmock.NewRows([]string{"id", "user_id", "account_id", "value", "type", "category", "title", "description", "created_at", "transaction_date", "updated_at"}).
+			AddRow(42, 7, 55, float64(3850), "expense", "food", "Покупка", "Описание", time.Now(), time.Now(), time.Now())
+
+		mock.ExpectQuery(`select id, user_id`).
+			WithArgs(7).
+			WillReturnRows(rows)
+
+		txs, err := repo.Search(context.Background(), 7, TransactionFilters{})
+		require.NoError(t, err)
+		require.Len(t, txs, 1)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }

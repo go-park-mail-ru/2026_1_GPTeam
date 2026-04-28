@@ -23,11 +23,12 @@ func TestVoiceTransactionService_CreateVoiceTransaction(t *testing.T) {
 		{
 			name: "успешная обработка",
 			setupMocks: func(client *mocks.MockAIConsultantClient, enums *mocks.MockEnumsUseCase) {
-				enums.EXPECT().GetTransactionTypes().Return([]string{"expense"})
+				enums.EXPECT().GetTransactionTypes().Return([]string{"EXPENSE"})
 				enums.EXPECT().GetCategoryTypes().Return([]string{"food"})
-				enums.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
+
 				client.EXPECT().Transcribe(gomock.Any(), gomock.Any(), "test.wav").Return("купил хлеб", nil)
-				client.EXPECT().ParseTransaction(gomock.Any(), "купил хлеб", gomock.Any(), gomock.Any(), gomock.Any()).
+
+				client.EXPECT().ParseTransaction(gomock.Any(), "купил хлеб", gomock.Any(), gomock.Any()).
 					Return(&models.TransactionDraft{Title: "Хлеб"}, nil)
 			},
 			expectedErr: false,
@@ -42,11 +43,12 @@ func TestVoiceTransactionService_CreateVoiceTransaction(t *testing.T) {
 		{
 			name: "ошибка парсинга",
 			setupMocks: func(client *mocks.MockAIConsultantClient, enums *mocks.MockEnumsUseCase) {
-				enums.EXPECT().GetTransactionTypes().Return([]string{"expense"})
+				enums.EXPECT().GetTransactionTypes().Return([]string{"EXPENSE"})
 				enums.EXPECT().GetCategoryTypes().Return([]string{"food"})
-				enums.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
+
 				client.EXPECT().Transcribe(gomock.Any(), gomock.Any(), "test.wav").Return("купил хлеб", nil)
-				client.EXPECT().ParseTransaction(gomock.Any(), "купил хлеб", gomock.Any(), gomock.Any(), gomock.Any()).
+
+				client.EXPECT().ParseTransaction(gomock.Any(), "купил хлеб", gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("parse error"))
 			},
 			expectedErr: true,

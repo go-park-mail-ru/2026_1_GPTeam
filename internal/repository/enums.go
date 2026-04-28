@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -17,7 +16,7 @@ type EnumsRepository interface {
 }
 
 type EnumsPostgres struct {
-	db               DB
+	db               DB // Используем интерфейс DB вместо *pgxpool.Pool
 	mu               sync.RWMutex
 	currencyCodes    []string
 	transactionTypes []string
@@ -42,29 +41,31 @@ func (obj *EnumsPostgres) GetCategoryTypesFromDB() []string {
 	return obj.categoryTypes
 }
 
-func NewEnumsPostgres(ctx context.Context, db *pgxpool.Pool) (*EnumsPostgres, error) {
+// NewEnumsPostgres теперь принимает DB интерфейс. Это "лечит" ошибку в тестах.
+func NewEnumsPostgres(ctx context.Context, db DB) (*EnumsPostgres, error) {
 	log := logger.GetLogger()
+
 	currencyCodes, err := getCurrenciesFromDB(ctx, db)
 	if err != nil {
 		log.Error("failed to get currency codes from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
-	log.Info("Read currencies from db",
-		zap.Strings("currency_codes", currencyCodes))
+	log.Info("Read currencies from db", zap.Strings("currency_codes", currencyCodes))
+
 	transactionTypes, err := getTransactionTypesFromDB(ctx, db)
 	if err != nil {
 		log.Error("failed to get transaction types from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
-	log.Info("Read transaction types from db",
-		zap.Strings("transaction_types", transactionTypes))
+	log.Info("Read transaction types from db", zap.Strings("transaction_types", transactionTypes))
+
 	categoryTypes, err := getCategoriesFromDB(ctx, db)
 	if err != nil {
 		log.Error("failed to get categories from db", zap.Error(err))
 		return &EnumsPostgres{}, err
 	}
-	log.Info("Read categories from db",
-		zap.Strings("categories", categoryTypes))
+	log.Info("Read categories from db", zap.Strings("categories", categoryTypes))
+
 	return &EnumsPostgres{
 		db:               db,
 		currencyCodes:    currencyCodes,
@@ -73,7 +74,7 @@ func NewEnumsPostgres(ctx context.Context, db *pgxpool.Pool) (*EnumsPostgres, er
 	}, nil
 }
 
-func getCurrenciesFromDB(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
+func getCurrenciesFromDB(ctx context.Context, db DB) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {
@@ -91,7 +92,7 @@ func getCurrenciesFromDB(ctx context.Context, db *pgxpool.Pool) ([]string, error
 	return currencies, nil
 }
 
-func getTransactionTypesFromDB(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
+func getTransactionTypesFromDB(ctx context.Context, db DB) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'transaction_type'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {
@@ -109,7 +110,7 @@ func getTransactionTypesFromDB(ctx context.Context, db *pgxpool.Pool) ([]string,
 	return transactionTypes, nil
 }
 
-func getCategoriesFromDB(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
+func getCategoriesFromDB(ctx context.Context, db DB) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'category_type'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {

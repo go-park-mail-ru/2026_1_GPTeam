@@ -2,244 +2,140 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pashagolub/pgxmock/v3"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
-func TestJwtRepository_Create(t *testing.T) {
-	t.Parallel()
-
-	expiredAt := time.Date(2026, 4, 14, 12, 0, 0, 0, time.UTC)
-	token := models.RefreshTokenModel{Uuid: "rt-1", UserId: 7, ExpiredAt: expiredAt}
-	genericErr := errors.New("insert failed")
-
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockJwtDB)
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), token.Uuid, token.UserId, token.ExpiredAt).Return(pgconn.NewCommandTag("INSERT 1"), nil)
-			},
-		},
-		{
-			name: "unique violation",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), token.Uuid, token.UserId, token.ExpiredAt).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.UniqueViolation})
-			},
-			wantErr: DuplicatedDataError,
-		},
-		{
-			name: "check violation",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), token.Uuid, token.UserId, token.ExpiredAt).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.CheckViolation})
-			},
-			wantErr: ConstraintError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), token.Uuid, token.UserId, token.ExpiredAt).Return(pgconn.CommandTag{}, genericErr)
-			},
-			wantErr: genericErr,
-		},
-	}
-
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockJwtDB(ctrl)
-			repo := NewJwtPostgres(db)
-			tt.setupFunc(db)
-
-			err := repo.Create(context.Background(), token)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
+func newJwtPostgres(t *testing.T) (*JwtPostgres, pgxmock.PgxPoolIface) {
+	t.Helper()
+	mock, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	return NewJwtPostgres(mock), mock
 }
 
-func TestJwtRepository_DeleteByUuid(t *testing.T) {
+func TestJwtPostgres_Create(t *testing.T) {
 	t.Parallel()
+	token := models.RefreshTokenModel{Uuid: "rt-1", UserId: 7, ExpiredAt: time.Now()}
 
-	genericErr := errors.New("delete failed")
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		mock.ExpectExec(`insert into jwt`).
+			WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockJwtDB)
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), "rt-1").Return(pgconn.NewCommandTag("DELETE 1"), nil)
-			},
-		},
-		{
-			name: "not found",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), "rt-1").Return(pgconn.CommandTag{}, pgx.ErrNoRows)
-			},
-			wantErr: NothingInTableError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), "rt-1").Return(pgconn.CommandTag{}, genericErr)
-			},
-			wantErr: genericErr,
-		},
-	}
+		err := repo.Create(context.Background(), token)
+		require.NoError(t, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockJwtDB(ctrl)
-			repo := NewJwtPostgres(db)
-			tt.setupFunc(db)
+	t.Run("unique violation", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		mock.ExpectExec(`insert into jwt`).
+			WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+			WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
 
-			err := repo.DeleteByUuid(context.Background(), "rt-1")
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
+		err := repo.Create(context.Background(), token)
+		require.ErrorIs(t, err, DuplicatedDataError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("constraint error", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		mock.ExpectExec(`insert into jwt`).
+			WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+			WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
+
+		err := repo.Create(context.Background(), token)
+		require.ErrorIs(t, err, ConstraintError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-func TestJwtRepository_DeleteByUserId(t *testing.T) {
+func TestJwtPostgres_DeleteByUuid(t *testing.T) {
 	t.Parallel()
 
-	genericErr := errors.New("delete failed")
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		mock.ExpectExec(`delete from jwt`).
+			WithArgs("rt-1").
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockJwtDB)
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), 7).Return(pgconn.NewCommandTag("DELETE 1"), nil)
-			},
-		},
-		{
-			name: "not found",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), 7).Return(pgconn.CommandTag{}, pgx.ErrNoRows)
-			},
-			wantErr: NothingInTableError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), 7).Return(pgconn.CommandTag{}, genericErr)
-			},
-			wantErr: genericErr,
-		},
-	}
+		err := repo.DeleteByUuid(context.Background(), "rt-1")
+		require.NoError(t, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockJwtDB(ctrl)
-			repo := NewJwtPostgres(db)
-			tt.setupFunc(db)
+	t.Run("not found", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		mock.ExpectExec(`delete from jwt`).
+			WithArgs("rt-1").
+			WillReturnError(pgx.ErrNoRows)
 
-			err := repo.DeleteByUserId(context.Background(), 7)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
+		err := repo.DeleteByUuid(context.Background(), "rt-1")
+		require.ErrorIs(t, err, NothingInTableError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
-func TestJwtRepository_Get(t *testing.T) {
+func TestJwtPostgres_DeleteByUserId(t *testing.T) {
 	t.Parallel()
 
-	expiredAt := time.Date(2026, 4, 14, 12, 0, 0, 0, time.UTC)
-	genericErr := errors.New("scan failed")
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		mock.ExpectExec(`delete from jwt`).
+			WithArgs(7).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
-	tests := []struct {
-		name      string
-		setupFunc func(db *repomocks.MockJwtDB, row *repomocks.MockRow)
-		wantToken models.RefreshTokenModel
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockJwtDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), "rt-1").Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any()).DoAndReturn(func(dest ...any) error {
-					*(dest[0].(*int)) = 7
-					*(dest[1].(*time.Time)) = expiredAt
-					return nil
-				})
-			},
-			wantToken: models.RefreshTokenModel{Uuid: "rt-1", UserId: 7, ExpiredAt: expiredAt},
-		},
-		{
-			name: "not found",
-			setupFunc: func(db *repomocks.MockJwtDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), "rt-1").Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any()).Return(pgx.ErrNoRows)
-			},
-			wantErr: NothingInTableError,
-		},
-		{
-			name: "too many rows",
-			setupFunc: func(db *repomocks.MockJwtDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), "rt-1").Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any()).Return(pgx.ErrTooManyRows)
-			},
-			wantErr: TooManyRowsError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockJwtDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), "rt-1").Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any()).Return(genericErr)
-			},
-			wantErr: genericErr,
-		},
-	}
+		err := repo.DeleteByUserId(context.Background(), 7)
+		require.NoError(t, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockJwtDB(ctrl)
-			row := repomocks.NewMockRow(ctrl)
-			repo := NewJwtPostgres(db)
-			tt.setupFunc(db, row)
+	t.Run("not found", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		mock.ExpectExec(`delete from jwt`).
+			WithArgs(7).
+			WillReturnError(pgx.ErrNoRows)
 
-			got, err := repo.Get(context.Background(), "rt-1")
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantToken, got)
-		})
-	}
+		err := repo.DeleteByUserId(context.Background(), 7)
+		require.ErrorIs(t, err, NothingInTableError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestJwtPostgres_Get(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+
+	t.Run("success", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		rows := pgxmock.NewRows([]string{"user_id", "expired_at"}).AddRow(7, now)
+
+		mock.ExpectQuery(`select user_id, expired_at from jwt`).
+			WithArgs("rt-1").
+			WillReturnRows(rows)
+
+		token, err := repo.Get(context.Background(), "rt-1")
+		require.NoError(t, err)
+		require.Equal(t, 7, token.UserId)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo, mock := newJwtPostgres(t)
+		mock.ExpectQuery(`select user_id, expired_at from jwt`).
+			WithArgs("rt-1").
+			WillReturnError(pgx.ErrNoRows)
+
+		_, err := repo.Get(context.Background(), "rt-1")
+		require.ErrorIs(t, err, NothingInTableError)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
