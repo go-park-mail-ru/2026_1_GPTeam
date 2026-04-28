@@ -192,3 +192,5 @@ static/*
 !static/.gitkeep
 
 coverage.html
+
+docker-compose.override.yaml

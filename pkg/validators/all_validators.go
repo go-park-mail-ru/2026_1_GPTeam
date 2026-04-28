@@ -1,6 +1,7 @@
 package validators
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -213,6 +214,13 @@ func validateLength(text string, minLength int, maxLength int) error {
 func checkEqual[T comparable](a, b T) error {
 	if a != b {
 		return NoEqualsError
+	}
+	return nil
+}
+
+func ValidateTransactionAccountId(accountId int) error {
+	if accountId <= 0 {
+		return errors.New("account_id must be positive")
 	}
 	return nil
 }

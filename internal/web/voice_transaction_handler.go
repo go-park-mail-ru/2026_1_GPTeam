@@ -106,11 +106,10 @@ func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Req
 		TransactionDate: draft.Date,
 	}
 
-	validationErrors := validators.ValidateTransaction(
+	validationErrors := validators.ValidateTransactionDraft(
 		valReq,
 		h.enumsApp.GetTransactionTypes(),
 		h.enumsApp.GetCategoryTypes(),
-		h.enumsApp.GetCurrencyCodes(),
 	)
 
 	if len(validationErrors) > 0 {

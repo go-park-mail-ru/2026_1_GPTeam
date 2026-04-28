@@ -421,7 +421,7 @@ type TransactionDetailSuccessResponse struct {
 	Transaction TransactionResponse `json:"transaction"`
 }
 
-func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *TransactionDetailSuccessResponse {
+func NewTransactionDetailSuccessResponse(transaction models.TransactionModel, currency string) *TransactionDetailSuccessResponse {
 	return &TransactionDetailSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
@@ -434,6 +434,7 @@ func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *T
 			Value:           transaction.Value,
 			Type:            transaction.Type,
 			Category:        transaction.Category,
+			Currency:        currency,
 			Title:           transaction.Title,
 			Description:     transaction.Description,
 			CreatedAt:       transaction.CreatedAt,

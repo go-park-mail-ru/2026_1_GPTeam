@@ -109,8 +109,7 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
-		log.Error("failed to get transaction ids by user (not db error)",
-			zap.Error(err))
+		log.Error("failed to get transaction ids by user (not db error)", zap.Error(err))
 		return []int{}, err
 	}
 	defer rows.Close()
@@ -118,8 +117,7 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		var id int
 		err = rows.Scan(&id)
 		if err != nil {
-			log.Error("failed to scan id while getting transaction ids by user",
-				zap.Error(err))
+			log.Error("failed to scan id while getting transaction ids by user", zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
 				return []int{}, InvalidDataInTableError
 			}
@@ -128,13 +126,11 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		ids = append(ids, id)
 	}
 	if err = rows.Err(); err != nil {
-		log.Error("failed to get transaction ids by user",
-			zap.Error(err))
+		log.Error("failed to get transaction ids by user", zap.Error(err))
 		return []int{}, err
 	}
 	if len(ids) == 0 {
-		log.Warn("no transactions found by user",
-			zap.Int("userId", userId))
+		log.Warn("no transactions found by user", zap.Int("userId", userId))
 		return []int{}, NothingInTableError
 	}
 	log.Info("Query executed")
@@ -184,6 +180,9 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 				zap.Int("transaction_id", transaction.Id),
 				zap.Int("user_id", transaction.UserId),
 				zap.Error(err))
+			if errors.Is(err, pgx.ErrNoRows) {
+				return NothingInTableError
+			}
 			return err
 		}
 		if res.RowsAffected() == 0 {
@@ -273,8 +272,7 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
 	if err != nil {
-		log.Error("failed to get transaction (not db error)",
-			zap.Error(err))
+		log.Error("failed to get transaction (not db error)", zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return models.TransactionModel{}, NothingInTableError
 		}
