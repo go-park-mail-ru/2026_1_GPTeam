@@ -112,7 +112,7 @@ func TestValidateBudgetTitle(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.validateBudgetTitle(testCase.Title)
+			err := validators.ValidateBudgetTitle(testCase.Title)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -131,7 +131,7 @@ func TestValidateBudgetDescription(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.validateBudgetDescription(testCase.Description)
+			err := validators.ValidateBudgetDescription(testCase.Description)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -155,7 +155,7 @@ func TestValidateCurrency(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.validateCurrency(testCase.Currency, allowed)
+			err := validators.ValidateCurrency(testCase.Currency, allowed)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -176,7 +176,7 @@ func TestValidateTargetBudget(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.validateTargetBudget(testCase.Target)
+			err := validators.ValidateTargetBudget(testCase.Target)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -197,7 +197,7 @@ func TestValidateActualBudget(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.validateActualBudget(testCase.Actual)
+			err := validators.ValidateActualBudget(testCase.Actual)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -217,7 +217,7 @@ func TestValidateBudgetStartDate(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.validateBudgetStartDate(testCase.Start)
+			err := validators.ValidateBudgetStartDate(testCase.Start)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -238,7 +238,7 @@ func TestValidateBudgetEndDate(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.validateBudgetEndDate(testCase.Start, testCase.End)
+			err := validators.ValidateBudgetEndDate(testCase.Start, testCase.End)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -257,8 +257,13 @@ func TestValidateBudget(t *testing.T) {
 			Actual:      500,
 			StartAt:     time.Now().AddDate(0, 0, 1),
 			EndAt:       time.Now().AddDate(0, 1, 0),
+			Category:    []string{"Зарплата"},
 		}
-		errs := validators.ValidateBudget(body, currencies)
+		allowedCategories := []string{
+			"Зарплата",
+			"Стипендия",
+		}
+		errs := validators.ValidateBudget(body, currencies, allowedCategories)
 		require.Empty(t, errs)
 	})
 
@@ -271,9 +276,14 @@ func TestValidateBudget(t *testing.T) {
 			Actual:      -1,
 			StartAt:     time.Now().AddDate(0, 0, -2),
 			EndAt:       time.Now().AddDate(0, 0, -5),
+			Category:    []string{},
 		}
-		errs := validators.ValidateBudget(body, currencies)
-		require.Len(t, errs, 7)
+		allowedCategories := []string{
+			"Зарплата",
+			"Стипендия",
+		}
+		errs := validators.ValidateBudget(body, currencies, allowedCategories)
+		require.Len(t, errs, 8)
 	})
 }
 
@@ -371,7 +381,7 @@ func TestValidateTransactionCategory(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			err := validators.validateCategory(testCase.Category, allowed)
+			err := validators.ValidateCategory(testCase.Category, allowed)
 			require.ErrorIs(t, err, testCase.err)
 		})
 	}
@@ -380,7 +390,6 @@ func TestValidateTransactionCategory(t *testing.T) {
 func TestValidateTransaction(t *testing.T) {
 	allowedTypes := []string{"income", "expense"}
 	categories := []string{"food", "salary"}
-	currencies := []string{"RUB", "USD", "EUR"}
 
 	testCases := []struct {
 		Name   string
@@ -395,7 +404,6 @@ func TestValidateTransaction(t *testing.T) {
 				Value:       100,
 				Type:        "income",
 				Category:    "salary",
-				Currency:    "RUB",
 			},
 			0,
 		},
@@ -407,7 +415,6 @@ func TestValidateTransaction(t *testing.T) {
 				Value:       100,
 				Type:        "income",
 				Category:    "salary",
-				Currency:    "RUB",
 			},
 			1,
 		},
@@ -419,7 +426,6 @@ func TestValidateTransaction(t *testing.T) {
 				Value:       -1,
 				Type:        "income",
 				Category:    "salary",
-				Currency:    "RUB",
 			},
 			1,
 		},
@@ -431,21 +437,8 @@ func TestValidateTransaction(t *testing.T) {
 				Value:       100,
 				Type:        "wrong",
 				Category:    "wrong",
-				Currency:    "RUB",
 			},
 			2,
-		},
-		{
-			"Invalid currency",
-			web_helpers.TransactionRequest{
-				Title:       "Test",
-				Description: "Desc",
-				Value:       100,
-				Type:        "income",
-				Category:    "salary",
-				Currency:    "GBP",
-			},
-			1,
 		},
 		{
 			"All wrong",
@@ -455,16 +448,15 @@ func TestValidateTransaction(t *testing.T) {
 				Value:       -1,
 				Type:        "wrong",
 				Category:    "wrong",
-				Currency:    "GBP",
 			},
-			6,
+			5,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Parallel()
-			errs := validators.ValidateTransaction(testCase.Body, allowedTypes, categories, currencies)
+			errs := validators.ValidateTransaction(testCase.Body, allowedTypes, categories)
 			require.Len(t, errs, testCase.errLen)
 		})
 	}

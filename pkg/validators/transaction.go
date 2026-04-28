@@ -2,7 +2,7 @@ package validators
 
 import "github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 
-func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes []string, categoryTypes []string, currencyCodes []string) []web_helpers.FieldError {
+func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes []string, categoryTypes []string) []web_helpers.FieldError {
 	var validationErrors []web_helpers.FieldError
 	err := ValidateTransactionTitle(body.Title)
 	if err != nil {
@@ -20,7 +20,7 @@ func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes [
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("type", err.Error()))
 	}
-	err = validateCategory(body.Category, categoryTypes)
+	err = ValidateCategory(body.Category, categoryTypes)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("category", err.Error()))
 	}
