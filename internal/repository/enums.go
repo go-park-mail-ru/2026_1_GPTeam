@@ -40,7 +40,6 @@ func (obj *EnumsPostgres) GetCategoryTypesFromDB() []string {
 	return obj.categoryTypes
 }
 
-// NewEnumsPostgres теперь принимает DB интерфейс. Это "лечит" ошибку в тестах.
 func NewEnumsPostgres(ctx context.Context, db DB) (*EnumsPostgres, error) {
 	log := logger.GetLogger()
 
