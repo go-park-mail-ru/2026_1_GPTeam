@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate go run go.uber.org/mock/mockgen@latest -source=enums.go -destination=mocks/enums.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=enums.go -destination=mocks/mock_enums.go -package=mocks
 type EnumsRepository interface {
 	GetCurrencyCodesFromDB() []string
 	GetTransactionTypesFromDB() []string
