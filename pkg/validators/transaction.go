@@ -20,7 +20,7 @@ func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes [
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("type", err.Error()))
 	}
-	err = ValidateTransactionCategory(body.Category, categoryTypes)
+	err = validateCategory(body.Category, categoryTypes)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("category", err.Error()))
 	}

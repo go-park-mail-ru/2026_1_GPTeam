@@ -85,7 +85,7 @@ func ValidateEmail(email string) error {
 
 // Budget section
 
-func ValidateBudgetTitle(title string) error {
+func validateBudgetTitle(title string) error {
 	if len(title) == 0 {
 		return BudgetTitleEmpty
 	}
@@ -95,21 +95,21 @@ func ValidateBudgetTitle(title string) error {
 	return nil
 }
 
-func ValidateBudgetDescription(description string) error {
+func validateBudgetDescription(description string) error {
 	if len(description) == 0 {
 		return BudgetDescriptionEmpty
 	}
 	return nil
 }
 
-func ValidateCurrency(currency string, allowedCurrencies []string) error {
+func validateCurrency(currency string, allowedCurrencies []string) error {
 	if !slices.Contains(allowedCurrencies, currency) {
 		return CurrencyNotAllowedError
 	}
 	return nil
 }
 
-func ValidateTargetBudget(target int) error {
+func validateTargetBudget(target int) error {
 	if target < 0 {
 		return TargetIsNegativeError
 	}
@@ -122,7 +122,7 @@ func ValidateTargetBudget(target int) error {
 	return nil
 }
 
-func ValidateActualBudget(actual int) error {
+func validateActualBudget(actual int) error {
 	if actual < 0 {
 		return ValueIsNegativeError
 	}
@@ -132,7 +132,7 @@ func ValidateActualBudget(actual int) error {
 	return nil
 }
 
-func ValidateBudgetStartDate(startDate time.Time) error {
+func validateBudgetStartDate(startDate time.Time) error {
 	nowTime := time.Now()
 	nowDate := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(), 0, 0, 0, 0, startDate.Location())
 	if startDate.Before(nowDate) {
@@ -141,7 +141,7 @@ func ValidateBudgetStartDate(startDate time.Time) error {
 	return nil
 }
 
-func ValidateBudgetEndDate(startDate time.Time, endDate time.Time) error {
+func validateBudgetEndDate(startDate time.Time, endDate time.Time) error {
 	if endDate.IsZero() {
 		return nil
 	}
@@ -191,13 +191,13 @@ func ValidateTransactionType(transactionType string, allowedTypes []string) erro
 	return TransactionTypeNotAllowedError
 }
 
-func ValidateTransactionCategory(category string, allowedCategories []string) error {
+func validateCategory(category string, allowedCategories []string) error {
 	for _, c := range allowedCategories {
 		if c == category {
 			return nil
 		}
 	}
-	return TransactionCategoryNotAllowedError
+	return CategoryNotAllowedError
 }
 
 func validateLength(text string, minLength int, maxLength int) error {
