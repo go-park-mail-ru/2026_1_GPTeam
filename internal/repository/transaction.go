@@ -44,7 +44,7 @@ func NewTransactionPostgres(db DB) *TransactionPostgres {
 }
 
 func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.TransactionModel, account models.AccountModel) (int, error) {
-	var id int
+	id := -1
 	err := pgx.BeginFunc(ctx, obj.db, func(dbTransaction pgx.Tx) error {
 		log := logger.GetLoggerWithRequestId(ctx)
 		var totalDuration time.Duration
