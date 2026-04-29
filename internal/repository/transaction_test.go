@@ -259,9 +259,6 @@ func TestTransactionPostgres_Update(t *testing.T) {
 				mock.ExpectExec(`update budget set`).
 					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
 					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-				mock.ExpectExec(`update budget set`).
-					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 				mock.ExpectCommit()
 				mock.ExpectRollback()
 			},

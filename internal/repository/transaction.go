@@ -485,6 +485,7 @@ func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldTransaction mod
 		totalDuration += duration
 		return totalDuration, err
 	}
+	log := logger.GetLoggerWithRequestId(ctx)
 	diff := transaction.Value - oldTransaction.Value
 	accQuery := `update account set balance = balance + (case when $1 = 'INCOME' then $2 else -1 * $2 end) where id = $3;`
 	accArgs := []any{
@@ -492,20 +493,19 @@ func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldTransaction mod
 		diff,
 		transaction.AccountId,
 	}
-	budgetQuery := `update budget set actual = greatest(0, least(budget.target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
-	budgetArgs := []any{
-		transaction.Type,
-		currency_converter.ConvertToRub(diff, account.Currency),
-		transaction.UserId,
-		transaction.Category,
-	}
-	duration, err := execBalanceChangeQuery(ctx, dbTransaction, accQuery, accArgs, budgetQuery, budgetArgs)
+	startTime := time.Now()
+	_, err := dbTransaction.Exec(ctx, accQuery, accArgs...)
+	duration := time.Since(startTime)
 	totalDuration += duration
+	log = logger.ModifyLoggerWithDBQuery(log, accQuery, accArgs, duration)
 	if err != nil {
+		log.Error("failed to update account (not db error)",
+			zap.Error(err))
 		return totalDuration, err
 	}
+	log.Info("Query executed")
 	if oldTransaction.Category != transaction.Category {
-		log := logger.GetLoggerWithRequestId(ctx)
+		log = logger.GetLoggerWithRequestId(ctx)
 		query := `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
 		args := []any{
 			oldTransaction.Type,
@@ -513,7 +513,7 @@ func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldTransaction mod
 			oldTransaction.UserId,
 			oldTransaction.Category,
 		}
-		startTime := time.Now()
+		startTime = time.Now()
 		_, err = dbTransaction.Exec(ctx, query, args...)
 		duration = time.Since(startTime)
 		totalDuration += duration
@@ -545,5 +545,24 @@ func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldTransaction mod
 		log.Info("Query executed")
 		return totalDuration, nil
 	}
+	log = logger.GetLoggerWithRequestId(ctx)
+	budgetQuery := `update budget set actual = greatest(0, least(budget.target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+	budgetArgs := []any{
+		transaction.Type,
+		diff,
+		transaction.UserId,
+		transaction.Category,
+	}
+	startTime = time.Now()
+	_, err = dbTransaction.Exec(ctx, budgetQuery, budgetArgs...)
+	duration = time.Since(startTime)
+	totalDuration += duration
+	log = logger.ModifyLoggerWithDBQuery(log, budgetQuery, budgetArgs, duration)
+	if err != nil {
+		log.Error("failed to update account (not db error)",
+			zap.Error(err))
+		return totalDuration, err
+	}
+	log.Info("Query executed")
 	return totalDuration, err
 }

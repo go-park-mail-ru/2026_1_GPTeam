@@ -190,6 +190,10 @@ func (obj *BudgetPostgres) GetCategoryOfBudget(ctx context.Context, id int) ([]s
 		}
 		categories = append(categories, category)
 	}
+	if len(categories) == 0 {
+		log.Info("no budget category found in db", zap.Int("budget_id", id))
+		return []string{}, NothingInTableError
+	}
 	log.Info("Query executed")
 	return categories, nil
 }
