@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate go run go.uber.org/mock/mockgen@latest -source=account.go -destination=mocks/account.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=account.go -destination=mocks/mock_account.go -package=mocks
 type AccountUseCase interface {
 	Create(ctx context.Context, account models.AccountModel) (int, error)
 	LinkAccountAndUser(ctx context.Context, accountId int, userId int) error
