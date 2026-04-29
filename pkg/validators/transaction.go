@@ -8,23 +8,23 @@ func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes [
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("account_id", err.Error()))
 	}
-	err = ValidateTransactionTitle(body.Title)
+	err = validateTransactionTitle(body.Title)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", err.Error()))
 	}
-	err = ValidateTransactionDescription(body.Description)
+	err = validateTransactionDescription(body.Description)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("description", err.Error()))
 	}
-	err = ValidateTransactionValue(body.Value)
+	err = validateTransactionValue(body.Value)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("value", err.Error()))
 	}
-	err = ValidateTransactionType(body.Type, transactionTypes)
+	err = validateTransactionType(body.Type, transactionTypes)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("type", err.Error()))
 	}
-	err = ValidateCategory(body.Category, categoryTypes)
+	err = validateCategory(body.Category, categoryTypes)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("category", err.Error()))
 	}
@@ -33,23 +33,23 @@ func ValidateTransaction(body web_helpers.TransactionRequest, transactionTypes [
 
 func ValidateTransactionDraft(body web_helpers.TransactionRequest, transactionTypes []string, categoryTypes []string) []web_helpers.FieldError {
 	var validationErrors []web_helpers.FieldError
-	err := ValidateTransactionTitle(body.Title)
+	err := validateTransactionTitle(body.Title)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", err.Error()))
 	}
-	err = ValidateTransactionDescription(body.Description)
+	err = validateTransactionDescription(body.Description)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("description", err.Error()))
 	}
-	err = ValidateTransactionValue(body.Value)
+	err = validateTransactionValue(body.Value)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("value", err.Error()))
 	}
-	err = ValidateTransactionType(body.Type, transactionTypes)
+	err = validateTransactionType(body.Type, transactionTypes)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("type", err.Error()))
 	}
-	err = ValidateCategory(body.Category, categoryTypes)
+	err = validateCategory(body.Category, categoryTypes)
 	if err != nil {
 		validationErrors = append(validationErrors, web_helpers.NewFieldError("category", err.Error()))
 	}
