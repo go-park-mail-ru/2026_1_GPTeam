@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -22,120 +23,209 @@ func newJwtPostgres(t *testing.T) (*JwtPostgres, pgxmock.PgxPoolIface) {
 
 func TestJwtPostgres_Create(t *testing.T) {
 	t.Parallel()
-	token := models.RefreshTokenModel{Uuid: "rt-1", UserId: 7, ExpiredAt: time.Now()}
+	expiredAt := time.Date(2026, 4, 14, 12, 0, 0, 0, time.UTC)
+	token := models.RefreshTokenModel{Uuid: "rt-1", UserId: 7, ExpiredAt: expiredAt}
+	genericErr := errors.New("insert failed")
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		mock.ExpectExec(`insert into jwt`).
-			WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
-			WillReturnResult(pgxmock.NewResult("INSERT", 1))
+	tests := []struct {
+		name      string
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantErr   error
+	}{
+		{
+			name: "success",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`insert into jwt`).
+					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+					WillReturnResult(pgxmock.NewResult("INSERT", 1))
+			},
+		},
+		{
+			name: "unique violation",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`insert into jwt`).
+					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
+			},
+			wantErr: DuplicatedDataError,
+		},
+		{
+			name: "check violation",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`insert into jwt`).
+					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
+			},
+			wantErr: ConstraintError,
+		},
+		{
+			name: "generic error",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`insert into jwt`).
+					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+					WillReturnError(genericErr)
+			},
+			wantErr: genericErr,
+		},
+	}
 
-		err := repo.Create(context.Background(), token)
-		require.NoError(t, err)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newJwtPostgres(t)
+			tt.setupFunc(mock)
 
-	t.Run("unique violation", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		mock.ExpectExec(`insert into jwt`).
-			WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
-			WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
-
-		err := repo.Create(context.Background(), token)
-		require.ErrorIs(t, err, DuplicatedDataError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("constraint error", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		mock.ExpectExec(`insert into jwt`).
-			WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
-			WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
-
-		err := repo.Create(context.Background(), token)
-		require.ErrorIs(t, err, ConstraintError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			err := repo.Create(context.Background(), token)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestJwtPostgres_DeleteByUuid(t *testing.T) {
 	t.Parallel()
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		mock.ExpectExec(`delete from jwt`).
-			WithArgs("rt-1").
-			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+	tests := []struct {
+		name      string
+		uuid      string
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantErr   error
+	}{
+		{
+			name: "success",
+			uuid: "rt-1",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`delete from jwt`).
+					WithArgs("rt-1").
+					WillReturnResult(pgxmock.NewResult("DELETE", 1))
+			},
+		},
+		{
+			name: "not found",
+			uuid: "rt-1",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`delete from jwt`).
+					WithArgs("rt-1").
+					WillReturnError(pgx.ErrNoRows)
+			},
+			wantErr: NothingInTableError,
+		},
+	}
 
-		err := repo.DeleteByUuid(context.Background(), "rt-1")
-		require.NoError(t, err)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newJwtPostgres(t)
+			tt.setupFunc(mock)
 
-	t.Run("not found", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		mock.ExpectExec(`delete from jwt`).
-			WithArgs("rt-1").
-			WillReturnError(pgx.ErrNoRows)
-
-		err := repo.DeleteByUuid(context.Background(), "rt-1")
-		require.ErrorIs(t, err, NothingInTableError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			err := repo.DeleteByUuid(context.Background(), tt.uuid)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestJwtPostgres_DeleteByUserId(t *testing.T) {
 	t.Parallel()
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		mock.ExpectExec(`delete from jwt`).
-			WithArgs(7).
-			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+	tests := []struct {
+		name      string
+		userId    int
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantErr   error
+	}{
+		{
+			name:   "success",
+			userId: 7,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`delete from jwt`).
+					WithArgs(7).
+					WillReturnResult(pgxmock.NewResult("DELETE", 1))
+			},
+		},
+		{
+			name:   "not found",
+			userId: 7,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`delete from jwt`).
+					WithArgs(7).
+					WillReturnError(pgx.ErrNoRows)
+			},
+			wantErr: NothingInTableError,
+		},
+	}
 
-		err := repo.DeleteByUserId(context.Background(), 7)
-		require.NoError(t, err)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newJwtPostgres(t)
+			tt.setupFunc(mock)
 
-	t.Run("not found", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		mock.ExpectExec(`delete from jwt`).
-			WithArgs(7).
-			WillReturnError(pgx.ErrNoRows)
-
-		err := repo.DeleteByUserId(context.Background(), 7)
-		require.ErrorIs(t, err, NothingInTableError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			err := repo.DeleteByUserId(context.Background(), tt.userId)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestJwtPostgres_Get(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		rows := pgxmock.NewRows([]string{"user_id", "expired_at"}).AddRow(7, now)
+	tests := []struct {
+		name      string
+		uuid      string
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantErr   error
+	}{
+		{
+			name: "success",
+			uuid: "rt-1",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{"user_id", "expired_at"}).AddRow(7, now)
+				mock.ExpectQuery(`select user_id, expired_at from jwt`).
+					WithArgs("rt-1").
+					WillReturnRows(rows)
+			},
+		},
+		{
+			name: "not found",
+			uuid: "rt-1",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`select user_id, expired_at from jwt`).
+					WithArgs("rt-1").
+					WillReturnError(pgx.ErrNoRows)
+			},
+			wantErr: NothingInTableError,
+		},
+	}
 
-		mock.ExpectQuery(`select user_id, expired_at from jwt`).
-			WithArgs("rt-1").
-			WillReturnRows(rows)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newJwtPostgres(t)
+			tt.setupFunc(mock)
 
-		token, err := repo.Get(context.Background(), "rt-1")
-		require.NoError(t, err)
-		require.Equal(t, 7, token.UserId)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("not found", func(t *testing.T) {
-		repo, mock := newJwtPostgres(t)
-		mock.ExpectQuery(`select user_id, expired_at from jwt`).
-			WithArgs("rt-1").
-			WillReturnError(pgx.ErrNoRows)
-
-		_, err := repo.Get(context.Background(), "rt-1")
-		require.ErrorIs(t, err, NothingInTableError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			token, err := repo.Get(context.Background(), tt.uuid)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, 7, token.UserId)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }

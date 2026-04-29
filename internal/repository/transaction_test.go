@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -52,74 +53,161 @@ func TestTransactionPostgres_Create(t *testing.T) {
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
 	tx := validTransactionModel(txDate)
 	account := validAccountModel(txDate)
+	genericErr := errors.New("db down")
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
+	tests := []struct {
+		name      string
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantID    int
+		wantErr   error
+	}{
+		{
+			name: "success",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`insert into transaction`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(42))
+				mock.ExpectExec(`update account set balance`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectExec(`update budget set actual`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectCommit()
+				mock.ExpectRollback()
+			},
+			wantID: 42,
+		},
+		{
+			name: "unique violation",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`insert into transaction`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
+				mock.ExpectRollback()
+			},
+			wantID:  -1,
+			wantErr: TransactionDuplicatedDataError,
+		},
+		{
+			name: "check violation",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`insert into transaction`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
+				mock.ExpectRollback()
+			},
+			wantID:  -1,
+			wantErr: ConstraintError,
+		},
+		{
+			name: "foreign key violation",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`insert into transaction`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.ForeignKeyViolation})
+				mock.ExpectRollback()
+			},
+			wantID:  -1,
+			wantErr: TransactionAccountForeignKeyError,
+		},
+		{
+			name: "generic error",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`insert into transaction`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnError(genericErr)
+				mock.ExpectRollback()
+			},
+			wantID:  -1,
+			wantErr: genericErr,
+		},
+	}
 
-		mock.ExpectBegin()
-		mock.ExpectQuery(`insert into transaction`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(42))
-		mock.ExpectExec(`update account set balance`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update budget set actual`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectCommit()
-		mock.ExpectRollback()
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newTransactionPostgres(t)
+			tt.setupFunc(mock)
 
-		id, err := repo.Create(context.Background(), tx, account)
-		require.NoError(t, err)
-		require.Equal(t, 42, id)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("unique violation", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-
-		mock.ExpectBegin()
-		mock.ExpectQuery(`insert into transaction`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
-		mock.ExpectRollback()
-		mock.ExpectRollback()
-
-		_, err := repo.Create(context.Background(), tx, account)
-		require.ErrorIs(t, err, TransactionDuplicatedDataError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			id, err := repo.Create(context.Background(), tx, account)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.Equal(t, tt.wantID, id)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantID, id)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestTransactionPostgres_GetIdsByUserId(t *testing.T) {
 	t.Parallel()
+	genericErr := errors.New("rows broken")
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-		rows := pgxmock.NewRows([]string{"id"}).AddRow(10).AddRow(11)
+	tests := []struct {
+		name      string
+		userId    int
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantIDs   []int
+		wantErr   error
+	}{
+		{
+			name:   "success",
+			userId: 7,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{"id"}).AddRow(10).AddRow(11)
+				mock.ExpectQuery(`select id from transaction`).
+					WithArgs(7).
+					WillReturnRows(rows)
+			},
+			wantIDs: []int{10, 11},
+		},
+		{
+			name:   "empty result",
+			userId: 7,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`select id from transaction`).
+					WithArgs(7).
+					WillReturnRows(pgxmock.NewRows([]string{"id"}))
+			},
+			wantErr: NothingInTableError,
+		},
+		{
+			name:   "query error",
+			userId: 7,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`select id from transaction`).
+					WithArgs(7).
+					WillReturnError(genericErr)
+			},
+			wantErr: genericErr,
+		},
+	}
 
-		mock.ExpectQuery(`select id from transaction`).
-			WithArgs(7).
-			WillReturnRows(rows)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newTransactionPostgres(t)
+			tt.setupFunc(mock)
 
-		ids, err := repo.GetIdsByUserId(context.Background(), 7)
-		require.NoError(t, err)
-		require.Equal(t, []int{10, 11}, ids)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("empty result", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-
-		// ИСПРАВЛЕНО: Имитируем успешный запрос, который вернул 0 строк
-		mock.ExpectQuery(`select id from transaction`).
-			WithArgs(7).
-			WillReturnRows(pgxmock.NewRows([]string{"id"}))
-
-		_, err := repo.GetIdsByUserId(context.Background(), 7)
-		require.ErrorIs(t, err, NothingInTableError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			ids, err := repo.GetIdsByUserId(context.Background(), tt.userId)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantIDs, ids)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestTransactionPostgres_Update(t *testing.T) {
@@ -127,228 +215,256 @@ func TestTransactionPostgres_Update(t *testing.T) {
 	txDate := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
 	tx := validTransactionModel(txDate)
 	account := validAccountModel(txDate)
+	genericErr := errors.New("update failed")
 
-	t.Run("success (no update balance)", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
+	tests := []struct {
+		name      string
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantErr   error
+	}{
+		{
+			name: "success",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectExec(`update transaction set`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectExec(`update account set`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectExec(`update budget set`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectExec(`update budget set`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectExec(`update budget set`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectCommit()
+				mock.ExpectRollback()
+			},
+		},
+		{
+			name: "not found",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`select value, type, account_id from transaction`).
+					WithArgs(tx.Id, tx.UserId).
+					WillReturnError(pgx.ErrNoRows)
+				mock.ExpectRollback()
+			},
+			wantErr: NothingInTableError,
+		},
+		{
+			name: "generic error",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`select value, type, account_id from transaction`).
+					WithArgs(tx.Id, tx.UserId).
+					WillReturnError(genericErr)
+				mock.ExpectRollback()
+			},
+			wantErr: genericErr,
+		},
+	}
 
-		mock.ExpectBegin()
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newTransactionPostgres(t)
+			tt.setupFunc(mock)
 
-		mock.ExpectExec(`update transaction set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-
-		mock.ExpectCommit()
-		mock.ExpectRollback()
-
-		err := repo.Update(context.Background(), tx, tx, account, account)
-		require.NoError(t, err)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("success (new category)", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-		transactionWithNewCategory := tx
-		transactionWithNewCategory.Category = "cafe"
-
-		mock.ExpectBegin()
-		mock.ExpectExec(`update transaction set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update account set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update budget set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update budget set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update budget set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectCommit()
-		mock.ExpectRollback()
-
-		err := repo.Update(context.Background(), tx, transactionWithNewCategory, account, account)
-		require.NoError(t, err)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("success (new value)", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-		transactionWithNewValue := tx
-		transactionWithNewValue.Value += 100
-
-		mock.ExpectBegin()
-		mock.ExpectExec(`update transaction set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update account set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update budget set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectCommit()
-		mock.ExpectRollback()
-
-		err := repo.Update(context.Background(), tx, transactionWithNewValue, account, account)
-		require.NoError(t, err)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("success (new type)", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-		transactionWithNewType := tx
-		transactionWithNewType.Type = "INCOME"
-
-		mock.ExpectBegin()
-		mock.ExpectExec(`update transaction set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update account set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update budget set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectCommit()
-		mock.ExpectRollback()
-
-		err := repo.Update(context.Background(), tx, transactionWithNewType, account, account)
-		require.NoError(t, err)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("success (new account)", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-		transactionWithNewAccount := tx
-		transactionWithNewAccount.AccountId += 1
-
-		mock.ExpectBegin()
-		mock.ExpectExec(`update transaction set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update account set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update budget set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update account set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectExec(`update budget set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-		mock.ExpectCommit()
-		mock.ExpectRollback()
-
-		err := repo.Update(context.Background(), tx, transactionWithNewAccount, account, account)
-		require.NoError(t, err)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("not found", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-		wrongTransaction := tx
-		wrongTransaction.Id = 0
-
-		mock.ExpectBegin()
-		mock.ExpectExec(`update transaction set`).
-			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnError(pgx.ErrNoRows)
-		mock.ExpectRollback()
-		mock.ExpectRollback()
-
-		err := repo.Update(context.Background(), wrongTransaction, wrongTransaction, account, account)
-		require.ErrorIs(t, err, NothingInTableError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			err := repo.Update(context.Background(), wrongTransaction, wrongTransaction, account, account)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestTransactionPostgres_Delete(t *testing.T) {
 	t.Parallel()
 	date := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
 	account := validAccountModel(date)
+	genericErr := errors.New("delete failed")
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
+	tests := []struct {
+		name      string
+		txId      int
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantID    int
+		wantErr   error
+	}{
+		{
+			name: "success",
+			txId: 42,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
+					WithArgs(42).
+					WillReturnRows(pgxmock.NewRows([]string{"id", "type", "value", "account_id", "user_id", "category"}).
+						AddRow(42, "EXPENSE", float64(100), 55, 7, "food"))
 
-		mock.ExpectBegin()
-		mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
-			WithArgs(42).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "type", "value", "account_id", "user_id", "category"}).
-				AddRow(42, "EXPENSE", float64(100), 55, 7, "food"))
+				mock.ExpectExec(`update account set balance`).
+					WithArgs("EXPENSE", float64(100), 55).
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
-		mock.ExpectExec(`update account set balance`).
-			WithArgs("EXPENSE", float64(100), 55).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectExec(`update budget set actual`).
+					WithArgs("EXPENSE", float64(100), 7, "food").
+					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
-		mock.ExpectExec(`update budget set actual`).
-			WithArgs("EXPENSE", float64(100), 7, "food").
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+				mock.ExpectCommit()
+				mock.ExpectRollback()
+			},
+			wantID: 42,
+		},
+		{
+			name: "not found",
+			txId: 42,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
+					WithArgs(42).
+					WillReturnError(pgx.ErrNoRows)
+				mock.ExpectRollback()
+			},
+			wantErr: NothingInTableError,
+		},
+		{
+			name: "generic error",
+			txId: 42,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
+					WithArgs(42).
+					WillReturnError(genericErr)
+				mock.ExpectRollback()
+			},
+			wantErr: genericErr,
+		},
+	}
 
-		mock.ExpectCommit()
-		mock.ExpectRollback()
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newTransactionPostgres(t)
+			tt.setupFunc(mock)
 
-		id, err := repo.Delete(context.Background(), 42, account)
-
-		require.NoError(t, err)
-		require.Equal(t, 42, id)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
-
-	t.Run("not found", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-
-		mock.ExpectBegin()
-		mock.ExpectQuery(`UPDATE transaction SET deleted_at`).
-			WithArgs(4).
-			WillReturnError(pgx.ErrNoRows)
-		mock.ExpectRollback()
-		mock.ExpectRollback()
-
-		_, err := repo.Delete(context.Background(), 4, account)
-		require.ErrorIs(t, err, NothingInTableError)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			id, err := repo.Delete(context.Background(), tt.txId)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantID, id)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestTransactionPostgres_Detail(t *testing.T) {
 	t.Parallel()
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-		rows := pgxmock.NewRows([]string{"user_id", "account_id", "value", "type", "category", "title", "description", "created_at", "transaction_date", "updated_at"}).
-			AddRow(7, 55, float64(3850), "expense", "food", "Покупка", "Описание", time.Now(), time.Now(), time.Now())
+	tests := []struct {
+		name      string
+		txId      int
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantErr   error
+	}{
+		{
+			name: "success",
+			txId: 42,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{"user_id", "account_id", "value", "type", "category", "title", "description", "created_at", "transaction_date", "updated_at"}).
+					AddRow(7, 55, float64(3850), "expense", "food", "Покупка", "Описание", time.Now(), time.Now(), time.Now())
+				mock.ExpectQuery(`select user_id, account_id`).
+					WithArgs(42).
+					WillReturnRows(rows)
+			},
+		},
+		{
+			name: "not found",
+			txId: 42,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`select user_id, account_id`).
+					WithArgs(42).
+					WillReturnError(pgx.ErrNoRows)
+			},
+			wantErr: NothingInTableError,
+		},
+	}
 
-		mock.ExpectQuery(`select user_id, account_id`).
-			WithArgs(42).
-			WillReturnRows(rows)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newTransactionPostgres(t)
+			tt.setupFunc(mock)
 
-		tx, err := repo.Detail(context.Background(), 42)
-		require.NoError(t, err)
-		require.Equal(t, 7, tx.UserId)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			tx, err := repo.Detail(context.Background(), tt.txId)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, 7, tx.UserId)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestTransactionPostgres_Search(t *testing.T) {
 	t.Parallel()
 
-	t.Run("success", func(t *testing.T) {
-		repo, mock := newTransactionPostgres(t)
-		rows := pgxmock.NewRows([]string{"id", "user_id", "account_id", "value", "type", "category", "title", "description", "created_at", "transaction_date", "updated_at"}).
-			AddRow(42, 7, 55, float64(3850), "expense", "food", "Покупка", "Описание", time.Now(), time.Now(), time.Now())
+	tests := []struct {
+		name      string
+		userId    int
+		filters   TransactionFilters
+		setupFunc func(mock pgxmock.PgxPoolIface)
+		wantErr   error
+	}{
+		{
+			name:   "success",
+			userId: 7,
+			filters: TransactionFilters{},
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{"id", "user_id", "account_id", "value", "type", "category", "title", "description", "created_at", "transaction_date", "updated_at"}).
+					AddRow(42, 7, 55, float64(3850), "expense", "food", "Покупка", "Описание", time.Now(), time.Now(), time.Now())
+				mock.ExpectQuery(`select id, user_id`).
+					WithArgs(7).
+					WillReturnRows(rows)
+			},
+		},
+		{
+			name:   "empty result",
+			userId: 7,
+			filters: TransactionFilters{},
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`select id, user_id`).
+					WithArgs(7).
+					WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "account_id", "value", "type", "category", "title", "description", "created_at", "transaction_date", "updated_at"}))
+			},
+			wantErr: NothingInTableError,
+		},
+	}
 
-		mock.ExpectQuery(`select id, user_id`).
-			WithArgs(7).
-			WillReturnRows(rows)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock := newTransactionPostgres(t)
+			tt.setupFunc(mock)
 
-		txs, err := repo.Search(context.Background(), 7, TransactionFilters{})
-		require.NoError(t, err)
-		require.Len(t, txs, 1)
-		require.NoError(t, mock.ExpectationsWereMet())
-	})
+			txs, err := repo.Search(context.Background(), tt.userId, tt.filters)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, txs, 1)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
