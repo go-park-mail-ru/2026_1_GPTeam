@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
@@ -16,24 +17,35 @@ func TestTransactionUseCase_Create(t *testing.T) {
 	t.Parallel()
 
 	tx := models.TransactionModel{UserId: 7, AccountId: 55, Title: "Обед"}
+	now := time.Now()
+	account := models.AccountModel{
+		Id:        55,
+		Name:      "test",
+		Balance:   1000,
+		Currency:  "RUB",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
 
 	tests := []struct {
 		name      string
-		setupFunc func(repo *repomocks.MockTransactionRepository)
+		setupFunc func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository)
 		wantID    int
 		wantErr   error
 	}{
 		{
 			name: "success",
-			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().Create(gomock.Any(), tx).Return(101, nil)
+			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
+				accRepo.EXPECT().GetById(gomock.Any(), tx.AccountId).Return(account, nil)
+				repo.EXPECT().Create(gomock.Any(), tx, account).Return(101, nil)
 			},
 			wantID: 101,
 		},
 		{
 			name: "repository error",
-			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().Create(gomock.Any(), tx).Return(0, repository.DuplicatedDataError)
+			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
+				accRepo.EXPECT().GetById(gomock.Any(), tx.AccountId).Return(account, nil)
+				repo.EXPECT().Create(gomock.Any(), tx, account).Return(0, repository.DuplicatedDataError)
 			},
 			wantErr: repository.DuplicatedDataError,
 		},
@@ -44,8 +56,9 @@ func TestTransactionUseCase_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo := repomocks.NewMockTransactionRepository(ctrl)
-			uc := NewTransaction(repo)
-			tt.setupFunc(repo)
+			accRepo := repomocks.NewMockAccountRepository(ctrl)
+			uc := NewTransaction(repo, accRepo)
+			tt.setupFunc(repo, accRepo)
 
 			id, err := uc.Create(context.Background(), tx)
 			if tt.wantErr != nil {
@@ -91,7 +104,8 @@ func TestTransactionUseCase_GetTransactionIdsOfUser(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo := repomocks.NewMockTransactionRepository(ctrl)
-			uc := NewTransaction(repo)
+			accRepo := repomocks.NewMockAccountRepository(ctrl)
+			uc := NewTransaction(repo, accRepo)
 			tt.setupFunc(repo)
 
 			ids, err := uc.GetTransactionIdsOfUser(context.Background(), user)
@@ -110,22 +124,39 @@ func TestTransactionUseCase_Update(t *testing.T) {
 	t.Parallel()
 
 	tx := models.TransactionModel{Id: 15, UserId: 7, AccountId: 55, Title: "Обед"}
+	oldTransaction := tx
+	now := time.Now()
+	account := models.AccountModel{
+		Id:        55,
+		Name:      "test",
+		Balance:   1000,
+		Currency:  "RUB",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	oldAccount := account
 
 	tests := []struct {
 		name      string
-		setupFunc func(repo *repomocks.MockTransactionRepository)
+		setupFunc func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository)
 		wantErr   error
 	}{
 		{
 			name: "success",
-			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().Update(gomock.Any(), tx).Return(nil)
+			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
+				repo.EXPECT().Detail(gomock.Any(), gomock.Any()).Return(oldTransaction, nil)
+				accRepo.EXPECT().GetById(gomock.Any(), oldTransaction.AccountId).Return(oldAccount, nil)
+				accRepo.EXPECT().GetById(gomock.Any(), tx.AccountId).Return(account, nil)
+				repo.EXPECT().Update(gomock.Any(), tx, oldTransaction, account, oldAccount).Return(nil)
 			},
 		},
 		{
 			name: "repository error",
-			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().Update(gomock.Any(), tx).Return(repository.ConstraintError)
+			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
+				repo.EXPECT().Detail(gomock.Any(), gomock.Any()).Return(oldTransaction, nil)
+				accRepo.EXPECT().GetById(gomock.Any(), oldTransaction.AccountId).Return(oldAccount, nil)
+				accRepo.EXPECT().GetById(gomock.Any(), tx.AccountId).Return(account, nil)
+				repo.EXPECT().Update(gomock.Any(), tx, oldTransaction, account, oldAccount).Return(repository.ConstraintError)
 			},
 			wantErr: repository.ConstraintError,
 		},
@@ -136,8 +167,9 @@ func TestTransactionUseCase_Update(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo := repomocks.NewMockTransactionRepository(ctrl)
-			uc := NewTransaction(repo)
-			tt.setupFunc(repo)
+			accRepo := repomocks.NewMockAccountRepository(ctrl)
+			uc := NewTransaction(repo, accRepo)
+			tt.setupFunc(repo, accRepo)
 
 			err := uc.Update(context.Background(), tx)
 			if tt.wantErr != nil {
@@ -152,41 +184,52 @@ func TestTransactionUseCase_Update(t *testing.T) {
 func TestTransactionUseCase_Delete(t *testing.T) {
 	t.Parallel()
 
+	now := time.Now()
+	account := models.AccountModel{
+		Id:        55,
+		Name:      "test",
+		Balance:   1000,
+		Currency:  "RUB",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
 	genericErr := errors.New("boom")
 
 	tests := []struct {
 		name      string
-		setupFunc func(repo *repomocks.MockTransactionRepository)
+		setupFunc func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository)
 		wantID    int
 		wantErr   error
 	}{
 		{
 			name: "success",
-			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{Id: 5, UserId: 7}, nil)
-				repo.EXPECT().Delete(gomock.Any(), 5).Return(5, nil)
+			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
+				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{Id: 5, UserId: 7, AccountId: 55}, nil)
+				accRepo.EXPECT().GetById(gomock.Any(), account.Id).Return(account, nil)
+				repo.EXPECT().Delete(gomock.Any(), 5, account).Return(5, nil)
 			},
 			wantID: 5,
 		},
 		{
 			name: "detail error",
-			setupFunc: func(repo *repomocks.MockTransactionRepository) {
+			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
 				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{}, repository.NothingInTableError)
 			},
 			wantErr: repository.NothingInTableError,
 		},
 		{
 			name: "forbidden",
-			setupFunc: func(repo *repomocks.MockTransactionRepository) {
+			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
 				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{Id: 5, UserId: 8}, nil)
 			},
 			wantErr: ForbiddenError,
 		},
 		{
 			name: "delete error",
-			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{Id: 5, UserId: 7}, nil)
-				repo.EXPECT().Delete(gomock.Any(), 5).Return(0, genericErr)
+			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
+				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{Id: 5, UserId: 7, AccountId: 55}, nil)
+				accRepo.EXPECT().GetById(gomock.Any(), account.Id).Return(account, nil)
+				repo.EXPECT().Delete(gomock.Any(), 5, account).Return(0, genericErr)
 			},
 			wantErr: genericErr,
 		},
@@ -197,8 +240,9 @@ func TestTransactionUseCase_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo := repomocks.NewMockTransactionRepository(ctrl)
-			uc := NewTransaction(repo)
-			tt.setupFunc(repo)
+			accRepo := repomocks.NewMockAccountRepository(ctrl)
+			uc := NewTransaction(repo, accRepo)
+			tt.setupFunc(repo, accRepo)
 
 			id, err := uc.Delete(context.Background(), 5, 7)
 			if tt.wantErr != nil {
@@ -251,7 +295,8 @@ func TestTransactionUseCase_Detail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo := repomocks.NewMockTransactionRepository(ctrl)
-			uc := NewTransaction(repo)
+			accRepo := repomocks.NewMockAccountRepository(ctrl)
+			uc := NewTransaction(repo, accRepo)
 			tt.setupFunc(repo)
 
 			got, err := uc.Detail(context.Background(), 9, 7)

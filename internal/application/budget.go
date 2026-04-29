@@ -57,14 +57,14 @@ func (obj *Budget) Delete(ctx context.Context, budgetId int, user models.UserMod
 func (obj *Budget) GetById(ctx context.Context, id int, user models.UserModel) (models.BudgetModel, []string, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
 	budget, err := obj.repository.GetById(ctx, id)
+	if err != nil {
+		return models.BudgetModel{}, []string{}, err
+	}
 	if !obj.IsUserAuthorOfBudget(budget, user) {
 		log.Warn("user is not author of budget",
 			zap.Int("user_id", user.Id),
 			zap.Int("budget_id", id))
 		return models.BudgetModel{}, []string{}, UserNotAuthorOfBudgetError
-	}
-	if err != nil {
-		return models.BudgetModel{}, []string{}, err
 	}
 	category, err := obj.repository.GetCategoryOfBudget(ctx, budget.Id)
 	return budget, category, err

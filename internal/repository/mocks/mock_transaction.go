@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	models "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	repository "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -99,6 +100,21 @@ func (m *MockTransactionRepository) GetIdsByUserId(ctx context.Context, userId i
 func (mr *MockTransactionRepositoryMockRecorder) GetIdsByUserId(ctx, userId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIdsByUserId", reflect.TypeOf((*MockTransactionRepository)(nil).GetIdsByUserId), ctx, userId)
+}
+
+// Search mocks base method.
+func (m *MockTransactionRepository) Search(ctx context.Context, userId int, filters repository.TransactionFilters) ([]models.TransactionModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Search", ctx, userId, filters)
+	ret0, _ := ret[0].([]models.TransactionModel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Search indicates an expected call of Search.
+func (mr *MockTransactionRepositoryMockRecorder) Search(ctx, userId, filters any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Search", reflect.TypeOf((*MockTransactionRepository)(nil).Search), ctx, userId, filters)
 }
 
 // Update mocks base method.
