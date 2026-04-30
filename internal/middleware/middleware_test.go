@@ -8,10 +8,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	usermocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
+	appmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	authmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/mocks"
 )
@@ -277,7 +278,7 @@ func TestAuthMiddleware(t *testing.T) {
 		name         string
 		path         string
 		method       string
-		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase)
+		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase)
 		expectedCode int
 		checkCtx     bool
 	}{
@@ -285,7 +286,7 @@ func TestAuthMiddleware(t *testing.T) {
 			name:   "/auth/login — публичный путь",
 			path:   "/auth/login",
 			method: http.MethodPost,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -293,7 +294,7 @@ func TestAuthMiddleware(t *testing.T) {
 			name:   "/auth/refresh — публичный путь",
 			path:   "/auth/refresh",
 			method: http.MethodPost,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -301,7 +302,7 @@ func TestAuthMiddleware(t *testing.T) {
 			name:   "/enums/types — публичный путь",
 			path:   "/enums/types",
 			method: http.MethodGet,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -309,7 +310,7 @@ func TestAuthMiddleware(t *testing.T) {
 			name:   "/auth/logout — без токена → 401",
 			path:   "/auth/logout",
 			method: http.MethodPost,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(false, -1)
 			},
 			expectedCode: http.StatusUnauthorized,
@@ -318,7 +319,7 @@ func TestAuthMiddleware(t *testing.T) {
 			name:   "/profile — без токена → 401",
 			path:   "/profile",
 			method: http.MethodGet,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(false, -1)
 			},
 			expectedCode: http.StatusUnauthorized,
@@ -327,7 +328,7 @@ func TestAuthMiddleware(t *testing.T) {
 			name:   "/profile — токен валиден, пользователь не найден → 401",
 			path:   "/profile",
 			method: http.MethodGet,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(true, 1)
 				userApp.EXPECT().GetById(gomock.Any(), 1).Return(nil, errors.New("not found"))
 			},
@@ -337,7 +338,7 @@ func TestAuthMiddleware(t *testing.T) {
 			name:   "/profile — валидный токен → 200, пользователь в контексте",
 			path:   "/profile",
 			method: http.MethodGet,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(true, 1)
 				userApp.EXPECT().GetById(gomock.Any(), 1).Return(testUser, nil)
 			},
@@ -348,7 +349,7 @@ func TestAuthMiddleware(t *testing.T) {
 			name:   "/get_budgets — без токена → 401",
 			path:   "/get_budgets",
 			method: http.MethodGet,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(false, -1)
 			},
 			expectedCode: http.StatusUnauthorized,
@@ -364,7 +365,7 @@ func TestAuthMiddleware(t *testing.T) {
 			defer ctrl.Finish()
 
 			authSvc := authmocks.NewMockAuthenticationService(ctrl)
-			userApp := usermocks.NewMockUserUseCase(ctrl)
+			userApp := appmocks.NewMockUserUseCase(ctrl)
 			c.setupMocks(authSvc, userApp)
 
 			var gotCtxUser any
@@ -406,7 +407,7 @@ func TestAuthMiddleware_PreservesContext(t *testing.T) {
 	defer ctrl.Finish()
 
 	authSvc := authmocks.NewMockAuthenticationService(ctrl)
-	userApp := usermocks.NewMockUserUseCase(ctrl)
+	userApp := appmocks.NewMockUserUseCase(ctrl)
 	authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(true, 1)
 	userApp.EXPECT().GetById(gomock.Any(), 1).Return(testUser, nil)
 
@@ -437,13 +438,13 @@ func TestAuthAndMethodMiddlewareComposition(t *testing.T) {
 	cases := []struct {
 		name         string
 		method       string
-		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase)
+		setupMocks   func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase)
 		expectedCode int
 	}{
 		{
 			name:   "GET без токена → 401",
 			method: http.MethodGet,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(false, -1)
 			},
 			expectedCode: http.StatusUnauthorized,
@@ -451,7 +452,7 @@ func TestAuthAndMethodMiddlewareComposition(t *testing.T) {
 		{
 			name:   "POST с токеном → 405",
 			method: http.MethodPost,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(true, 1)
 				userApp.EXPECT().GetById(gomock.Any(), 1).Return(testUser, nil)
 			},
@@ -460,7 +461,7 @@ func TestAuthAndMethodMiddlewareComposition(t *testing.T) {
 		{
 			name:   "GET с токеном → 200",
 			method: http.MethodGet,
-			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *usermocks.MockUserUseCase) {
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
 				authSvc.EXPECT().IsAuth(gomock.Any(), gomock.Any()).Return(true, 1)
 				userApp.EXPECT().GetById(gomock.Any(), 1).Return(testUser, nil)
 			},
@@ -477,7 +478,7 @@ func TestAuthAndMethodMiddlewareComposition(t *testing.T) {
 			defer ctrl.Finish()
 
 			authSvc := authmocks.NewMockAuthenticationService(ctrl)
-			userApp := usermocks.NewMockUserUseCase(ctrl)
+			userApp := appmocks.NewMockUserUseCase(ctrl)
 			c.setupMocks(authSvc, userApp)
 
 			mux := http.NewServeMux()
@@ -647,6 +648,131 @@ func TestCSRFMiddleware(t *testing.T) {
 			handler.ServeHTTP(w, req)
 
 			require.Equal(t, c.expectedCode, w.Code)
+		})
+	}
+}
+
+func TestCSPMiddleware(t *testing.T) {
+	testCases := []struct {
+		name   string
+		method string
+		path   string
+		code   int
+	}{
+		{
+			name:   "simple",
+			method: http.MethodGet,
+			path:   "/",
+			code:   http.StatusOK,
+		},
+		{
+			name:   "post",
+			method: http.MethodPost,
+			path:   "/",
+			code:   http.StatusOK,
+		},
+		{
+			name:   "/auth/",
+			method: http.MethodGet,
+			path:   "/auth/login",
+			code:   http.StatusOK,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			handler := CSPMiddleware(http.HandlerFunc(okHandler))
+			r := httptest.NewRequest(testCase.method, testCase.path, nil)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, r)
+			require.Equal(t, testCase.code, w.Result().StatusCode)
+			require.NotEmpty(t, w.Result().Header.Get("Content-Security-Policy"))
+		})
+	}
+}
+
+func TestOnlyStaffMiddleware(t *testing.T) {
+	testCases := []struct {
+		name   string
+		setup  func(userApp *appmocks.MockUserUseCase)
+		ctx    context.Context
+		method string
+		path   string
+		code   int
+	}{
+		{
+			name: "staff get",
+			setup: func(userApp *appmocks.MockUserUseCase) {
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(true, nil)
+			},
+			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: true}),
+			method: http.MethodGet,
+			path:   "/staff",
+			code:   http.StatusOK,
+		},
+		{
+			name: "staff post",
+			setup: func(userApp *appmocks.MockUserUseCase) {
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(true, nil)
+			},
+			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: true}),
+			method: http.MethodPost,
+			path:   "/staff",
+			code:   http.StatusOK,
+		},
+		{
+			name: "not staff get",
+			setup: func(userApp *appmocks.MockUserUseCase) {
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, nil)
+			},
+			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: false}),
+			method: http.MethodGet,
+			path:   "/staff",
+			code:   http.StatusNotFound,
+		},
+		{
+			name:   "unauthorized",
+			setup:  func(userApp *appmocks.MockUserUseCase) {},
+			ctx:    context.Background(),
+			method: http.MethodGet,
+			path:   "/staff",
+			code:   http.StatusUnauthorized,
+		},
+		{
+			name: "empty user",
+			setup: func(userApp *appmocks.MockUserUseCase) {
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, nil)
+			},
+			ctx:    context.WithValue(context.Background(), "user", models.UserModel{}),
+			method: http.MethodGet,
+			path:   "/staff",
+			code:   http.StatusNotFound,
+		},
+		{
+			name: "fail",
+			setup: func(userApp *appmocks.MockUserUseCase) {
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, repository.NothingInTableError)
+			},
+			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: true}),
+			method: http.MethodGet,
+			path:   "/staff",
+			code:   http.StatusInternalServerError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			userApp := appmocks.NewMockUserUseCase(ctrl)
+			testCase.setup(userApp)
+			handler := OnlyStaffMiddleware(http.HandlerFunc(okHandler), userApp)
+			r := httptest.NewRequest(testCase.method, testCase.path, nil)
+			r = r.WithContext(testCase.ctx)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, r)
+			require.Equal(t, testCase.code, w.Result().StatusCode)
 		})
 	}
 }

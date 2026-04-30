@@ -310,3 +310,43 @@ func TestTransactionUseCase_Detail(t *testing.T) {
 		})
 	}
 }
+
+func TestTransaction_IsUserAuthorOfTransaction(t *testing.T) {
+	testCases := []struct {
+		name        string
+		user        models.UserModel
+		transaction models.TransactionModel
+		res         bool
+	}{
+		{
+			name:        "author",
+			user:        models.UserModel{Id: 1},
+			transaction: models.TransactionModel{Id: 1, UserId: 1},
+			res:         true,
+		},
+		{
+			name:        "not author",
+			user:        models.UserModel{Id: 1},
+			transaction: models.TransactionModel{Id: 1, UserId: 2},
+			res:         false,
+		},
+		{
+			name:        "empty",
+			user:        models.UserModel{Id: 1},
+			transaction: models.TransactionModel{},
+			res:         false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			repo := repomocks.NewMockTransactionRepository(ctrl)
+			accRepo := repomocks.NewMockAccountRepository(ctrl)
+			app := NewTransaction(repo, accRepo)
+			res := app.IsUserAuthorOfTransaction(testCase.user, testCase.transaction)
+			require.Equal(t, testCase.res, res)
+		})
+	}
+}
