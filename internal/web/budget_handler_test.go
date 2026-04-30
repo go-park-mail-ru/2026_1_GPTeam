@@ -115,7 +115,7 @@ func TestBudgetHandler_GetBudget(t *testing.T) {
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
-				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, application.UserNotAuthorOfBudgetError)
+				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, []string{}, application.UserNotAuthorOfBudgetError)
 			},
 			expectedCode: http.StatusForbidden,
 		},
@@ -124,7 +124,7 @@ func TestBudgetHandler_GetBudget(t *testing.T) {
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
-				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, repository.NothingInTableError)
+				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, []string{}, repository.NothingInTableError)
 			},
 			expectedCode: http.StatusNotFound,
 		},
@@ -133,7 +133,7 @@ func TestBudgetHandler_GetBudget(t *testing.T) {
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
-				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(testBudget, nil)
+				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(testBudget, []string{"abc"}, nil)
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -174,6 +174,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 		Currency:    "RUB",
 		StartAt:     time.Now().Add(time.Hour),
 		EndAt:       time.Now().Add(24 * time.Hour),
+		Category:    []string{"abc"},
 	}
 
 	cases := []struct {
@@ -204,6 +205,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase, enumsApp *appmocks.MockEnumsUseCase) {
 				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
+				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"abc"})
 			},
 			expectedCode: http.StatusBadRequest,
 		},
@@ -213,7 +215,8 @@ func TestBudgetHandler_Create(t *testing.T) {
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase, enumsApp *appmocks.MockEnumsUseCase) {
 				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
-				budgetApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(0, repository.DuplicatedDataError)
+				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"abc"})
+				budgetApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(0, repository.DuplicatedDataError)
 			},
 			expectedCode: http.StatusBadRequest,
 		},
@@ -223,7 +226,8 @@ func TestBudgetHandler_Create(t *testing.T) {
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase, enumsApp *appmocks.MockEnumsUseCase) {
 				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
-				budgetApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(1, nil)
+				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"abc"})
+				budgetApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(1, nil)
 			},
 			expectedCode: http.StatusOK,
 		},

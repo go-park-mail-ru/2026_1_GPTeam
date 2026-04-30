@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate go run go.uber.org/mock/mockgen@latest -source=support.go -destination=mocks/mock_support.go -package=mocks
 type SupportRepository interface {
 	Create(ctx context.Context, model models.SupportModel) (int, error)
 	GetById(ctx context.Context, id int) (models.SupportModel, error)

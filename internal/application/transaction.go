@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -source=transaction.go -destination=mocks/transaction.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=transaction.go -destination=mocks/mock_transaction.go -package=mocks
 type TransactionUseCase interface {
 	Create(ctx context.Context, transaction models.TransactionModel) (int, error)
 	GetTransactionIdsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
@@ -21,17 +21,23 @@ type TransactionUseCase interface {
 }
 
 type Transaction struct {
-	repository repository.TransactionRepository
+	repository  repository.TransactionRepository
+	accountRepo repository.AccountRepository
 }
 
-func NewTransaction(repo repository.TransactionRepository) *Transaction {
+func NewTransaction(repo repository.TransactionRepository, accRepo repository.AccountRepository) *Transaction {
 	return &Transaction{
-		repository: repo,
+		repository:  repo,
+		accountRepo: accRepo,
 	}
 }
 
 func (obj *Transaction) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
-	id, err := obj.repository.Create(ctx, transaction)
+	account, err := obj.accountRepo.GetById(ctx, transaction.AccountId)
+	if err != nil {
+		return 0, err
+	}
+	id, err := obj.repository.Create(ctx, transaction, account)
 	return id, err
 }
 
@@ -41,7 +47,19 @@ func (obj *Transaction) GetTransactionIdsOfUser(ctx context.Context, user models
 }
 
 func (obj *Transaction) Update(ctx context.Context, transaction models.TransactionModel) error {
-	err := obj.repository.Update(ctx, transaction)
+	oldTransaction, err := obj.repository.Detail(ctx, transaction.Id)
+	if err != nil {
+		return err
+	}
+	oldAccount, err := obj.accountRepo.GetById(ctx, oldTransaction.AccountId)
+	if err != nil {
+		return err
+	}
+	newAccount, err := obj.accountRepo.GetById(ctx, transaction.AccountId)
+	if err != nil {
+		return err
+	}
+	err = obj.repository.Update(ctx, transaction, oldTransaction, newAccount, oldAccount)
 	return err
 }
 
@@ -57,7 +75,11 @@ func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId in
 			zap.Int("transaction_id", transactionId))
 		return 0, ForbiddenError
 	}
-	id, err := obj.repository.Delete(ctx, transactionId)
+	account, err := obj.accountRepo.GetById(ctx, transaction.AccountId)
+	if err != nil {
+		return 0, err
+	}
+	id, err := obj.repository.Delete(ctx, transactionId, account)
 	if err != nil {
 		return 0, err
 	}

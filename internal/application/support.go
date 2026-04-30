@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 )
 
+//go:generate go run go.uber.org/mock/mockgen@latest -source=support.go -destination=mocks/mock_support.go -package=mocks
 type SupportUseCase interface {
 	Create(ctx context.Context, data web_helpers.SupportRequest, userId int) (int, error)
 	GetById(ctx context.Context, id int) (models.SupportModel, error)

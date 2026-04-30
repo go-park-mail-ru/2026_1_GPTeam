@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -235,4 +236,77 @@ func TestUserHandler_UploadAvatar(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, w.Code)
 	})
+}
+
+func TestUserHandler_IsStaff(t *testing.T) {
+	staffUser := models.UserModel{Id: 1, Username: "admin", IsStaff: true}
+	testUser := models.UserModel{Id: 2, Username: "test", IsStaff: false}
+
+	testCases := []struct {
+		name         string
+		ctx          context.Context
+		setupMocks   func(userApp *appmocks.MockUserUseCase)
+		expectedCode int
+		isStaff      bool
+	}{
+		{
+			name: "staff",
+			ctx:  context.WithValue(context.Background(), "user", staffUser),
+			setupMocks: func(userApp *appmocks.MockUserUseCase) {
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(true, nil)
+			},
+			expectedCode: http.StatusOK,
+			isStaff:      true,
+		},
+		{
+			name: "not staff",
+			ctx:  context.WithValue(context.Background(), "user", testUser),
+			setupMocks: func(userApp *appmocks.MockUserUseCase) {
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, nil)
+			},
+			expectedCode: http.StatusOK,
+			isStaff:      false,
+		},
+		{
+			name: "error",
+			ctx:  context.WithValue(context.Background(), "user", models.UserModel{}),
+			setupMocks: func(userApp *appmocks.MockUserUseCase) {
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, repository.NothingInTableError)
+			},
+			expectedCode: http.StatusInternalServerError,
+			isStaff:      false,
+		},
+		{
+			name:         "unauthorized",
+			ctx:          context.Background(),
+			setupMocks:   func(userApp *appmocks.MockUserUseCase) {},
+			expectedCode: http.StatusUnauthorized,
+			isStaff:      false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			userApp := appmocks.NewMockUserUseCase(ctrl)
+			accountApp := appmocks.NewMockAccountUseCase(ctrl)
+			testCase.setupMocks(userApp)
+			handler := NewUserHandler(userApp, accountApp)
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+			writer.Close()
+			r := httptest.NewRequest(http.MethodGet, "/api/is_staff", nil).WithContext(testCase.ctx)
+			w := httptest.NewRecorder()
+			handler.IsStaff(w, r)
+			require.Equal(t, testCase.expectedCode, w.Code)
+			var response struct {
+				IsStaff bool `json:"is_staff"`
+			}
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			require.NoError(t, err)
+			require.Equal(t, testCase.isStaff, response.IsStaff)
+		})
+	}
 }

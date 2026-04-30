@@ -124,7 +124,7 @@ func main() {
 		return
 	}
 	budgetApp := application.NewBudget(budgetPostgres)
-	transactionApp := application.NewTransaction(transactionPostgres)
+	transactionApp := application.NewTransaction(transactionPostgres, accountPostgres)
 	accountApp := application.NewAccount(accountPostgres)
 	supportApp := application.NewSupport(supportPostgres)
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
