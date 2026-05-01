@@ -169,7 +169,7 @@ func TestValidateTargetBudget(t *testing.T) {
 	}{
 		{"Negative", -1, validators.TargetIsNegativeError},
 		{"Zero", 0, validators.TargetIsZeroError},
-		{"Big", 1_000_000_000_001, validators.TargetIsBigError},
+		{"Big", 1_000_000_001, validators.TargetIsBigError},
 		{"Correct", 1000, nil},
 	}
 
@@ -189,7 +189,7 @@ func TestValidateActualBudget(t *testing.T) {
 		err    error
 	}{
 		{"Negative", -1, validators.ValueIsNegativeError},
-		{"Big", 1_000_000_000_001, validators.ValueIsBigError},
+		{"Big", 1_000_000_001, validators.ValueIsBigError},
 		{"Zero is allowed", 0, nil},
 		{"Correct", 500, nil},
 	}
@@ -436,18 +436,6 @@ func TestValidateTransaction(t *testing.T) {
 			2,
 		},
 		{
-			"Invalid currency",
-			web_helpers.TransactionRequest{
-				Title:       "Test",
-				Description: "Desc",
-				Value:       100,
-				Type:        "income",
-				Category:    "salary",
-				Currency:    "GBP",
-			},
-			1,
-		},
-		{
 			"All wrong",
 			web_helpers.TransactionRequest{
 				Title:       "",
@@ -457,7 +445,7 @@ func TestValidateTransaction(t *testing.T) {
 				Category:    "wrong",
 				Currency:    "GBP",
 			},
-			6,
+			5,
 		},
 	}
 

@@ -44,7 +44,7 @@ func mapAccountPgError(ctx context.Context, err error, action string) error {
 	}
 	log := logger.GetLoggerWithRequestId(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrAccountNotFound
+		return NothingInTableError
 	}
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
@@ -98,7 +98,17 @@ func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId in
 
 func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId int, accountId int) ([]int, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `select id from account_user where user_id = $1 and account_id = $2`
+	query := `
+	select id
+	from account_user au
+	where user_id = $1
+	  and account_id = $2
+	  and exists (
+		  select 1
+		  from account a
+		  where a.id = au.account_id
+		    and a.deleted_at is null
+	  )`
 	args := []any{userId, accountId}
 	startTime := time.Now()
 	rows, err := obj.db.Query(ctx, query, args...)
@@ -124,7 +134,17 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 
 func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int) (int, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `SELECT account_id FROM account_user WHERE user_id = $1 LIMIT 1`
+	query := `
+	SELECT account_id
+	FROM account_user au
+	WHERE user_id = $1
+	  AND EXISTS (
+		  SELECT 1
+		  FROM account a
+		  WHERE a.id = au.account_id
+		    AND a.deleted_at IS NULL
+	  )
+	LIMIT 1`
 	args := []any{userId}
 	var accountId int
 	timeStart := time.Now()
@@ -144,7 +164,7 @@ func (obj *AccountPostgres) GetById(ctx context.Context, userId int, accountId i
 		select a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at
 		from account a
 		join account_user au on au.account_id = a.id
-		where au.user_id = $1 and a.id = $2`
+		where au.user_id = $1 and a.id = $2 and a.deleted_at is null`
 	args := []any{userId, accountId}
 	var account models.AccountModel
 	start := time.Now()
@@ -170,7 +190,7 @@ func (obj *AccountPostgres) GetByUserId(ctx context.Context, userId int) ([]mode
 		select a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at
 		from account a
 		join account_user au on au.account_id = a.id
-		where au.user_id = $1
+		where au.user_id = $1 and a.deleted_at is null
 		order by a.id`
 	args := []any{userId}
 	start := time.Now()
@@ -204,13 +224,75 @@ func (obj *AccountPostgres) GetAllAccountsByUserId(ctx context.Context, userId i
 }
 
 func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
-	accounts, err := obj.GetByUserId(ctx, userId)
+	log := logger.GetLoggerWithRequestId(ctx)
+
+	query := `
+		select
+			a.id,
+			a.name,
+			a.balance,
+			a.currency,
+			a.created_at,
+			a.updated_at,
+			coalesce(sum(t.value) filter (where t.type = 'INCOME'), 0) as income,
+			coalesce(sum(t.value) filter (where t.type = 'EXPENSE'), 0) as expense
+		from account a
+		join account_user au on au.account_id = a.id
+		left join transaction t
+			on t.account_id = a.id
+			and t.user_id = au.user_id
+			and t.deleted_at is null
+		where au.user_id = $1
+		  and a.deleted_at is null
+		group by a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at
+		order by a.id`
+
+	args := []any{userId}
+
+	start := time.Now()
+	rows, err := obj.db.Query(ctx, query, args...)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+
 	if err != nil {
+		log.Error("failed to get accounts with balance by user id", zap.Error(err))
+		return nil, nil, nil, err
+	}
+	defer rows.Close()
+
+	accounts := make([]models.AccountModel, 0)
+	incomes := make([]float64, 0)
+	expenses := make([]float64, 0)
+
+	for rows.Next() {
+		var account models.AccountModel
+		var income float64
+		var expense float64
+
+		if err = rows.Scan(
+			&account.Id,
+			&account.Name,
+			&account.Balance,
+			&account.Currency,
+			&account.CreatedAt,
+			&account.UpdatedAt,
+			&income,
+			&expense,
+		); err != nil {
+			log.Error("failed to scan account with balance", zap.Error(err))
+			return nil, nil, nil, InvalidDataInTableError
+		}
+
+		accounts = append(accounts, account)
+		incomes = append(incomes, income)
+		expenses = append(expenses, expense)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Error("failed while reading accounts with balance", zap.Error(err))
 		return nil, nil, nil, err
 	}
 
-	incomes := make([]float64, len(accounts))
-	expenses := make([]float64, len(accounts))
+	log.Info("Query executed")
 
 	return accounts, incomes, expenses, nil
 }
@@ -225,7 +307,7 @@ func (obj *AccountPostgres) Update(ctx context.Context, userId int, accountId in
 			currency = coalesce($5, a.currency),
 			updated_at = now()
 		from account_user au
-		where au.account_id = a.id and au.user_id = $1 and a.id = $2
+		where au.account_id = a.id and au.user_id = $1 and a.id = $2 and a.deleted_at is null
 		returning a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at`
 	args := []any{userId, accountId, account.Name, account.Balance, account.Currency}
 	var updated models.AccountModel
@@ -248,32 +330,60 @@ func (obj *AccountPostgres) Update(ctx context.Context, userId int, accountId in
 
 func (obj *AccountPostgres) Delete(ctx context.Context, userId int, accountId int) error {
 	log := logger.GetLoggerWithRequestId(ctx)
-	tx, err := obj.db.Begin(ctx)
-	if err != nil {
-		log.Error("failed to begin account delete tx", zap.Error(err))
-		return err
-	}
-	defer tx.Rollback(ctx)
 
-	tag, err := tx.Exec(ctx, `delete from account_user where user_id = $1 and account_id = $2`, userId, accountId)
-	if err != nil {
-		log.Error("failed to unlink account and user", zap.Error(err))
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrAccountNotFound
-	}
+	return pgx.BeginFunc(ctx, obj.db, func(tx pgx.Tx) error {
+		batch := &pgx.Batch{}
 
-	_, err = tx.Exec(ctx, `delete from account where id = $1`, accountId)
-	if err != nil {
-		log.Error("failed to delete account", zap.Error(err))
-		return err
-	}
+		batch.Queue(`
+			update transaction
+			set deleted_at = now()
+			where user_id = $1
+			  and account_id = $2
+			  and deleted_at is null`,
+			userId,
+			accountId,
+		)
 
-	if err = tx.Commit(ctx); err != nil {
-		log.Error("failed to commit account delete tx", zap.Error(err))
-		return err
-	}
-	log.Info("account deleted", zap.Int("account_id", accountId), zap.Int("user_id", userId))
-	return nil
+		batch.Queue(`
+			update account a
+			set deleted_at = now(),
+			    updated_at = now()
+			where a.id = $1
+			  and a.deleted_at is null
+			  and exists (
+				  select 1
+				  from account_user au
+				  where au.account_id = a.id
+				    and au.user_id = $2
+			  )`,
+			accountId,
+			userId,
+		)
+
+		results := tx.SendBatch(ctx, batch)
+		defer results.Close()
+
+		if _, err := results.Exec(); err != nil {
+			log.Error("failed to soft delete account transactions", zap.Error(err))
+			return err
+		}
+
+		tag, err := results.Exec()
+		if err != nil {
+			log.Error("failed to soft delete account", zap.Error(err))
+			return err
+		}
+
+		if tag.RowsAffected() == 0 {
+			return NothingInTableError
+		}
+
+		log.Info(
+			"account soft deleted",
+			zap.Int("account_id", accountId),
+			zap.Int("user_id", userId),
+		)
+
+		return nil
+	})
 }

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -61,17 +62,26 @@ func (obj *Account) CreateForUser(ctx context.Context, userId int, account model
 }
 
 func (obj *Account) GetAccountIdByUserId(ctx context.Context, userId int) (int, error) {
-	return obj.repository.GetAccountIdByUserId(ctx, userId)
+	accountId, err := obj.repository.GetAccountIdByUserId(ctx, userId)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			return 0, ErrAccountNotFound
+		}
+		return 0, err
+	}
+
+	return accountId, nil
 }
 
 func (obj *Account) GetById(ctx context.Context, userId int, accountId int) (models.AccountModel, error) {
 	account, err := obj.repository.GetById(ctx, userId, accountId)
 	if err != nil {
-		if err == repository.ErrAccountNotFound {
+		if errors.Is(err, repository.NothingInTableError) {
 			return models.AccountModel{}, ErrAccountNotFound
 		}
 		return models.AccountModel{}, err
 	}
+
 	return account, nil
 }
 
@@ -79,26 +89,28 @@ func (obj *Account) GetByUserId(ctx context.Context, userId int) ([]models.Accou
 	return obj.repository.GetByUserId(ctx, userId)
 }
 
-func (obj *Account) Update(ctx context.Context, userId int, accountId int, account models.AccountUpdateModel) (models.AccountModel, error) {
-	if account.Name == nil && account.Balance == nil && account.Currency == nil {
-		return models.AccountModel{}, AllFieldsEmptyError
-	}
-	updated, err := obj.repository.Update(ctx, userId, accountId, account)
+func (obj *Account) Update(ctx context.Context, userId int, accountId int, accountUpdate models.AccountUpdateModel) (models.AccountModel, error) {
+	updatedAccount, err := obj.repository.Update(ctx, userId, accountId, accountUpdate)
 	if err != nil {
-		if err == repository.ErrAccountNotFound {
+		if errors.Is(err, repository.NothingInTableError) {
 			return models.AccountModel{}, ErrAccountNotFound
 		}
 		return models.AccountModel{}, err
 	}
-	return updated, nil
+
+	return updatedAccount, nil
 }
 
 func (obj *Account) Delete(ctx context.Context, userId int, accountId int) error {
 	err := obj.repository.Delete(ctx, userId, accountId)
-	if err == repository.ErrAccountNotFound {
-		return ErrAccountNotFound
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			return ErrAccountNotFound
+		}
+		return err
 	}
-	return err
+
+	return nil
 }
 
 func (obj *Account) LinkAccountAndUser(ctx context.Context, accountId int, userId int) error {

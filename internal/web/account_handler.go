@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
@@ -49,7 +48,7 @@ func (obj *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	accountId, err := obj.accountApp.GetAccountIdByUserId(r.Context(), authUser.Id)
 	if err != nil {
-		if errors.Is(err, application.ErrAccountNotFound) || errors.Is(err, repository.ErrAccountNotFound) {
+		if errors.Is(err, application.ErrAccountNotFound) {
 			response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -95,6 +94,24 @@ func getAccountIdFromPath(r *http.Request) (int, error) {
 	return strconv.Atoi(idStr)
 }
 
+func normalizeAccountCurrency(value string) (string, bool) {
+	currency := strings.ToUpper(strings.TrimSpace(value))
+
+	switch currency {
+	case "RUB", "USD", "EUR":
+		return currency, true
+	default:
+		return currency, false
+	}
+}
+
+func writeAccountValidationError(w http.ResponseWriter, field string, message string) {
+	response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+		web_helpers.NewFieldError(field, message),
+	})
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
 func (obj *AccountHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	authUser, ok := web_helpers.GetAuthUser(r)
 	if !ok {
@@ -130,15 +147,19 @@ func (obj *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	body.Name = strings.TrimSpace(secure.SanitizeXss(body.Name))
-	body.Currency = strings.TrimSpace(body.Currency)
-	if body.Name == "" || body.Currency == "" {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
-			web_helpers.NewFieldError("name", "Название и валюта обязательны"),
-		})
-		web_helpers.WriteResponseJSON(w, response.Code, response)
+	if body.Name == "" {
+		writeAccountValidationError(w, "name", "Название счёта обязательно")
 		return
 	}
+
+	currency, ok := normalizeAccountCurrency(body.Currency)
+	if !ok {
+		writeAccountValidationError(w, "currency", "Валюта должна быть одной из: RUB, USD, EUR")
+		return
+	}
+
 	balance := 0.0
 	if body.Balance != nil {
 		balance = *body.Balance
@@ -147,12 +168,13 @@ func (obj *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request)
 	account, err := obj.accountApp.CreateForUser(r.Context(), authUser.Id, models.AccountCreateModel{
 		Name:     body.Name,
 		Balance:  balance,
-		Currency: body.Currency,
+		Currency: currency,
 	})
 	if err != nil {
 		obj.writeAccountError(w, r, err)
 		return
 	}
+
 	response := web_helpers.NewAccountCreateSuccessResponse(accountToResponse(account))
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -186,26 +208,39 @@ func (obj *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	accountId, err := getAccountIdFromPath(r)
 	if err != nil {
 		response := web_helpers.NewBadRequestErrorResponse("Некорректный id счёта")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	var body web_helpers.AccountPatchRequest
 	if err = web_helpers.ReadRequestJSON(r, &body); err != nil {
 		response := web_helpers.NewBadRequestErrorResponse("Неверный формат запроса")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	if body.Name != nil {
 		name := strings.TrimSpace(secure.SanitizeXss(*body.Name))
+		if name == "" {
+			writeAccountValidationError(w, "name", "Название счёта не может быть пустым")
+			return
+		}
 		body.Name = &name
 	}
+
 	if body.Currency != nil {
-		currency := strings.TrimSpace(*body.Currency)
+		currency, ok := normalizeAccountCurrency(*body.Currency)
+		if !ok {
+			writeAccountValidationError(w, "currency", "Валюта должна быть одной из: RUB, USD, EUR")
+			return
+		}
 		body.Currency = &currency
 	}
+
 	account, err := obj.accountApp.Update(r.Context(), authUser.Id, accountId, models.AccountUpdateModel{
 		Name:     body.Name,
 		Balance:  body.Balance,
@@ -215,6 +250,7 @@ func (obj *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request)
 		obj.writeAccountError(w, r, err)
 		return
 	}
+
 	response := web_helpers.NewAccountUpdateSuccessResponse(accountToResponse(account))
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -245,28 +281,18 @@ func (obj *AccountHandler) writeAccountError(w http.ResponseWriter, r *http.Requ
 	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Warn("account request failed", zap.Error(err))
 
-	if errors.Is(err, application.ErrAccountNotFound) || errors.Is(err, repository.ErrAccountNotFound) {
+	if errors.Is(err, application.ErrAccountNotFound) {
 		response := web_helpers.NewNotFoundErrorResponse("Счёт не найден")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	if errors.Is(err, application.AllFieldsEmptyError) {
 		response := web_helpers.NewBadRequestErrorResponse("Передайте хотя бы одно поле для обновления")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	if errors.Is(err, repository.ConstraintError) {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
-		response.Message = "Некорректные данные счёта"
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-		return
-	}
-	if errors.Is(err, repository.AccountForeignKeyError) {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
-		response.Message = "Связанный пользователь или счёт не найден"
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-		return
-	}
+
 	response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
