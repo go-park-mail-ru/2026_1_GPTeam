@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//go:generate mockgen -source=user.go -destination=mocks/user.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=user.go -destination=mocks/mock_user.go -package=mocks
 type UserUseCase interface {
 	Create(ctx context.Context, user web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error)
 	GetById(ctx context.Context, id int) (*models.UserModel, error)

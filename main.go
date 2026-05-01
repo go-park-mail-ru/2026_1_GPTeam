@@ -123,9 +123,9 @@ func main() {
 	if err != nil {
 		return
 	}
-	budgetApp := application.NewBudget(budgetPostgres)
-	transactionApp := application.NewTransaction(transactionPostgres)
+	transactionApp := application.NewTransaction(transactionPostgres, accountPostgres)
 	accountApp := application.NewAccount(accountPostgres)
+	budgetApp := application.NewBudget(budgetPostgres, transactionApp, accountApp)
 	supportApp := application.NewSupport(supportPostgres)
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
 	voiceApp := application.NewVoiceTransactionService(groqClient, enumsApp)
