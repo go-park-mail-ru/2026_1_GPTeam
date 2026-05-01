@@ -439,7 +439,7 @@ func TestTransactionPostgres_Delete(t *testing.T) {
 					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 				mock.ExpectExec(`update budget set actual`).
-					WithArgs("EXPENSE", float64(100), 7, "food").
+					WithArgs("EXPENSE", -float64(100), 7, "food").
 					WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 				mock.ExpectCommit()

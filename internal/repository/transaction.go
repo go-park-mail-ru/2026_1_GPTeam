@@ -524,10 +524,10 @@ type increaseActualQueryArgs struct {
 
 func increaseActualOfBudget(ctx context.Context, dbTransaction pgx.Tx, queryArgs increaseActualQueryArgs) (time.Duration, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+	query := `update budget set actual = greatest(0, actual + (case when $1 = 'INCOME' then $2 else -1 * $2 end)) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
 	args := []any{
 		queryArgs.Type,
-		queryArgs.Value,
+		-queryArgs.Value,
 		queryArgs.UserId,
 		queryArgs.Category,
 	}
@@ -601,10 +601,10 @@ type decreaseActualQueryArgs increaseActualQueryArgs
 
 func decreaseActualOfBudget(ctx context.Context, dbTransaction pgx.Tx, queryArgs decreaseActualQueryArgs) (time.Duration, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end))) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
+	query := `update budget set actual = greatest(0, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end)) where author = $3 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $4);`
 	args := []any{
 		queryArgs.Type,
-		queryArgs.Value,
+		-queryArgs.Value,
 		queryArgs.UserId,
 		queryArgs.Category,
 	}
@@ -693,12 +693,12 @@ type changeActualQueryArgs struct {
 
 func changeActualOfBudgetWithNewType(ctx context.Context, dbTransaction pgx.Tx, queryArgs changeActualQueryArgs) (time.Duration, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `update budget set actual = greatest(0, least(target, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end) + (case when $3 = 'INCOME' then $4 else -1 * $4 end))) where author = $5 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $6);`
+	query := `update budget set actual = greatest(0, actual + (case when $1 = 'INCOME' then -1 * $2 else $2 end) + (case when $3 = 'INCOME' then $4 else -1 * $4 end)) where author = $5 and active = true and exists(select 1 from budget_category where budget_id = budget.id and category = $6);`
 	args := []any{
 		queryArgs.OldType,
-		queryArgs.OldValue,
+		-queryArgs.OldValue,
 		queryArgs.NewType,
-		queryArgs.NewValue,
+		-queryArgs.NewValue,
 		queryArgs.UserId,
 		queryArgs.Category,
 	}
