@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package ai.v1;
+
+option go_package = "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/ai/v1;aiv1";
+
+service AiService {
+  rpc Transcribe(TranscribeRequest) returns (TranscribeResponse);
+  rpc ParseTransaction(ParseTransactionRequest) returns (ParseTransactionResponse);
+}
+
+message TranscribeRequest {
+  bytes audio_data = 1;
+  string filename = 2;
+}
+
+message TranscribeResponse {
+  string text = 1;
+}
+
+message ParseTransactionRequest {
+  string transcript = 1;
+  repeated string types = 2;
+  repeated string categories = 3;
+}
+
+message ParseTransactionResponse {
+  bool success = 1;
+  TransactionDraft draft = 2;
+}
+
+message TransactionDraft {
+  double value = 1;
+  string type = 2;
+  string category = 3;
+  string title = 4;
+  string description = 5;
+  string date = 6;
+}

@@ -73,6 +73,23 @@ services:
     networks:
       - gpteam-network
 
+  ai:
+    build: .
+    container_name: gpteam-ai
+    command: ["./ai-service"]
+    restart: always
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - AI_GRPC_LISTEN=:50052
+    expose:
+      - "50052"
+    networks:
+      - gpteam-network
+
   app:
     build: .
     container_name: gpteam-server
@@ -81,6 +98,8 @@ services:
       migrations:
         condition: service_completed_successfully
       auth:
+        condition: service_started
+      ai:
         condition: service_started
     read_only: true
     security_opt:
@@ -98,6 +117,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - AUTH_GRPC_ADDR=auth:50051
+      - AI_GRPC_ADDR=ai:50052
     networks:
       - gpteam-network
 
