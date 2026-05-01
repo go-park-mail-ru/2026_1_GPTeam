@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p 5432" ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p 5432"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,7 +23,7 @@ services:
     image: redis:latest
     container_name: gpteam-redis
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,6 +54,25 @@ services:
     networks:
       - gpteam-network
 
+  auth:
+    build: .
+    container_name: gpteam-auth
+    command: ["./auth-service"]
+    restart: always
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - AUTH_GRPC_LISTEN=:50051
+    expose:
+      - "50051"
+    networks:
+      - gpteam-network
+
   app:
     build: .
     container_name: gpteam-server
@@ -61,11 +80,13 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
+      auth:
+        condition: service_started
     read_only: true
     security_opt:
       - no-new-privileges:true
-    expose:
-      - "8080"
+    ports:
+     - "8080:8080"
     volumes:
       - ./static:/app/static
       - ./logs:/app/log
@@ -76,6 +97,7 @@ services:
       - POSTGRES_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - AUTH_GRPC_ADDR=auth:50051
     networks:
       - gpteam-network
 

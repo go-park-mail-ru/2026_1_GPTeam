@@ -61,9 +61,8 @@ func TestJwtAuthService_GenerateNewAuth(t *testing.T) {
 				jwtUseCase.EXPECT().GenerateRefreshToken(gomock.Any(), 42, "pass").Return("", errors.New("error"))
 			},
 			checkReq: func(t *testing.T, w *httptest.ResponseRecorder) {
-				cookies := w.Result().Cookies()
-				require.Len(t, cookies, 1)
-				require.Equal(t, TokenName, cookies[0].Name)
+				// Cookies выставляются атомарно в конце; при ошибке refresh не отдаём access без refresh.
+				require.Empty(t, w.Result().Cookies())
 			},
 		},
 	}

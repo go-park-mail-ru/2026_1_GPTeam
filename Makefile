@@ -1,5 +1,9 @@
 EXCLUDE_DIRS := grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '/web_helpers' | grep -vE '/pkg$$' | grep -vE 'github.com/go-park-mail-ru/2026_1_GPTeam$$'
 
+.PHONY: proto
+proto:
+	protoc --go_out=. --go_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam --go-grpc_out=. --go-grpc_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam proto/auth/v1/auth.proto
+
 .PHONY: mocks
 mocks:
 	@echo "Генерация моков для application..."

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -10,18 +11,20 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	groq "github.com/go-park-mail-ru/2026_1_GPTeam/internal/clients/groq"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
+	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/gomodule/redigo/redis"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -77,6 +80,35 @@ func main() {
 		zap.String("proxy", proxyURLStr),
 	)
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtVersion := os.Getenv("JWT_VERSION")
+	if len(strings.TrimSpace(jwtSecret)) < 8 {
+		log.Fatal("JWT_SECRET must be at least 8 characters")
+	}
+	if jwtVersion == "" {
+		log.Fatal("JWT_VERSION is required")
+	}
+
+	authGrpcAddr := os.Getenv("AUTH_GRPC_ADDR")
+	if authGrpcAddr == "" {
+		authGrpcAddr = "localhost:50051"
+	}
+	authConn, err := grpc.NewClient(
+		authGrpcAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			d := net.Dialer{Timeout: 10 * time.Second}
+			return d.DialContext(ctx, "tcp4", addr)
+		}),
+	)
+	if err != nil {
+		log.Fatal("auth gRPC dial", zap.String("addr", authGrpcAddr), zap.Error(err))
+		return
+	}
+	defer authConn.Close()
+	authClient := authv1.NewAuthServiceClient(authConn)
+	authService := auth.NewGrpcAuthAdapter(authClient, jwtSecret, jwtVersion)
+
 	user := os.Getenv("POSTGRES_USER")
 	password := os.Getenv("POSTGRES_PASSWORD")
 	host := os.Getenv("POSTGRES_HOST")
@@ -105,7 +137,6 @@ func main() {
 	}
 	userPostgres := repository.NewUserPostgres(pool)
 	budgetPostgres := repository.NewBudgetPostgres(pool)
-	jwtPostgres := repository.NewJwtPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
 	accountPostgres := repository.NewAccountPostgres(pool)
 	supportPostgres := repository.NewPostgresSupport(pool)
@@ -113,12 +144,6 @@ func main() {
 
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres, enumsApp)
-	jwtService, err := jwt_auth.NewJwt(jwtPostgres, os.Getenv("JWT_SECRET"), os.Getenv("JWT_VERSION"))
-	if err != nil {
-		log.Fatal("Failed to create JWT service", zap.Error(err))
-		return
-	}
-	authService := auth.NewJwtAuthService(jwtService)
 	csrfService, err := secure.NewCsrf(os.Getenv("CSRF_SECRET"))
 	if err != nil {
 		return
@@ -225,7 +250,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 120 * time.Second,
 	}
-	log.Info("starting server", zap.String("addr", addr))
+	log.Info("starting server", zap.String("addr", addr), zap.String("auth_grpc", authGrpcAddr))
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))

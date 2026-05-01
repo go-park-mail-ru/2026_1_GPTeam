@@ -66,36 +66,7 @@ func (obj *Jwt) parseToken(tokenStr string) (*jwt.Token, error) {
 }
 
 func (obj *Jwt) CheckToken(tokenStr string) (bool, int) {
-	log := logger.GetLogger()
-	token, err := obj.parseToken(tokenStr)
-	if err != nil {
-		return false, -1
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		log.Warn("invalid token (unable to claim payload)")
-		return false, -1
-	}
-
-	version, ok := claims["version"].(string)
-	if !ok {
-		log.Warn("invalid token (unable to claim version)")
-		return false, -1
-	}
-	curVersion := obj.GetVersion()
-	if version != curVersion {
-		log.Warn("invalid token (invalid version)")
-		return false, -1
-	}
-
-	userIdFloat, ok := claims["user_id"].(float64)
-	userId := int(userIdFloat)
-	if !ok {
-		log.Warn("invalid token (unable to claim user_id)")
-		return false, -1
-	}
-	return true, userId
+	return ValidateAccessToken(tokenStr, obj.GetJWTSecret(), obj.GetVersion())
 }
 
 func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, int) {

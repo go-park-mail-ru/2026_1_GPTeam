@@ -6,11 +6,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o main ./main.go
+RUN mkdir -p /out && go build -o /out/app . && go build -o /out/auth-service ./cmd/auth
 
 FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/main .
-RUN chmod +x main
+COPY --from=builder /out/app ./app
+COPY --from=builder /out/auth-service ./auth-service
+RUN chmod +x app auth-service
 COPY .env .
-CMD ["./main"]
+CMD ["./app"]

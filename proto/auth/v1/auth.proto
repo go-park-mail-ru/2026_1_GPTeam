@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1;authv1";
+
+// Сервис выдачи и проверки JWT
+service AuthService {
+  rpc IssueTokens(IssueTokensRequest) returns (IssueTokensResponse);
+  rpc ValidateAccess(ValidateAccessRequest) returns (ValidateAccessResponse);
+  rpc Refresh(RefreshRequest) returns (RefreshResponse);
+  rpc Revoke(RevokeRequest) returns (RevokeResponse);
+}
+
+message IssueTokensRequest {
+  int32 user_id = 1;
+  string device_id = 2;
+}
+
+message IssueTokensResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message ValidateAccessRequest {
+  string access_token = 1;
+}
+
+message ValidateAccessResponse {
+  bool valid = 1;
+  int32 user_id = 2;
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+  string device_id = 2;
+}
+
+message RefreshResponse {
+  bool valid = 1;
+  int32 user_id = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+}
+
+message RevokeRequest {
+  string refresh_token = 1;
+}
+
+message RevokeResponse {}
