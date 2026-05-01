@@ -2,10 +2,12 @@ package application
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/currency_converter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -20,18 +22,56 @@ type BudgetUseCase interface {
 }
 
 type Budget struct {
-	repository repository.BudgetRepository
+	repository     repository.BudgetRepository
+	transactionApp TransactionUseCase
+	accountApp     AccountUseCase
 }
 
-func NewBudget(repository repository.BudgetRepository) *Budget {
+func NewBudget(repository repository.BudgetRepository, transactionApp TransactionUseCase, accountApp AccountUseCase) *Budget {
 	return &Budget{
-		repository: repository,
+		repository:     repository,
+		transactionApp: transactionApp,
+		accountApp:     accountApp,
 	}
 }
 
 func (obj *Budget) Create(ctx context.Context, budget models.BudgetModel, categories []string) (int, error) {
 	loc := time.FixedZone("UTC+3", 3*60*60)
 	budget.CreatedAt = time.Date(budget.CreatedAt.Year(), budget.CreatedAt.Month(), budget.CreatedAt.Day(), 0, 0, 0, 0, loc)
+	var actual float64
+	for _, category := range categories {
+		var filter repository.TransactionFilters
+		if budget.EndAt.IsZero() {
+			filter = repository.TransactionFilters{
+				StartDate: &budget.StartAt,
+				Category:  &category,
+			}
+		} else {
+			filter = repository.TransactionFilters{
+				StartDate: &budget.StartAt,
+				EndDate:   &budget.EndAt,
+				Category:  &category,
+			}
+		}
+		transactions, err := obj.transactionApp.Search(ctx, budget.Author, filter)
+		if err != nil {
+			if !errors.Is(err, repository.NothingInTableError) {
+				return 0, err
+			}
+		}
+		for _, transaction := range transactions {
+			currency, err := obj.accountApp.GetCurrencyByAccountId(ctx, transaction.AccountId)
+			if err != nil {
+				return 0, err
+			}
+			if transaction.Type == "INCOME" {
+				actual -= currency_converter.ConvertToRub(transaction.Value, currency)
+			} else {
+				actual += currency_converter.ConvertToRub(transaction.Value, currency)
+			}
+		}
+	}
+	budget.Actual = max(0, actual)
 	id, err := obj.repository.Create(ctx, budget)
 	if err != nil {
 		return 0, err
