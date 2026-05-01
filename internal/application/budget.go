@@ -38,40 +38,11 @@ func NewBudget(repository repository.BudgetRepository, transactionApp Transactio
 func (obj *Budget) Create(ctx context.Context, budget models.BudgetModel, categories []string) (int, error) {
 	loc := time.FixedZone("UTC+3", 3*60*60)
 	budget.CreatedAt = time.Date(budget.CreatedAt.Year(), budget.CreatedAt.Month(), budget.CreatedAt.Day(), 0, 0, 0, 0, loc)
-	var actual float64
-	for _, category := range categories {
-		var filter repository.TransactionFilters
-		if budget.EndAt.IsZero() {
-			filter = repository.TransactionFilters{
-				StartDate: &budget.StartAt,
-				Category:  &category,
-			}
-		} else {
-			filter = repository.TransactionFilters{
-				StartDate: &budget.StartAt,
-				EndDate:   &budget.EndAt,
-				Category:  &category,
-			}
-		}
-		transactions, err := obj.transactionApp.Search(ctx, budget.Author, filter)
-		if err != nil {
-			if !errors.Is(err, repository.NothingInTableError) {
-				return 0, err
-			}
-		}
-		for _, transaction := range transactions {
-			currency, err := obj.accountApp.GetCurrencyByAccountId(ctx, transaction.AccountId)
-			if err != nil {
-				return 0, err
-			}
-			if transaction.Type == "INCOME" {
-				actual -= currency_converter.ConvertToRub(transaction.Value, currency)
-			} else {
-				actual += currency_converter.ConvertToRub(transaction.Value, currency)
-			}
-		}
+	actual, err := calculateActual(ctx, budget, categories, obj.transactionApp, obj.accountApp)
+	if err != nil {
+		return 0, err
 	}
-	budget.Actual = max(0, actual)
+	budget.Actual = actual
 	id, err := obj.repository.Create(ctx, budget)
 	if err != nil {
 		return 0, err
@@ -117,4 +88,35 @@ func (obj *Budget) GetBudgetsOfUser(ctx context.Context, user models.UserModel) 
 
 func (obj *Budget) IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool {
 	return user.Id == budget.Author
+}
+
+func calculateActual(ctx context.Context, budget models.BudgetModel, categories []string, transactionApp TransactionUseCase, accountApp AccountUseCase) (float64, error) {
+	var actual float64
+	for _, category := range categories {
+		filter := repository.TransactionFilters{
+			StartDate: &budget.StartAt,
+			Category:  &category,
+		}
+		if !budget.EndAt.IsZero() {
+			filter.EndDate = &budget.EndAt
+		}
+		transactions, err := transactionApp.Search(ctx, budget.Author, filter)
+		if err != nil {
+			if !errors.Is(err, repository.NothingInTableError) {
+				return 0, err
+			}
+		}
+		for _, transaction := range transactions {
+			currency, err := accountApp.GetCurrencyByAccountId(ctx, transaction.AccountId)
+			if err != nil {
+				return 0, err
+			}
+			if transaction.Type == "INCOME" {
+				actual -= currency_converter.ConvertToRub(transaction.Value, currency)
+			} else {
+				actual += currency_converter.ConvertToRub(transaction.Value, currency)
+			}
+		}
+	}
+	return max(0, actual), nil
 }

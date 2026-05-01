@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	appmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks" // Используем мок репозитория!
@@ -20,7 +21,9 @@ func TestBudget_Create(t *testing.T) {
 
 	// Юзкейс тестируется через мок репозитория
 	repo := mocks.NewMockBudgetRepository(ctrl)
-	useCase := NewBudget(repo)
+	transactionApp := appmocks.NewMockTransactionUseCase(ctrl)
+	accountApp := appmocks.NewMockAccountUseCase(ctrl)
+	useCase := NewBudget(repo, transactionApp, accountApp)
 
 	loc := time.FixedZone("UTC+3", 3*60*60)
 	now := time.Now()
@@ -40,6 +43,7 @@ func TestBudget_Create(t *testing.T) {
 			}
 			return 1, nil
 		})
+		transactionApp.EXPECT().Search(gomock.Any(), gomock.Any(), gomock.Any()).Return([]models.TransactionModel{}, nil)
 		repo.EXPECT().LinkBudgetAndCategory(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		id, err := useCase.Create(context.Background(), budget, []string{"Зарплата"})
@@ -52,6 +56,7 @@ func TestBudget_Create(t *testing.T) {
 		repo.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, b models.BudgetModel) (int, error) {
 			return 1, nil
 		})
+		transactionApp.EXPECT().Search(gomock.Any(), gomock.Any(), gomock.Any()).Return([]models.TransactionModel{}, nil)
 		repo.EXPECT().LinkBudgetAndCategory(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, budgetId int, category string) error {
 			if category == "" {
 				return errors.New("category is empty")
@@ -70,7 +75,9 @@ func TestBudget_GetById(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mocks.NewMockBudgetRepository(ctrl)
-	useCase := NewBudget(repo)
+	transactionApp := appmocks.NewMockTransactionUseCase(ctrl)
+	accountApp := appmocks.NewMockAccountUseCase(ctrl)
+	useCase := NewBudget(repo, transactionApp, accountApp)
 
 	user := models.UserModel{Id: 7}
 	budget := models.BudgetModel{Id: 1, Author: 7, Title: "Budget"}
@@ -108,7 +115,9 @@ func TestBudget_Delete(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mocks.NewMockBudgetRepository(ctrl)
-	useCase := NewBudget(repo)
+	transactionApp := appmocks.NewMockTransactionUseCase(ctrl)
+	accountApp := appmocks.NewMockAccountUseCase(ctrl)
+	useCase := NewBudget(repo, transactionApp, accountApp)
 
 	user := models.UserModel{Id: 7}
 	budget := models.BudgetModel{Id: 1, Author: 7}
@@ -138,7 +147,9 @@ func TestBudget_GetBudgetsOfUser(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := mocks.NewMockBudgetRepository(ctrl)
-	useCase := NewBudget(repo)
+	transactionApp := appmocks.NewMockTransactionUseCase(ctrl)
+	accountApp := appmocks.NewMockAccountUseCase(ctrl)
+	useCase := NewBudget(repo, transactionApp, accountApp)
 
 	user := models.UserModel{Id: 7}
 	expectedIds := []int{1, 2}
