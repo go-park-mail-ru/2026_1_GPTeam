@@ -2,12 +2,13 @@ on:
   push:
     branches:
       - "main"
-      - "dev"
-      - "deploy"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
     steps:
       - name: Deploy
         uses: appleboy/ssh-action@v1
@@ -21,6 +22,5 @@ jobs:
             git pull
             cd ../
             docker compose down
-            docker compose up -d --build
-            sleep 10
+            docker compose up -d --build --wait
             docker compose ps
