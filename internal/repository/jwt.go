@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -source=jwt.go -destination=mocks/jwt.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=jwt.go -destination=mocks/mock_jwt.go -package=mocks
 type JwtRepository interface {
 	Create(ctx context.Context, token models.RefreshTokenModel) error
 	DeleteByUuid(ctx context.Context, uuid string) error
@@ -32,7 +32,7 @@ func NewJwtPostgres(db DB) *JwtPostgres {
 }
 
 func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenModel) error {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `insert into jwt (uuid, user_id, expired_at) values ($1, $2, $3);`
 	args := []any{
 		token.Uuid,
@@ -66,7 +66,7 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 }
 
 func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `delete from jwt where uuid = $1;`
 	args := []any{uuid}
 	startTime := time.Now()
@@ -88,7 +88,7 @@ func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
 }
 
 func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `delete from jwt where user_id = $1;`
 	args := []any{userID}
 	startTime := time.Now()
@@ -110,7 +110,7 @@ func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 }
 
 func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTokenModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	query := `select user_id, expired_at from jwt where uuid = $1;`
 	args := []any{uuid}
 	token := models.RefreshTokenModel{Uuid: uuid}

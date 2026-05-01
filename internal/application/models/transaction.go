@@ -9,7 +9,6 @@ type TransactionModel struct {
 	Value           float64
 	Type            string
 	Category        string
-	Currency        string
 	Title           string
 	Description     string
 	CreatedAt       time.Time
@@ -23,7 +22,6 @@ type TransactionDraft struct {
 	Value       float64   `json:"value"`
 	Type        string    `json:"type"`
 	Category    string    `json:"category"`
-	Currency    string    `json:"currency"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	RecordedAt  time.Time `json:"recorded_at"`

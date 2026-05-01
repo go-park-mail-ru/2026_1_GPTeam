@@ -6,10 +6,10 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
 
-//go:generate mockgen -source=voice_transaction.go -destination=mocks/voice_transaction.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=voice_transaction.go -destination=mocks/mock_voice_transaction.go -package=mocks
 type AIConsultantClient interface {
 	Transcribe(ctx context.Context, audioData []byte, filename string) (string, error)
-	ParseTransaction(ctx context.Context, transcript string, types, categories, currencies []string) (*models.TransactionDraft, error)
+	ParseTransaction(ctx context.Context, transcript string, types, categories []string) (*models.TransactionDraft, error)
 }
 
 type VoiceTransactionUseCase interface {
@@ -39,7 +39,6 @@ func (s *VoiceTransactionService) CreateVoiceTransaction(ctx context.Context, au
 		transcript,
 		s.enums.GetTransactionTypes(),
 		s.enums.GetCategoryTypes(),
-		s.enums.GetCurrencyCodes(),
 	)
 	if err != nil {
 		return nil, err

@@ -30,7 +30,7 @@ func NewVoiceHandler(voiceSvc application.VoiceTransactionUseCase, es applicatio
 
 func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("voice: create transaction request")
 
 	_, ok := web_helpers.GetAuthUser(r)
@@ -103,15 +103,13 @@ func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Req
 		Value:           draft.Value,
 		Type:            draft.Type,
 		Category:        draft.Category,
-		Currency:        draft.Currency,
 		TransactionDate: draft.Date,
 	}
 
-	validationErrors := validators.ValidateTransaction(
+	validationErrors := validators.ValidateTransactionDraft(
 		valReq,
 		h.enumsApp.GetTransactionTypes(),
 		h.enumsApp.GetCategoryTypes(),
-		h.enumsApp.GetCurrencyCodes(),
 	)
 
 	if len(validationErrors) > 0 {
@@ -129,7 +127,6 @@ func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Req
 		Value:       draft.Value,
 		Type:        draft.Type,
 		Category:    draft.Category,
-		Currency:    draft.Currency,
 		Title:       draft.Title,
 		Description: draft.Description,
 		RecordedAt:  draft.RecordedAt,

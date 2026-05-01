@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/stretchr/testify/require"
 
@@ -226,6 +227,192 @@ func TestAccountPostgres_GetAccountIdByUserId(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, c.expectedId, id)
 			}
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestAccountPostgres_GetAllAccountsByUserIdWithBalance(t *testing.T) {
+	now := time.Now()
+	testCases := []struct {
+		name      string
+		setupMock func(mock pgxmock.PgxPoolIface)
+		userId    int
+		accounts  []models.AccountModel
+		income    []float64
+		expense   []float64
+		err       error
+	}{
+		{
+			name: "ok",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`^select account\.id, name, balance, currency, account\.created_at, account\.updated_at, coalesce\(income, 0\) as income, coalesce\(expenses, 0\) as expenses.*where account_user\.user_id = \$1`).
+					WithArgs(pgxmock.AnyArg()).
+					WillReturnRows(pgxmock.NewRows([]string{"id", "name", "balance", "currency", "created_at", "updated_at", "income", "expenses"}).
+						AddRow(1, "a", 100.0, "RUB", now, now, 19.5, 3.0).
+						AddRow(2, "b", 42.0, "RUB", now, now.Add(time.Hour), 27.0, 1.0),
+					)
+			},
+			userId: 1,
+			accounts: []models.AccountModel{
+				{
+					Id:        1,
+					Name:      "a",
+					Balance:   100,
+					Currency:  "RUB",
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
+				{
+					Id:        2,
+					Name:      "b",
+					Balance:   42,
+					Currency:  "RUB",
+					CreatedAt: now,
+					UpdatedAt: now.Add(time.Hour),
+				},
+			},
+			income:  []float64{19.5, 27},
+			expense: []float64{3, 1},
+			err:     nil,
+		},
+		{
+			name: "empty",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`^select account\.id, name, balance, currency, account\.created_at, account\.updated_at, coalesce\(income, 0\) as income, coalesce\(expenses, 0\) as expenses.*where account_user\.user_id = \$1`).
+					WithArgs(pgxmock.AnyArg()).
+					WillReturnRows(pgxmock.NewRows([]string{"id", "name", "balance", "currency", "created_at", "updated_at", "income", "expenses"}))
+			},
+			userId:   1,
+			accounts: []models.AccountModel{},
+			income:   []float64{},
+			expense:  []float64{},
+			err:      NothingInTableError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			repo, mock := newAccountPostgres(t)
+			testCase.setupMock(mock)
+			accounts, income, expense, err := repo.GetAllAccountsByUserIdWithBalance(context.Background(), testCase.userId)
+			require.Equal(t, testCase.accounts, accounts)
+			require.Equal(t, testCase.income, income)
+			require.Equal(t, testCase.expense, expense)
+			require.ErrorIs(t, err, testCase.err)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestAccountPostgres_GetAllAccountsByUserId(t *testing.T) {
+	now := time.Now()
+	testCases := []struct {
+		name      string
+		setupMock func(mock pgxmock.PgxPoolIface)
+		userId    int
+		accounts  []models.AccountModel
+		err       error
+	}{
+		{
+			name: "ok",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("select account.id, name, balance, currency, created_at, updated_at from account").
+					WithArgs(pgxmock.AnyArg()).
+					WillReturnRows(pgxmock.NewRows([]string{"id", "name", "balance", "currency", "created_at", "updated_at"}).
+						AddRow(1, "a", 100.0, "RUB", now, now),
+					)
+			},
+			userId: 1,
+			accounts: []models.AccountModel{
+				{
+					Id:        1,
+					Name:      "a",
+					Balance:   100,
+					Currency:  "RUB",
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "empty",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("select account.id, name, balance, currency, created_at, updated_at from account").
+					WithArgs(pgxmock.AnyArg()).
+					WillReturnRows(pgxmock.NewRows([]string{"id", "name", "balance", "currency", "created_at", "updated_at"}))
+			},
+			userId:   1,
+			accounts: []models.AccountModel{},
+			err:      NothingInTableError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			repo, mock := newAccountPostgres(t)
+			testCase.setupMock(mock)
+			accounts, err := repo.GetAllAccountsByUserId(context.Background(), testCase.userId)
+			require.ErrorIs(t, err, testCase.err)
+			require.Equal(t, testCase.accounts, accounts)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestAccountPostgres_GetById(t *testing.T) {
+	now := time.Now()
+	testCases := []struct {
+		name      string
+		setupMock func(mock pgxmock.PgxPoolIface)
+		id        int
+		account   models.AccountModel
+		err       error
+	}{
+		{
+			name: "ok",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("select name, balance, currency, created_at, updated_at from account").
+					WithArgs(pgxmock.AnyArg()).
+					WillReturnRows(pgxmock.NewRows([]string{"name", "balance", "currency", "created_at", "updated_at"}).
+						AddRow("a", 100.0, "RUB", now, now),
+					)
+			},
+			id: 1,
+			account: models.AccountModel{
+				Id:        1,
+				Name:      "a",
+				Balance:   100,
+				Currency:  "RUB",
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			err: nil,
+		},
+		{
+			name: "fail",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("select name, balance, currency, created_at, updated_at from account").
+					WithArgs(pgxmock.AnyArg()).
+					WillReturnError(pgx.ErrNoRows)
+			},
+			id:      1,
+			account: models.AccountModel{},
+			err:     NothingInTableError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			repo, mock := newAccountPostgres(t)
+			testCase.setupMock(mock)
+			account, err := repo.GetById(context.Background(), testCase.id)
+			require.ErrorIs(t, err, testCase.err)
+			require.Equal(t, testCase.account, account)
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}

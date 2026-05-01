@@ -3,6 +3,10 @@ package validators
 import "fmt"
 
 var (
+	MinLengthError = fmt.Errorf("текст слишком короткий")
+	MaxLengthError = fmt.Errorf("текст слишком длинный")
+	NoEqualsError  = fmt.Errorf("значения не совпадают")
+
 	ServerError = fmt.Errorf("ошибка сервера")
 
 	UsernameShortError        = fmt.Errorf("логин должен быть минимум 3 символа")
@@ -24,9 +28,9 @@ var (
 	ValueIsNegativeError = fmt.Errorf("значение не может быть меньше нуля")
 	ValueIsBigError      = fmt.Errorf("значение не может быть больше 1e12")
 
-	TransactionTypeNotAllowedError     = fmt.Errorf("тип транзакции не поддерживается")
-	TransactionCategoryNotAllowedError = fmt.Errorf("категория транзакции не поддерживается")
-	TransactionTitleEmptyError         = fmt.Errorf("заголовок пустой")
-	TransactionTitleLongError          = fmt.Errorf("заголовок не может быть длиннее 255 символов")
-	TransactionDescriptionEmptyError   = fmt.Errorf("описание пустое")
+	TransactionTypeNotAllowedError   = fmt.Errorf("тип транзакции не поддерживается")
+	CategoryNotAllowedError          = fmt.Errorf("категория не поддерживается")
+	TransactionTitleEmptyError       = fmt.Errorf("заголовок пустой")
+	TransactionTitleLongError        = fmt.Errorf("заголовок не может быть длиннее 255 символов")
+	TransactionDescriptionEmptyError = fmt.Errorf("описание пустое")
 )

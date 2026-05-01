@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//go:generate mockgen -source=user.go -destination=mocks/user.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=user.go -destination=mocks/mock_user.go -package=mocks
 type UserUseCase interface {
 	Create(ctx context.Context, user web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error)
 	GetById(ctx context.Context, id int) (*models.UserModel, error)
@@ -25,7 +25,7 @@ type UserUseCase interface {
 	UpdateLastLogin(ctx context.Context, userId int) error
 	Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error)
 	UploadAvatar(ctx context.Context, UserID int, file io.Reader, extension string) (string, error)
-	GetUserBalance(ctx context.Context, userId int) ([]models.CurrencyStat, error)
+	IsStaff(ctx context.Context, userId int) (bool, error)
 }
 type User struct {
 	repository repository.UserRepository
@@ -40,7 +40,7 @@ func NewUser(repo repository.UserRepository, enumsApp EnumsUseCase) *User {
 }
 
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper (на будущее, так как надо сделать поддержку старых перцов и плавную миграцию на новый перец)
 	if err != nil {
 		log.Warn("failed to hash password",
@@ -74,7 +74,7 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 }
 
 func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, extension string) (string, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	avatarUrl := uuid.New().String() + extension
 	filePath := filepath.Join("./static", avatarUrl)
 	dst, err := os.Create(filePath)
@@ -105,7 +105,7 @@ func (obj *User) GetById(ctx context.Context, id int) (*models.UserModel, error)
 }
 
 func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBodyRequest) (*models.UserModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	storedUser, err := obj.repository.GetByUsername(ctx, user.Username)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (obj *User) GetByCredentials(ctx context.Context, user web_helpers.LoginBod
 }
 
 func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) (web_helpers.User, bool) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	if !isAuth {
 		log.Warn("user is not authorized",
 			zap.Int("user_id", userId))
@@ -131,6 +131,7 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 		return web_helpers.User{}, false
 	}
 	user := web_helpers.User{
+		Id:        storedUser.Id,
 		Username:  storedUser.Username,
 		Email:     storedUser.Email,
 		CreatedAt: storedUser.CreatedAt,
@@ -140,7 +141,7 @@ func (obj *User) IsAuthUserExists(ctx context.Context, isAuth bool, userId int) 
 }
 
 func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	err := obj.repository.UpdateLastLogin(ctx, userId, time.Now())
 	if err != nil {
 		log.Warn("failed to update last login",
@@ -152,7 +153,7 @@ func (obj *User) UpdateLastLogin(ctx context.Context, userId int) error {
 }
 
 func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (*models.UserModel, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	if profile.Password != nil {
 		bytes, err := bcrypt.GenerateFromPassword([]byte(*profile.Password), bcrypt.DefaultCost)
 		if err != nil {
@@ -167,27 +168,10 @@ func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (
 	return obj.repository.Update(ctx, profile)
 }
 
-func (obj *User) GetUserBalance(ctx context.Context, userId int) ([]models.CurrencyStat, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
-
-	currencies := obj.enumsApp.GetCurrencyCodes()
-
-	stats := make([]models.CurrencyStat, 0, len(currencies))
-
-	for _, curr := range currencies {
-		inc, exp, err := obj.repository.GetBalanceByCurrency(ctx, userId, curr)
-		if err != nil {
-			log.Error("failed to get currency stats", zap.String("currency", curr), zap.Error(err))
-			return nil, err
-		}
-		stats = append(stats, models.CurrencyStat{
-			Currency: curr,
-			Income:   inc,
-			Expenses: exp,
-			Balance:  inc - exp,
-		})
+func (obj *User) IsStaff(ctx context.Context, userId int) (bool, error) {
+	user, err := obj.GetById(ctx, userId)
+	if err != nil {
+		return false, err
 	}
-
-	log.Info("calculated user balance stats", zap.Int("user_id", userId))
-	return stats, nil
+	return user.IsStaff, nil
 }

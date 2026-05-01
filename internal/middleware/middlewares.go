@@ -59,7 +59,7 @@ func NoDirListing(next http.Handler) http.Handler {
 
 func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, userApp application.UserUseCase) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log := logger.GetLoggerWIthRequestId(r.Context())
+		log := logger.GetLoggerWithRequestId(r.Context())
 		path := r.URL.Path
 		log.Info("[auth middleware] checking",
 			zap.String("path", path))
@@ -159,11 +159,11 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 
 func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/auth/") {
+		if strings.HasPrefix(r.URL.Path, "/auth/") || strings.HasPrefix(r.URL.Path, "/support/") {
 			next.ServeHTTP(w, r)
 			return
 		}
-		log := logger.GetLoggerWIthRequestId(r.Context())
+		log := logger.GetLoggerWithRequestId(r.Context())
 		if !csrfService.ValidateSecFetchSite(r) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -212,7 +212,7 @@ func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Hand
 
 func RateLimitMiddleware(next http.Handler, rateLimiter rate_limiter.RateLimiterInterface) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log := logger.GetLoggerWIthRequestId(r.Context())
+		log := logger.GetLoggerWithRequestId(r.Context())
 		ip, err := rate_limiter.GetRealIp(r)
 		if err != nil {
 			log.Warn("[rate limit middleware] unable to get ip - return")
@@ -240,6 +240,41 @@ func RateLimitMiddleware(next http.Handler, rateLimiter rate_limiter.RateLimiter
 				zap.String("ip", ip))
 			rateLimiter.BlockIp(r.Context(), ip)
 			response := web_helpers.NewTooManyRequestsResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func CSPMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		secure.AddCSPHeader(w)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func OnlyStaffMiddleware(next http.Handler, userApp application.UserUseCase) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log := logger.GetLoggerWithRequestId(r.Context())
+		authUser, ok := web_helpers.GetAuthUser(r)
+		if !ok {
+			log.Warn("user unauthorized")
+			response := web_helpers.NewUnauthorizedErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		isStaff, err := userApp.IsStaff(r.Context(), authUser.Id)
+		if err != nil {
+			log.Warn("[Only Staff middleware] failed to get user", zap.Error(err))
+			response := web_helpers.NewInternalServerErrorResponse()
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if !isStaff {
+			log.Warn("[Only Staff middleware] user is not staff",
+				zap.Int("user_id", authUser.Id))
+			response := web_helpers.NewNotFoundErrorResponse("Страницы не существует")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}

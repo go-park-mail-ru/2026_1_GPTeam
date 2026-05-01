@@ -32,7 +32,7 @@ func NewJwtAuthService(useCase jwt_auth.JwtUseCase) *JwtAuthService {
 }
 
 func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseWriter, userId int) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("generating new auth for user",
 		zap.Int("user_id", userId))
 	token, err := obj.jwt.GenerateToken(userId)
@@ -70,7 +70,7 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 }
 
 func (obj *JwtAuthService) GetAuthCookie(ctx context.Context, r *http.Request) (*http.Cookie, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	cookie, err := r.Cookie(TokenName)
 	if err != nil {
 		log.Warn("failed to get token cookie",
@@ -80,7 +80,7 @@ func (obj *JwtAuthService) GetAuthCookie(ctx context.Context, r *http.Request) (
 }
 
 func (obj *JwtAuthService) GetRefreshToken(ctx context.Context, r *http.Request) (*http.Cookie, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	cookie, err := r.Cookie(RefreshTokenName)
 	if err != nil {
 		log.Warn("failed to get refresh token cookie",
@@ -90,7 +90,7 @@ func (obj *JwtAuthService) GetRefreshToken(ctx context.Context, r *http.Request)
 }
 
 func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, int) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("checking if user authenticated")
 	cookie, err := obj.GetAuthCookie(ctx, r)
 	if err != nil {
@@ -102,7 +102,7 @@ func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, i
 }
 
 func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("clear old token cookie")
 	cookie, err := obj.GetRefreshToken(ctx, r)
 	if err == nil {
@@ -135,7 +135,7 @@ func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, 
 }
 
 func (obj *JwtAuthService) Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, int) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("refresh token cookie")
 	cookie, err := obj.GetRefreshToken(ctx, r)
 	if err != nil {

@@ -77,6 +77,7 @@ type AuthUser struct {
 }
 
 type User struct {
+	Id        int       `json:"id,omitempty"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
@@ -92,6 +93,7 @@ type BudgetRequest struct {
 	Actual      int       `json:"actual"`
 	Target      int       `json:"target"`
 	Currency    string    `json:"currency"`
+	Category    []string  `json:"category"`
 }
 
 type CurrencyBalance struct {
@@ -365,7 +367,6 @@ type TransactionRequest struct {
 	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
-	Currency        string    `json:"currency"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
 	TransactionDate time.Time `json:"transaction_date"`
@@ -401,6 +402,13 @@ func NewTransactionDeleteSuccessResponse(id int) *TransactionDeleteSuccessRespon
 	}
 }
 
+// TransactionWithCurrency — модель транзакции с валютой, полученной из связанного счёта.
+// Используется только на уровне хэндлера, модель TransactionModel не меняется.
+type TransactionWithCurrency struct {
+	models.TransactionModel
+	Currency string
+}
+
 type TransactionResponse struct {
 	Id              int       `json:"id"`
 	UserId          int       `json:"user_id"`
@@ -408,11 +416,27 @@ type TransactionResponse struct {
 	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
-	Currency        string    `json:"currency"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
+	Currency        string    `json:"currency"`
 	CreatedAt       time.Time `json:"created_at"`
 	TransactionDate time.Time `json:"transaction_date"`
+}
+
+func newTransactionResponse(t TransactionWithCurrency) TransactionResponse {
+	return TransactionResponse{
+		Id:              t.Id,
+		UserId:          t.UserId,
+		AccountId:       t.AccountId,
+		Value:           t.Value,
+		Type:            t.Type,
+		Category:        t.Category,
+		Title:           t.Title,
+		Description:     t.Description,
+		Currency:        t.Currency,
+		CreatedAt:       t.CreatedAt,
+		TransactionDate: t.TransactionDate,
+	}
 }
 
 type TransactionDetailSuccessResponse struct {
@@ -420,25 +444,13 @@ type TransactionDetailSuccessResponse struct {
 	Transaction TransactionResponse `json:"transaction"`
 }
 
-func NewTransactionDetailSuccessResponse(transaction models.TransactionModel) *TransactionDetailSuccessResponse {
+func NewTransactionDetailSuccessResponse(t TransactionWithCurrency) *TransactionDetailSuccessResponse {
 	return &TransactionDetailSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
 			Message: "Ok",
 		},
-		Transaction: TransactionResponse{
-			Id:              transaction.Id,
-			UserId:          transaction.UserId,
-			AccountId:       transaction.AccountId,
-			Value:           transaction.Value,
-			Type:            transaction.Type,
-			Category:        transaction.Category,
-			Currency:        transaction.Currency,
-			Title:           transaction.Title,
-			Description:     transaction.Description,
-			CreatedAt:       transaction.CreatedAt,
-			TransactionDate: transaction.TransactionDate,
-		},
+		Transaction: newTransactionResponse(t),
 	}
 }
 
@@ -528,7 +540,6 @@ type TransactionDraftData struct {
 	Value       float64   `json:"value"`
 	Type        string    `json:"type"`
 	Category    string    `json:"category"`
-	Currency    string    `json:"currency"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	RecordedAt  time.Time `json:"recorded_at"`
@@ -565,5 +576,126 @@ func NewTooManyRequestsResponse() TooManyRequestsResponse {
 	return TooManyRequestsResponse{
 		Code:    http.StatusTooManyRequests,
 		Message: "Слишком много запросов",
+	}
+}
+
+type ShortAccount struct {
+	Id      int     `json:"id"`
+	Name    string  `json:"name"`
+	Balance float64 `json:"balance"`
+}
+
+func NewShortAccount(id int, name string, balance float64) ShortAccount {
+	return ShortAccount{
+		Id:      id,
+		Name:    name,
+		Balance: balance,
+	}
+}
+
+type ShortAccountsResponse struct {
+	SimpleResponse
+	Accounts []ShortAccount `json:"accounts"`
+}
+
+func NewShortAccountsResponse(accounts []ShortAccount) ShortAccountsResponse {
+	return ShortAccountsResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "OK",
+		},
+		Accounts: accounts,
+	}
+}
+
+type SupportRequest struct {
+	Category string `json:"category"`
+	Message  string `json:"message"`
+}
+
+type ShortSupport struct {
+	Category string `json:"category"`
+	Message  string `json:"message"`
+}
+
+type SupportsResponse struct {
+	SimpleResponse
+	Supports []SupportResponse `json:"supports"`
+}
+
+func NewSupportsResponse(supports []SupportResponse) SupportsResponse {
+	return SupportsResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "OK",
+		},
+		Supports: supports,
+	}
+}
+
+type SupportResponse struct {
+	Id        int       `json:"id"`
+	Category  string    `json:"category"`
+	Message   string    `json:"message"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	User      User      `json:"user"`
+}
+
+func NewSupportResponse(user User, support models.SupportModel) SupportResponse {
+	return SupportResponse{
+		Id:        support.Id,
+		Category:  support.Category,
+		Message:   support.Message,
+		Status:    support.Status,
+		CreatedAt: support.CreatedAt,
+		User:      user,
+	}
+}
+
+type IsStaffResponse struct {
+	SimpleResponse
+	IsStaff bool `json:"is_staff"`
+}
+
+func NewIsStaffResponse(isStaff bool) IsStaffResponse {
+	return IsStaffResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "OK",
+		},
+		IsStaff: isStaff,
+	}
+}
+
+type UpdateSupportStatusRequest struct {
+	Status string `json:"status"`
+}
+
+type TransactionsSearchResponse struct {
+	SimpleResponse
+	Transactions []TransactionResponse `json:"transactions"`
+}
+
+func NewTransactionsSearchResponse(transactions []TransactionWithCurrency) TransactionsSearchResponse {
+	items := make([]TransactionResponse, 0, len(transactions))
+	for _, t := range transactions {
+		items = append(items, newTransactionResponse(t))
+	}
+	return TransactionsSearchResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Transactions: items,
+	}
+}
+
+type MethodNotAllowedErrorResponse SimpleResponse
+
+func NewMethodNotAllowedErrorResponse() MethodNotAllowedErrorResponse {
+	return MethodNotAllowedErrorResponse{
+		Code:    http.StatusMethodNotAllowed,
+		Message: "Метод не поддерживается",
 	}
 }

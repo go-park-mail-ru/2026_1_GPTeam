@@ -19,7 +19,7 @@ func NewEnumsHandler(enumApp application.EnumsUseCase) *EnumsHandler {
 }
 
 func (obj *EnumsHandler) CurrencyCodes(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get currency codes request")
 	codes := obj.enumApp.GetCurrencyCodes()
 	log.Info("currency codes get success")
@@ -28,7 +28,7 @@ func (obj *EnumsHandler) CurrencyCodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (obj *EnumsHandler) TransactionTypes(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get transaction types request")
 	types := obj.enumApp.GetTransactionTypes()
 	log.Info("transaction types get success")
@@ -37,7 +37,7 @@ func (obj *EnumsHandler) TransactionTypes(w http.ResponseWriter, r *http.Request
 }
 
 func (obj *EnumsHandler) CategoryTypes(w http.ResponseWriter, r *http.Request) {
-	log := logger.GetLoggerWIthRequestId(r.Context())
+	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("get category types request")
 	categories := obj.enumApp.GetCategoryTypes()
 	log.Info("category types get success")

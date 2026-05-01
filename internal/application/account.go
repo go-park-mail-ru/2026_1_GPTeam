@@ -9,12 +9,15 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -source=account.go -destination=mocks/account.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=account.go -destination=mocks/mock_account.go -package=mocks
 type AccountUseCase interface {
 	Create(ctx context.Context, account models.AccountModel) (int, error)
 	LinkAccountAndUser(ctx context.Context, accountId int, userId int) error
 	IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool
 	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
+	GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error)
+	GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
+	GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error)
 }
 
 type Account struct {
@@ -42,7 +45,7 @@ func (obj *Account) LinkAccountAndUser(ctx context.Context, accountId int, userI
 }
 
 func (obj *Account) IsUserAuthorOfAccount(ctx context.Context, userId int, accountId int) bool {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 	ids, err := obj.repository.GetIdsByUserAndAccount(ctx, userId, accountId)
 	if err != nil {
 		return false
@@ -54,4 +57,18 @@ func (obj *Account) IsUserAuthorOfAccount(ctx context.Context, userId int, accou
 		return false
 	}
 	return true
+}
+
+func (obj *Account) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
+	accounts, income, expenses, err := obj.repository.GetAllAccountsByUserIdWithBalance(ctx, userId)
+	return accounts, income, expenses, err
+}
+
+func (obj *Account) GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
+	accounts, err := obj.repository.GetAllAccountsByUserId(ctx, userId)
+	return accounts, err
+}
+
+func (obj *Account) GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error) {
+	return obj.repository.GetCurrencyByAccountId(ctx, accountId)
 }

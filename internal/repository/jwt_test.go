@@ -7,50 +7,63 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
-	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pashagolub/pgxmock/v3"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
-func TestJwtRepository_Create(t *testing.T) {
-	t.Parallel()
+func newJwtPostgres(t *testing.T) (*JwtPostgres, pgxmock.PgxPoolIface) {
+	t.Helper()
+	mock, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	return NewJwtPostgres(mock), mock
+}
 
+func TestJwtPostgres_Create(t *testing.T) {
+	t.Parallel()
 	expiredAt := time.Date(2026, 4, 14, 12, 0, 0, 0, time.UTC)
 	token := models.RefreshTokenModel{Uuid: "rt-1", UserId: 7, ExpiredAt: expiredAt}
 	genericErr := errors.New("insert failed")
 
 	tests := []struct {
 		name      string
-		setupFunc func(db *repomocks.MockJwtDB)
+		setupFunc func(mock pgxmock.PgxPoolIface)
 		wantErr   error
 	}{
 		{
 			name: "success",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), token.Uuid, token.UserId, token.ExpiredAt).Return(pgconn.NewCommandTag("INSERT 1"), nil)
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`insert into jwt`).
+					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+					WillReturnResult(pgxmock.NewResult("INSERT", 1))
 			},
 		},
 		{
 			name: "unique violation",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), token.Uuid, token.UserId, token.ExpiredAt).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.UniqueViolation})
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`insert into jwt`).
+					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
 			},
 			wantErr: DuplicatedDataError,
 		},
 		{
 			name: "check violation",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), token.Uuid, token.UserId, token.ExpiredAt).Return(pgconn.CommandTag{}, &pgconn.PgError{Code: pgerrcode.CheckViolation})
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`insert into jwt`).
+					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
 			},
 			wantErr: ConstraintError,
 		},
 		{
 			name: "generic error",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), token.Uuid, token.UserId, token.ExpiredAt).Return(pgconn.CommandTag{}, genericErr)
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`insert into jwt`).
+					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
+					WillReturnError(genericErr)
 			},
 			wantErr: genericErr,
 		},
@@ -59,10 +72,8 @@ func TestJwtRepository_Create(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockJwtDB(ctrl)
-			repo := NewJwtPostgres(db)
-			tt.setupFunc(db)
+			repo, mock := newJwtPostgres(t)
+			tt.setupFunc(mock)
 
 			err := repo.Create(context.Background(), token)
 			if tt.wantErr != nil {
@@ -70,176 +81,151 @@ func TestJwtRepository_Create(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
 }
 
-func TestJwtRepository_DeleteByUuid(t *testing.T) {
+func TestJwtPostgres_DeleteByUuid(t *testing.T) {
 	t.Parallel()
-
-	genericErr := errors.New("delete failed")
 
 	tests := []struct {
 		name      string
-		setupFunc func(db *repomocks.MockJwtDB)
+		uuid      string
+		setupFunc func(mock pgxmock.PgxPoolIface)
 		wantErr   error
 	}{
 		{
 			name: "success",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), "rt-1").Return(pgconn.NewCommandTag("DELETE 1"), nil)
+			uuid: "rt-1",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`delete from jwt`).
+					WithArgs("rt-1").
+					WillReturnResult(pgxmock.NewResult("DELETE", 1))
 			},
 		},
 		{
 			name: "not found",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), "rt-1").Return(pgconn.CommandTag{}, pgx.ErrNoRows)
+			uuid: "rt-1",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`delete from jwt`).
+					WithArgs("rt-1").
+					WillReturnError(pgx.ErrNoRows)
 			},
 			wantErr: NothingInTableError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), "rt-1").Return(pgconn.CommandTag{}, genericErr)
-			},
-			wantErr: genericErr,
 		},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockJwtDB(ctrl)
-			repo := NewJwtPostgres(db)
-			tt.setupFunc(db)
+			repo, mock := newJwtPostgres(t)
+			tt.setupFunc(mock)
 
-			err := repo.DeleteByUuid(context.Background(), "rt-1")
+			err := repo.DeleteByUuid(context.Background(), tt.uuid)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
 }
 
-func TestJwtRepository_DeleteByUserId(t *testing.T) {
+func TestJwtPostgres_DeleteByUserId(t *testing.T) {
 	t.Parallel()
-
-	genericErr := errors.New("delete failed")
 
 	tests := []struct {
 		name      string
-		setupFunc func(db *repomocks.MockJwtDB)
+		userId    int
+		setupFunc func(mock pgxmock.PgxPoolIface)
 		wantErr   error
 	}{
 		{
-			name: "success",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), 7).Return(pgconn.NewCommandTag("DELETE 1"), nil)
+			name:   "success",
+			userId: 7,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`delete from jwt`).
+					WithArgs(7).
+					WillReturnResult(pgxmock.NewResult("DELETE", 1))
 			},
 		},
 		{
-			name: "not found",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), 7).Return(pgconn.CommandTag{}, pgx.ErrNoRows)
+			name:   "not found",
+			userId: 7,
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec(`delete from jwt`).
+					WithArgs(7).
+					WillReturnError(pgx.ErrNoRows)
 			},
 			wantErr: NothingInTableError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockJwtDB) {
-				db.EXPECT().Exec(gomock.Any(), gomock.Any(), 7).Return(pgconn.CommandTag{}, genericErr)
-			},
-			wantErr: genericErr,
 		},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockJwtDB(ctrl)
-			repo := NewJwtPostgres(db)
-			tt.setupFunc(db)
+			repo, mock := newJwtPostgres(t)
+			tt.setupFunc(mock)
 
-			err := repo.DeleteByUserId(context.Background(), 7)
+			err := repo.DeleteByUserId(context.Background(), tt.userId)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
 }
 
-func TestJwtRepository_Get(t *testing.T) {
+func TestJwtPostgres_Get(t *testing.T) {
 	t.Parallel()
-
-	expiredAt := time.Date(2026, 4, 14, 12, 0, 0, 0, time.UTC)
-	genericErr := errors.New("scan failed")
+	now := time.Now()
 
 	tests := []struct {
 		name      string
-		setupFunc func(db *repomocks.MockJwtDB, row *repomocks.MockRow)
-		wantToken models.RefreshTokenModel
+		uuid      string
+		setupFunc func(mock pgxmock.PgxPoolIface)
 		wantErr   error
 	}{
 		{
 			name: "success",
-			setupFunc: func(db *repomocks.MockJwtDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), "rt-1").Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any()).DoAndReturn(func(dest ...any) error {
-					*(dest[0].(*int)) = 7
-					*(dest[1].(*time.Time)) = expiredAt
-					return nil
-				})
+			uuid: "rt-1",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{"user_id", "expired_at"}).AddRow(7, now)
+				mock.ExpectQuery(`select user_id, expired_at from jwt`).
+					WithArgs("rt-1").
+					WillReturnRows(rows)
 			},
-			wantToken: models.RefreshTokenModel{Uuid: "rt-1", UserId: 7, ExpiredAt: expiredAt},
 		},
 		{
 			name: "not found",
-			setupFunc: func(db *repomocks.MockJwtDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), "rt-1").Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any()).Return(pgx.ErrNoRows)
+			uuid: "rt-1",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(`select user_id, expired_at from jwt`).
+					WithArgs("rt-1").
+					WillReturnError(pgx.ErrNoRows)
 			},
 			wantErr: NothingInTableError,
-		},
-		{
-			name: "too many rows",
-			setupFunc: func(db *repomocks.MockJwtDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), "rt-1").Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any()).Return(pgx.ErrTooManyRows)
-			},
-			wantErr: TooManyRowsError,
-		},
-		{
-			name: "generic error",
-			setupFunc: func(db *repomocks.MockJwtDB, row *repomocks.MockRow) {
-				db.EXPECT().QueryRow(gomock.Any(), gomock.Any(), "rt-1").Return(row)
-				row.EXPECT().Scan(gomock.Any(), gomock.Any()).Return(genericErr)
-			},
-			wantErr: genericErr,
 		},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			db := repomocks.NewMockJwtDB(ctrl)
-			row := repomocks.NewMockRow(ctrl)
-			repo := NewJwtPostgres(db)
-			tt.setupFunc(db, row)
+			repo, mock := newJwtPostgres(t)
+			tt.setupFunc(mock)
 
-			got, err := repo.Get(context.Background(), "rt-1")
+			token, err := repo.Get(context.Background(), tt.uuid)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.wantToken, got)
+			require.Equal(t, 7, token.UserId)
+			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
 }

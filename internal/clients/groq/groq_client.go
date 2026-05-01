@@ -31,13 +31,11 @@ Current date for resolving relative days: %s
 Allowed values (STRICT ENFORCEMENT):
 - Types: %s
 - Categories: %s
-- Currencies: %s
 
 Output schema:
 {
   "value": <number, positive float>,
   "type": <string from allowed types>,
-  "currency": <string from allowed currencies>,
   "category": <string from allowed categories>,
   "title": <string, merchant or item name in NOMINATIVE case, CAPITALIZED>,
   "description": <string, logical sentence in Russian, CAPITALIZED>,
@@ -71,7 +69,6 @@ type groqChatResponse struct {
 type parsedDraft struct {
 	Value       float64 `json:"value"`
 	Type        string  `json:"type"`
-	Currency    string  `json:"currency"`
 	Category    string  `json:"category"`
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
@@ -113,7 +110,7 @@ func NewGroqClient(apiKey, proxyStr string) *GroqClient {
 }
 
 func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename string) (string, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+	log := logger.GetLoggerWithRequestId(ctx)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -212,8 +209,8 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 	return result.Text, nil
 }
 
-func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, types, categories, currencies []string) (*models.TransactionDraft, error) {
-	log := logger.GetLoggerWIthRequestId(ctx)
+func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, types, categories []string) (*models.TransactionDraft, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
 
 	if strings.TrimSpace(transcript) == "" {
 		return nil, fmt.Errorf("empty transcript")
@@ -221,10 +218,9 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 
 	typesStr := strings.Join(types, ", ")
 	categoriesStr := strings.Join(categories, ", ")
-	currenciesStr := strings.Join(currencies, ", ")
 	currentDate := time.Now().Format("2006-01-02")
 
-	systemPrompt := fmt.Sprintf(parserSystemPromptTpl, currentDate, typesStr, categoriesStr, currenciesStr)
+	systemPrompt := fmt.Sprintf(parserSystemPromptTpl, currentDate, typesStr, categoriesStr)
 
 	payload := groqChatRequest{
 		Model: "llama-3.3-70b-versatile",
@@ -301,7 +297,6 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 		Value:       parsed.Value,
 		Type:        parsed.Type,
 		Category:    parsed.Category,
-		Currency:    parsed.Currency,
 		Title:       parsed.Title,
 		Description: parsed.Description,
 		Date:        transactionDate,

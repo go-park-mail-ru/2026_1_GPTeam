@@ -55,17 +55,17 @@ func TestVoiceHandler_CreateVoiceTransaction(t *testing.T) {
 				_, _ = part.Write([]byte("fake audio content"))
 			},
 			setupMocks: func(voiceSvc *mocks.MockVoiceTransactionUseCase, enums *mocks.MockEnumsUseCase) {
+				// ВАЖНО: Оставляем только те моки, которые реально вызываются в хендлере!
 				enums.EXPECT().GetTransactionTypes().Return([]string{"expense"})
 				enums.EXPECT().GetCategoryTypes().Return([]string{"food"})
-				enums.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
+
 				voiceSvc.EXPECT().CreateVoiceTransaction(gomock.Any(), gomock.Any(), "test.wav").
 					Return(&models.TransactionDraft{
 						Title:       "Обед",
-						Description: "Поел в столовой", // Добавлено описание для прохождения валидации
+						Description: "Поел в столовой",
 						Value:       500,
 						Type:        "expense",
 						Category:    "food",
-						Currency:    "RUB",
 						Date:        time.Now(),
 					}, nil)
 			},
@@ -100,7 +100,7 @@ func TestVoiceHandler_CreateVoiceTransaction(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
+		c := c // Для параллельных тестов
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
