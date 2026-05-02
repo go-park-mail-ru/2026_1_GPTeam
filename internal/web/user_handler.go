@@ -22,12 +22,7 @@ type UserHandler struct {
 	accountApp application.AccountUseCase
 }
 
-func NewUserHandler(userApp application.UserUseCase, accountApps ...application.AccountUseCase) *UserHandler {
-	var accountApp application.AccountUseCase
-	if len(accountApps) > 0 {
-		accountApp = accountApps[0]
-	}
-
+func NewUserHandler(userApp application.UserUseCase, accountApp application.AccountUseCase) *UserHandler {
 	return &UserHandler{
 		userApp:    userApp,
 		accountApp: accountApp,

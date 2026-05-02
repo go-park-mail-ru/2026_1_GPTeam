@@ -66,8 +66,6 @@ services:
       - no-new-privileges:true
     expose:
       - "8080"
-    ports:
-      - "8080:8080"
     volumes:
       - ./static:/app/static
       - ./logs:/app/log
