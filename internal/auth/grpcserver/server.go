@@ -41,8 +41,7 @@ func (s *Server) IssueTokens(ctx context.Context, req *authv1.IssueTokensRequest
 	}, nil
 }
 
-func (s *Server) ValidateAccess(ctx context.Context, req *authv1.ValidateAccessRequest) (*authv1.ValidateAccessResponse, error) {
-	_ = ctx
+func (s *Server) ValidateAccess(_ context.Context, req *authv1.ValidateAccessRequest) (*authv1.ValidateAccessResponse, error) {
 	if req.GetAccessToken() == "" {
 		return &authv1.ValidateAccessResponse{Valid: false}, nil
 	}

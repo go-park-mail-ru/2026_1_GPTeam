@@ -78,42 +78,42 @@ func (obj *Jwt) CheckRefreshToken(ctx context.Context, tokenStr string) (bool, i
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		log.Warn("invalid token (unable to claim payload)")
+		log.Error("invalid token (unable to claim payload)")
 		return false, -1
 	}
 
 	version, ok := claims["version"].(string)
 	if !ok {
-		log.Warn("invalid token (unable to claim version)")
+		log.Error("invalid token (unable to claim version)")
 		return false, -1
 	}
 	curVersion := obj.GetVersion()
 	if version != curVersion {
-		log.Warn("invalid token (invalid version)")
+		log.Error("invalid token (invalid version)")
 		return false, -1
 	}
 
 	tokenId, ok := claims["id"].(string)
 	if !ok {
-		log.Warn("invalid token (unable to claim token_id)")
+		log.Error("invalid token (unable to claim token_id)")
 		return false, -1
 	}
 
 	userIdFloat, ok := claims["user_id"].(float64)
 	userId := int(userIdFloat)
 	if !ok {
-		log.Warn("invalid token (unable to claim user_id)")
+		log.Error("invalid token (unable to claim user_id)")
 		return false, -1
 	}
 
 	storedToken, err := obj.repository.Get(ctx, tokenId)
 	if err != nil {
-		log.Warn("failed to get token from db",
+		log.Error("failed to get token from db",
 			zap.Error(err))
 		return false, -1
 	}
 	if storedToken.UserId != userId {
-		log.Warn("invalid token (invalid userId)")
+		log.Error("invalid token (invalid userId)")
 		return false, -1
 	}
 	return true, userId
