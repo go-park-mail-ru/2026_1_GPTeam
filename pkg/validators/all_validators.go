@@ -117,7 +117,7 @@ func validateTargetBudget(target int) error {
 	if target == 0 {
 		return TargetIsZeroError
 	}
-	if target > 1e12 {
+	if target > 1_000_000_000 {
 		return TargetIsBigError
 	}
 	return nil
@@ -127,7 +127,7 @@ func validateActualBudget(actual int) error {
 	if actual < 0 {
 		return ValueIsNegativeError
 	}
-	if actual > 1e12 {
+	if actual > 1_000_000_000 {
 		return ValueIsBigError
 	}
 	return nil

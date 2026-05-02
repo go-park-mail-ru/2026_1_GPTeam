@@ -10,3 +10,15 @@ type AccountModel struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+type AccountCreateModel struct {
+	Name     string
+	Balance  float64
+	Currency string
+}
+
+type AccountUpdateModel struct {
+	Name     *string
+	Balance  *float64
+	Currency *string
+}

@@ -36,7 +36,7 @@ func TestTransactionUseCase_Create(t *testing.T) {
 		{
 			name: "success",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
-				accRepo.EXPECT().GetById(gomock.Any(), tx.AccountId).Return(account, nil)
+				accRepo.EXPECT().GetByAccountId(gomock.Any(), tx.AccountId).Return(account, nil)
 				repo.EXPECT().Create(gomock.Any(), tx, account).Return(101, nil)
 			},
 			wantID: 101,
@@ -44,7 +44,7 @@ func TestTransactionUseCase_Create(t *testing.T) {
 		{
 			name: "repository error",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
-				accRepo.EXPECT().GetById(gomock.Any(), tx.AccountId).Return(account, nil)
+				accRepo.EXPECT().GetByAccountId(gomock.Any(), tx.AccountId).Return(account, nil)
 				repo.EXPECT().Create(gomock.Any(), tx, account).Return(0, repository.DuplicatedDataError)
 			},
 			wantErr: repository.DuplicatedDataError,
@@ -145,8 +145,8 @@ func TestTransactionUseCase_Update(t *testing.T) {
 			name: "success",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
 				repo.EXPECT().Detail(gomock.Any(), gomock.Any()).Return(oldTransaction, nil)
-				accRepo.EXPECT().GetById(gomock.Any(), oldTransaction.AccountId).Return(oldAccount, nil)
-				accRepo.EXPECT().GetById(gomock.Any(), tx.AccountId).Return(account, nil)
+				accRepo.EXPECT().GetByAccountId(gomock.Any(), oldTransaction.AccountId).Return(oldAccount, nil)
+				accRepo.EXPECT().GetByAccountId(gomock.Any(), tx.AccountId).Return(account, nil)
 				repo.EXPECT().Update(gomock.Any(), tx, oldTransaction, account, oldAccount).Return(nil)
 			},
 		},
@@ -154,8 +154,8 @@ func TestTransactionUseCase_Update(t *testing.T) {
 			name: "repository error",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
 				repo.EXPECT().Detail(gomock.Any(), gomock.Any()).Return(oldTransaction, nil)
-				accRepo.EXPECT().GetById(gomock.Any(), oldTransaction.AccountId).Return(oldAccount, nil)
-				accRepo.EXPECT().GetById(gomock.Any(), tx.AccountId).Return(account, nil)
+				accRepo.EXPECT().GetByAccountId(gomock.Any(), oldTransaction.AccountId).Return(oldAccount, nil)
+				accRepo.EXPECT().GetByAccountId(gomock.Any(), tx.AccountId).Return(account, nil)
 				repo.EXPECT().Update(gomock.Any(), tx, oldTransaction, account, oldAccount).Return(repository.ConstraintError)
 			},
 			wantErr: repository.ConstraintError,
@@ -205,7 +205,7 @@ func TestTransactionUseCase_Delete(t *testing.T) {
 			name: "success",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
 				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{Id: 5, UserId: 7, AccountId: 55}, nil)
-				accRepo.EXPECT().GetById(gomock.Any(), account.Id).Return(account, nil)
+				accRepo.EXPECT().GetByAccountId(gomock.Any(), account.Id).Return(account, nil)
 				repo.EXPECT().Delete(gomock.Any(), 5, account).Return(5, nil)
 			},
 			wantID: 5,
@@ -228,7 +228,7 @@ func TestTransactionUseCase_Delete(t *testing.T) {
 			name: "delete error",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
 				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{Id: 5, UserId: 7, AccountId: 55}, nil)
-				accRepo.EXPECT().GetById(gomock.Any(), account.Id).Return(account, nil)
+				accRepo.EXPECT().GetByAccountId(gomock.Any(), account.Id).Return(account, nil)
 				repo.EXPECT().Delete(gomock.Any(), 5, account).Return(0, genericErr)
 			},
 			wantErr: genericErr,

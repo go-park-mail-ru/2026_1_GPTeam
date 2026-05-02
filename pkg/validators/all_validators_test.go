@@ -168,7 +168,7 @@ func TestValidateTargetBudget(t *testing.T) {
 	}{
 		{"Negative", -1, TargetIsNegativeError},
 		{"Zero", 0, TargetIsZeroError},
-		{"Big", 1_000_000_000_001, TargetIsBigError},
+		{"Big", 1_000_000_001, TargetIsBigError},
 		{"Correct", 1000, nil},
 	}
 
@@ -188,7 +188,7 @@ func TestValidateActualBudget(t *testing.T) {
 		err    error
 	}{
 		{"Negative", -1, ValueIsNegativeError},
-		{"Big", 1_000_000_000_001, ValueIsBigError},
+		{"Big", 1_000_000_001, ValueIsBigError},
 		{"Zero is allowed", 0, nil},
 		{"Correct", 500, nil},
 	}

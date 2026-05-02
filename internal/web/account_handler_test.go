@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -93,4 +94,52 @@ func TestAccountHandler_GetAccount(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAccountHandler_CreateAccountCurrencyValidation(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	accountApp := appmocks.NewMockAccountUseCase(ctrl)
+	handler := NewAccountHandler(accountApp)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/accounts",
+		bytes.NewBufferString(`{"name":"main","currency":"CNY","balance":10}`),
+	).WithContext(ctxWithUser(models.UserModel{Id: 1}))
+
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+
+	handler.CreateAccount(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAccountHandler_UpdateAccountCurrencyValidation(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	accountApp := appmocks.NewMockAccountUseCase(ctrl)
+	handler := NewAccountHandler(accountApp)
+
+	req := httptest.NewRequest(
+		http.MethodPatch,
+		"/api/accounts/1",
+		bytes.NewBufferString(`{"currency":"CNY"}`),
+	).WithContext(ctxWithUser(models.UserModel{Id: 1}))
+
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+
+	handler.UpdateAccount(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
 }

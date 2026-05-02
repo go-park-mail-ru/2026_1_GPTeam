@@ -234,24 +234,37 @@ func TestAccountPostgres_GetAccountIdByUserId(t *testing.T) {
 
 func TestAccountPostgres_GetAllAccountsByUserIdWithBalance(t *testing.T) {
 	now := time.Now()
+
+	query := `(?s)select.*a\.id.*a\.name.*a\.balance.*a\.currency.*a\.created_at.*a\.updated_at.*coalesce\(sum\(t\.value\).*as income.*coalesce\(sum\(t\.value\).*as expense.*from account a.*join account_user au.*left join transaction t.*where au\.user_id = \$1.*a\.deleted_at is null.*group by.*order by a\.id`
+
 	testCases := []struct {
-		name      string
-		setupMock func(mock pgxmock.PgxPoolIface)
-		userId    int
-		accounts  []models.AccountModel
-		income    []float64
-		expense   []float64
-		err       error
+		name     string
+		setup    func(mock pgxmock.PgxPoolIface)
+		userId   int
+		accounts []models.AccountModel
+		income   []float64
+		expense  []float64
+		err      error
 	}{
 		{
 			name: "ok",
-			setupMock: func(mock pgxmock.PgxPoolIface) {
-				mock.ExpectQuery(`^select account\.id, name, balance, currency, account\.created_at, account\.updated_at, coalesce\(income, 0\) as income, coalesce\(expenses, 0\) as expenses.*where account_user\.user_id = \$1`).
-					WithArgs(pgxmock.AnyArg()).
-					WillReturnRows(pgxmock.NewRows([]string{"id", "name", "balance", "currency", "created_at", "updated_at", "income", "expenses"}).
-						AddRow(1, "a", 100.0, "RUB", now, now, 19.5, 3.0).
-						AddRow(2, "b", 42.0, "RUB", now, now.Add(time.Hour), 27.0, 1.0),
-					)
+			setup: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{
+					"id",
+					"name",
+					"balance",
+					"currency",
+					"created_at",
+					"updated_at",
+					"income",
+					"expense",
+				}).
+					AddRow(1, "a", 100.0, "RUB", now, now, 19.5, 3.0).
+					AddRow(2, "b", 42.0, "RUB", now, now.Add(time.Hour), 27.0, 1.0)
+
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(rows)
 			},
 			userId: 1,
 			accounts: []models.AccountModel{
@@ -278,29 +291,41 @@ func TestAccountPostgres_GetAllAccountsByUserIdWithBalance(t *testing.T) {
 		},
 		{
 			name: "empty",
-			setupMock: func(mock pgxmock.PgxPoolIface) {
-				mock.ExpectQuery(`^select account\.id, name, balance, currency, account\.created_at, account\.updated_at, coalesce\(income, 0\) as income, coalesce\(expenses, 0\) as expenses.*where account_user\.user_id = \$1`).
-					WithArgs(pgxmock.AnyArg()).
-					WillReturnRows(pgxmock.NewRows([]string{"id", "name", "balance", "currency", "created_at", "updated_at", "income", "expenses"}))
+			setup: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{
+					"id",
+					"name",
+					"balance",
+					"currency",
+					"created_at",
+					"updated_at",
+					"income",
+					"expense",
+				})
+
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(rows)
 			},
 			userId:   1,
 			accounts: []models.AccountModel{},
 			income:   []float64{},
 			expense:  []float64{},
-			err:      NothingInTableError,
+			err:      nil,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
 			repo, mock := newAccountPostgres(t)
-			testCase.setupMock(mock)
+			testCase.setup(mock)
+
 			accounts, income, expense, err := repo.GetAllAccountsByUserIdWithBalance(context.Background(), testCase.userId)
+
+			require.ErrorIs(t, err, testCase.err)
 			require.Equal(t, testCase.accounts, accounts)
 			require.Equal(t, testCase.income, income)
 			require.Equal(t, testCase.expense, expense)
-			require.ErrorIs(t, err, testCase.err)
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -308,21 +333,31 @@ func TestAccountPostgres_GetAllAccountsByUserIdWithBalance(t *testing.T) {
 
 func TestAccountPostgres_GetAllAccountsByUserId(t *testing.T) {
 	now := time.Now()
+
+	query := `(?s)select.*a\.id.*a\.name.*a\.balance.*a\.currency.*a\.created_at.*a\.updated_at.*from account a.*join account_user au.*where au\.user_id = \$1.*a\.deleted_at is null.*order by a\.id`
+
 	testCases := []struct {
-		name      string
-		setupMock func(mock pgxmock.PgxPoolIface)
-		userId    int
-		accounts  []models.AccountModel
-		err       error
+		name     string
+		setup    func(mock pgxmock.PgxPoolIface)
+		userId   int
+		accounts []models.AccountModel
+		err      error
 	}{
 		{
 			name: "ok",
-			setupMock: func(mock pgxmock.PgxPoolIface) {
-				mock.ExpectQuery("select account.id, name, balance, currency, created_at, updated_at from account").
-					WithArgs(pgxmock.AnyArg()).
-					WillReturnRows(pgxmock.NewRows([]string{"id", "name", "balance", "currency", "created_at", "updated_at"}).
-						AddRow(1, "a", 100.0, "RUB", now, now),
-					)
+			setup: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{
+					"id",
+					"name",
+					"balance",
+					"currency",
+					"created_at",
+					"updated_at",
+				}).AddRow(1, "a", 100.0, "RUB", now, now)
+
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(rows)
 			},
 			userId: 1,
 			accounts: []models.AccountModel{
@@ -339,23 +374,33 @@ func TestAccountPostgres_GetAllAccountsByUserId(t *testing.T) {
 		},
 		{
 			name: "empty",
-			setupMock: func(mock pgxmock.PgxPoolIface) {
-				mock.ExpectQuery("select account.id, name, balance, currency, created_at, updated_at from account").
-					WithArgs(pgxmock.AnyArg()).
-					WillReturnRows(pgxmock.NewRows([]string{"id", "name", "balance", "currency", "created_at", "updated_at"}))
+			setup: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{
+					"id",
+					"name",
+					"balance",
+					"currency",
+					"created_at",
+					"updated_at",
+				})
+
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(rows)
 			},
 			userId:   1,
 			accounts: []models.AccountModel{},
-			err:      NothingInTableError,
+			err:      nil,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
 			repo, mock := newAccountPostgres(t)
-			testCase.setupMock(mock)
+			testCase.setup(mock)
+
 			accounts, err := repo.GetAllAccountsByUserId(context.Background(), testCase.userId)
+
 			require.ErrorIs(t, err, testCase.err)
 			require.Equal(t, testCase.accounts, accounts)
 			require.NoError(t, mock.ExpectationsWereMet())
@@ -363,23 +408,33 @@ func TestAccountPostgres_GetAllAccountsByUserId(t *testing.T) {
 	}
 }
 
-func TestAccountPostgres_GetById(t *testing.T) {
+func TestAccountPostgres_GetByAccountId(t *testing.T) {
 	now := time.Now()
+
+	query := `(?s)select.*id.*name.*balance.*currency.*created_at.*updated_at.*from account.*where id = \$1.*deleted_at is null`
+
 	testCases := []struct {
-		name      string
-		setupMock func(mock pgxmock.PgxPoolIface)
-		id        int
-		account   models.AccountModel
-		err       error
+		name    string
+		setup   func(mock pgxmock.PgxPoolIface)
+		id      int
+		account models.AccountModel
+		err     error
 	}{
 		{
 			name: "ok",
-			setupMock: func(mock pgxmock.PgxPoolIface) {
-				mock.ExpectQuery("select name, balance, currency, created_at, updated_at from account").
-					WithArgs(pgxmock.AnyArg()).
-					WillReturnRows(pgxmock.NewRows([]string{"name", "balance", "currency", "created_at", "updated_at"}).
-						AddRow("a", 100.0, "RUB", now, now),
-					)
+			setup: func(mock pgxmock.PgxPoolIface) {
+				rows := pgxmock.NewRows([]string{
+					"id",
+					"name",
+					"balance",
+					"currency",
+					"created_at",
+					"updated_at",
+				}).AddRow(1, "a", 100.0, "RUB", now, now)
+
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(rows)
 			},
 			id: 1,
 			account: models.AccountModel{
@@ -394,9 +449,9 @@ func TestAccountPostgres_GetById(t *testing.T) {
 		},
 		{
 			name: "fail",
-			setupMock: func(mock pgxmock.PgxPoolIface) {
-				mock.ExpectQuery("select name, balance, currency, created_at, updated_at from account").
-					WithArgs(pgxmock.AnyArg()).
+			setup: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery(query).
+					WithArgs(1).
 					WillReturnError(pgx.ErrNoRows)
 			},
 			id:      1,
@@ -407,10 +462,11 @@ func TestAccountPostgres_GetById(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
 			repo, mock := newAccountPostgres(t)
-			testCase.setupMock(mock)
-			account, err := repo.GetById(context.Background(), testCase.id)
+			testCase.setup(mock)
+
+			account, err := repo.GetByAccountId(context.Background(), testCase.id)
+
 			require.ErrorIs(t, err, testCase.err)
 			require.Equal(t, testCase.account, account)
 			require.NoError(t, mock.ExpectationsWereMet())
