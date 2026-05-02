@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
@@ -31,7 +32,6 @@ func NewTransactionHandler(transactionApp application.TransactionUseCase, enumsA
 	}
 }
 
-// Transactions /transactions — GET (список) и POST (создать)
 func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -41,7 +41,15 @@ func (obj *TransactionHandler) Transactions(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// Transaction /transactions/{id} — GET (детали), DELETE (удалить), PUT (обновить)
+func (obj *TransactionHandler) Search(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response := web_helpers.NewMethodNotAllowedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	obj.searchTransactions(w, r)
+}
+
 func (obj *TransactionHandler) Transaction(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -65,27 +73,31 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	var body web_helpers.TransactionRequest
 	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
-		log.Warn("failed to read body",
-			zap.Error(err))
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+		log.Warn("failed to read body", zap.Error(err))
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("transaction_date", "Некорректный формат даты или данных"),
+		})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	body.Title = secure.SanitizeXss(body.Title)
-	body.Description = secure.SanitizeXss(body.Description)
+
+	body.Type = strings.ToUpper(strings.TrimSpace(body.Type))
+	body.Category = strings.TrimSpace(body.Category)
+	body.Title = secure.SanitizeXss(strings.TrimSpace(body.Title))
+	body.Description = secure.SanitizeXss(strings.TrimSpace(body.Description))
+
 	validationErrors := validators.ValidateTransaction(
 		body,
 		obj.enumsApp.GetTransactionTypes(),
 		obj.enumsApp.GetCategoryTypes(),
-		obj.enumsApp.GetCurrencyCodes(),
 	)
 	if len(validationErrors) > 0 {
-		log.Warn("validation error while creating transaction",
-			zap.Any("validationErrors", validationErrors))
+		log.Warn("validation error while creating transaction", zap.Any("validationErrors", validationErrors))
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	transaction := models.TransactionModel{
 		Id:              0,
 		UserId:          authUser.Id,
@@ -98,11 +110,13 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       time.Now(),
 		TransactionDate: body.TransactionDate,
 	}
+
 	if !obj.accountApp.IsUserAuthorOfAccount(r.Context(), authUser.Id, transaction.AccountId) {
 		response := web_helpers.NewForbiddenErrorResponse()
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
 	id, err := obj.transactionApp.Create(r.Context(), transaction)
 	if err != nil {
 		if errors.Is(err, repository.DuplicatedDataError) {
@@ -112,8 +126,9 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, repository.ConstraintError) {
-			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
-			response.Message = "Введены некорректные данные"
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+				web_helpers.NewFieldError("value", "Недостаточно средств на счёте"),
+			})
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
@@ -128,9 +143,7 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("created transaction",
-		zap.Int("user_id", authUser.Id),
-		zap.Int("transaction_id", id))
+	log.Info("created transaction", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", id))
 	response := web_helpers.NewTransactionCreateSuccessResponse(id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -156,10 +169,82 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("get transaction ids success",
-		zap.Int("user_id", authUser.Id),
-		zap.Ints("transaction_ids", ids))
+	log.Info("get transaction ids success", zap.Int("user_id", authUser.Id), zap.Ints("transaction_ids", ids))
 	response := web_helpers.NewTransactionsIdsResponse(ids)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *TransactionHandler) searchTransactions(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWithRequestId(r.Context())
+	log.Info("search transactions request")
+	authUser, ok := web_helpers.GetAuthUser(r)
+	if !ok {
+		log.Warn("user unauthorized")
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	query := r.URL.Query()
+	filters := repository.TransactionFilters{}
+
+	if startDateStr := query.Get("start_date"); startDateStr != "" {
+		startDate, err := time.Parse(time.RFC3339, startDateStr)
+		if err == nil {
+			filters.StartDate = &startDate
+		}
+	}
+	if endDateStr := query.Get("end_date"); endDateStr != "" {
+		endDate, err := time.Parse(time.RFC3339, endDateStr)
+		if err == nil {
+			filters.EndDate = &endDate
+		}
+	}
+	if category := query.Get("category"); category != "" {
+		filters.Category = &category
+	}
+	if accountIDStr := query.Get("account_id"); accountIDStr != "" {
+		accountID, err := strconv.Atoi(accountIDStr)
+		if err == nil {
+			filters.AccountID = &accountID
+		}
+	}
+	if searchQuery := query.Get("q"); searchQuery != "" {
+		filters.SearchQuery = &searchQuery
+	}
+
+	transactions, err := obj.transactionApp.Search(r.Context(), authUser.Id, filters)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewTransactionsSearchResponse([]web_helpers.TransactionWithCurrency{})
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+
+	// кешируем валюту по account_id чтобы не делать N запросов на одинаковые счета
+	currencyCache := make(map[int]string)
+	result := make([]web_helpers.TransactionWithCurrency, 0, len(transactions))
+	for _, t := range transactions {
+		if _, exists := currencyCache[t.AccountId]; !exists {
+			currency, err := obj.accountApp.GetCurrencyByAccountId(r.Context(), t.AccountId)
+			if err != nil {
+				log.Warn("failed to get currency", zap.Int("account_id", t.AccountId), zap.Error(err))
+				currency = ""
+			}
+			currencyCache[t.AccountId] = currency
+		}
+		result = append(result, web_helpers.TransactionWithCurrency{
+			TransactionModel: t,
+			Currency:         currencyCache[t.AccountId],
+		})
+	}
+
+	log.Info("search transactions success", zap.Int("user_id", authUser.Id), zap.Int("count", len(result)))
+	response := web_helpers.NewTransactionsSearchResponse(result)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -176,8 +261,7 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	transactionId, err := strconv.Atoi(idStr)
 	if err != nil {
-		log.Warn("invalid transaction id",
-			zap.Error(err))
+		log.Warn("invalid transaction id", zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
 		})
@@ -187,24 +271,26 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 	var body web_helpers.TransactionRequest
 	err = web_helpers.ReadRequestJSON(r, &body)
 	if err != nil {
-		log.Warn("invalid request body",
-			zap.Error(err))
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+		log.Warn("invalid request body", zap.Error(err))
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+			web_helpers.NewFieldError("transaction_date", "Некорректный формат данных"),
+		})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	body.Title = secure.SanitizeXss(body.Title)
-	body.Description = secure.SanitizeXss(body.Description)
+
+	body.Type = strings.ToUpper(strings.TrimSpace(body.Type))
+	body.Category = strings.TrimSpace(body.Category)
+	body.Title = secure.SanitizeXss(strings.TrimSpace(body.Title))
+	body.Description = secure.SanitizeXss(strings.TrimSpace(body.Description))
+
 	validationErrors := validators.ValidateTransaction(
 		body,
 		obj.enumsApp.GetTransactionTypes(),
 		obj.enumsApp.GetCategoryTypes(),
-		obj.enumsApp.GetCurrencyCodes(),
 	)
 	if len(validationErrors) > 0 {
-		log.Warn("validation error while updating transaction",
-			zap.Int("user_id", authUser.Id),
-			zap.Any("validationErrors", validationErrors))
+		log.Warn("validation error while updating transaction", zap.Int("user_id", authUser.Id), zap.Any("validationErrors", validationErrors))
 		response := web_helpers.NewValidationErrorResponse(validationErrors)
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
@@ -238,8 +324,9 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, repository.ConstraintError) {
-			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
-			response.Message = err.Error()
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
+				web_helpers.NewFieldError("value", "Недостаточно средств на счёте"),
+			})
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
@@ -247,9 +334,7 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("update transaction success",
-		zap.Int("user_id", authUser.Id),
-		zap.Int("transaction_id", transactionId))
+	log.Info("update transaction success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
 	response := web_helpers.NewTransactionUpdateSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -266,9 +351,7 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	transactionId, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		log.Warn("failed to read body",
-			zap.Int("user_id", authUser.Id),
-			zap.Error(err))
+		log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
 		})
@@ -291,9 +374,7 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	log.Info("transaction deleted success",
-		zap.Int("user_id", authUser.Id),
-		zap.Int("transaction_id", transactionId))
+	log.Info("transaction deleted success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
 	response := web_helpers.NewTransactionDeleteSuccessResponse(id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
@@ -310,9 +391,7 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 	}
 	transactionId, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		log.Warn("failed to read body",
-			zap.Int("user_id", authUser.Id),
-			zap.Error(err))
+		log.Warn("failed to read body", zap.Int("user_id", authUser.Id), zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 			web_helpers.NewFieldError("id", "Некорректный ID транзакции"),
 		})
@@ -335,11 +414,20 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+
+	currency, err := obj.accountApp.GetCurrencyByAccountId(r.Context(), transaction.AccountId)
+	if err != nil {
+		log.Warn("failed to get currency for transaction", zap.Int("account_id", transaction.AccountId), zap.Error(err))
+		currency = ""
+	}
+
 	transaction.Title = secure.SanitizeXss(transaction.Title)
 	transaction.Description = secure.SanitizeXss(transaction.Description)
-	log.Info("get transaction success",
-		zap.Int("user_id", authUser.Id),
-		zap.Int("transaction_id", transactionId))
-	response := web_helpers.NewTransactionDetailSuccessResponse(transaction)
+	log.Info("get transaction success", zap.Int("user_id", authUser.Id), zap.Int("transaction_id", transactionId))
+
+	response := web_helpers.NewTransactionDetailSuccessResponse(web_helpers.TransactionWithCurrency{
+		TransactionModel: transaction,
+		Currency:         currency,
+	})
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

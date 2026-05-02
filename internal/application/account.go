@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -source=account.go -destination=mocks/account.go -package=mocks
+//go:generate go run go.uber.org/mock/mockgen@latest -source=account.go -destination=mocks/mock_account.go -package=mocks
 type AccountUseCase interface {
 	Create(ctx context.Context, account models.AccountModel) (int, error)
 	CreateForUser(ctx context.Context, userId int, account models.AccountCreateModel) (models.AccountModel, error)
@@ -26,6 +26,7 @@ type AccountUseCase interface {
 
 	Update(ctx context.Context, userId int, accountId int, account models.AccountUpdateModel) (models.AccountModel, error)
 	Delete(ctx context.Context, userId int, accountId int) error
+	GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error)
 }
 
 type Account struct {
@@ -141,4 +142,8 @@ func (obj *Account) GetAllAccountsByUserIdWithBalance(ctx context.Context, userI
 func (obj *Account) GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
 	accounts, err := obj.repository.GetAllAccountsByUserId(ctx, userId)
 	return accounts, err
+}
+
+func (obj *Account) GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error) {
+	return obj.repository.GetCurrencyByAccountId(ctx, accountId)
 }

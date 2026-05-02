@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
@@ -209,6 +210,138 @@ func TestAccountUseCase_GetAccountIdByUserId(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, c.expectedId, id)
 			}
+		})
+	}
+}
+
+func TestAccountUseCase_GetAllAccountsByUserIdWithBalance(t *testing.T) {
+	now := time.Now()
+	expectedAccounts := []models.AccountModel{
+		{
+			Id:        1,
+			Name:      "a",
+			Balance:   100,
+			Currency:  "RUB",
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		{
+			Id:        2,
+			Name:      "b",
+			Balance:   1000,
+			Currency:  "RUB",
+			CreatedAt: now,
+			UpdatedAt: now.Add(time.Hour),
+		},
+	}
+	expectedIncomes := []float64{
+		95,
+		0,
+	}
+	expectedExpenses := []float64{
+		5,
+		9,
+	}
+	testCases := []struct {
+		name       string
+		setupMocks func(repo *repomocks.MockAccountRepository)
+		accounts   []models.AccountModel
+		income     []float64
+		expenses   []float64
+		err        error
+	}{
+		{
+			name: "ok",
+			setupMocks: func(repo *repomocks.MockAccountRepository) {
+				repo.EXPECT().GetAllAccountsByUserIdWithBalance(gomock.Any(), gomock.Any()).Return(expectedAccounts, expectedIncomes, expectedExpenses, nil)
+			},
+			accounts: expectedAccounts,
+			income:   expectedIncomes,
+			expenses: expectedExpenses,
+			err:      nil,
+		},
+		{
+			name: "fail",
+			setupMocks: func(repo *repomocks.MockAccountRepository) {
+				repo.EXPECT().GetAllAccountsByUserIdWithBalance(gomock.Any(), gomock.Any()).Return([]models.AccountModel{}, []float64{}, []float64{}, repository.NothingInTableError)
+			},
+			accounts: []models.AccountModel{},
+			income:   []float64{},
+			expenses: []float64{},
+			err:      repository.NothingInTableError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			repo := repomocks.NewMockAccountRepository(ctrl)
+			testCase.setupMocks(repo)
+			app := NewAccount(repo)
+			accounts, income, expenses, err := app.GetAllAccountsByUserIdWithBalance(context.Background(), 1)
+			require.ErrorIs(t, err, testCase.err)
+			require.Equal(t, accounts, testCase.accounts)
+			require.Equal(t, income, testCase.income)
+			require.Equal(t, expenses, testCase.expenses)
+		})
+	}
+}
+
+func TestAccountUseCase_GetAllAccountsByUserId(t *testing.T) {
+	now := time.Now()
+	expectedAccounts := []models.AccountModel{
+		{
+			Id:        1,
+			Name:      "a",
+			Balance:   100,
+			Currency:  "RUB",
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		{
+			Id:        2,
+			Name:      "b",
+			Balance:   1000,
+			Currency:  "RUB",
+			CreatedAt: now,
+			UpdatedAt: now.Add(time.Hour),
+		},
+	}
+	testCases := []struct {
+		name       string
+		setupMocks func(repo *repomocks.MockAccountRepository)
+		accounts   []models.AccountModel
+		err        error
+	}{
+		{
+			name: "ok",
+			setupMocks: func(repo *repomocks.MockAccountRepository) {
+				repo.EXPECT().GetAllAccountsByUserId(gomock.Any(), gomock.Any()).Return(expectedAccounts, nil)
+			},
+			accounts: expectedAccounts,
+			err:      nil,
+		},
+		{
+			name: "fail",
+			setupMocks: func(repo *repomocks.MockAccountRepository) {
+				repo.EXPECT().GetAllAccountsByUserId(gomock.Any(), gomock.Any()).Return([]models.AccountModel{}, repository.NothingInTableError)
+			},
+			accounts: []models.AccountModel{},
+			err:      repository.NothingInTableError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			repo := repomocks.NewMockAccountRepository(ctrl)
+			testCase.setupMocks(repo)
+			app := NewAccount(repo)
+			accounts, err := app.GetAllAccountsByUserId(context.Background(), 1)
+			require.ErrorIs(t, err, testCase.err)
+			require.Equal(t, accounts, testCase.accounts)
 		})
 	}
 }

@@ -9,8 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -492,6 +494,59 @@ func TestUserUseCase_UploadAvatar(t *testing.T) {
 				require.True(t, strings.HasSuffix(avatarUrl, ".png"))
 				os.Remove(filepath.Join("./static", avatarUrl))
 			}
+		})
+	}
+}
+
+func TestUser_IsStaff(t *testing.T) {
+	testCases := []struct {
+		name       string
+		setupMocks func(repo *repomocks.MockUserRepository)
+		userId     int
+		isStaff    bool
+		err        error
+	}{
+		{
+			name: "staff",
+			setupMocks: func(repo *repomocks.MockUserRepository) {
+				repo.EXPECT().GetByID(gomock.Any(), gomock.Any()).Return(&models.UserModel{Id: 1, IsStaff: true}, nil)
+			},
+			userId:  1,
+			isStaff: true,
+			err:     nil,
+		},
+		{
+			name: "no staff",
+			setupMocks: func(repo *repomocks.MockUserRepository) {
+				repo.EXPECT().GetByID(gomock.Any(), gomock.Any()).Return(&models.UserModel{Id: 2, IsStaff: false}, nil)
+			},
+			userId:  2,
+			isStaff: false,
+			err:     nil,
+		},
+		{
+			name: "fail",
+			setupMocks: func(repo *repomocks.MockUserRepository) {
+				repo.EXPECT().GetByID(gomock.Any(), gomock.Any()).Return(nil, repository.NothingInTableError)
+			},
+			userId:  3,
+			isStaff: false,
+			err:     repository.NothingInTableError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			repo := repomocks.NewMockUserRepository(ctrl)
+			testCase.setupMocks(repo)
+			enumsApp := mocks.NewMockEnumsUseCase(ctrl)
+			app := NewUser(repo, enumsApp)
+			isStaff, err := app.IsStaff(context.Background(), testCase.userId)
+			require.ErrorIs(t, testCase.err, err)
+			require.Equal(t, testCase.isStaff, isStaff)
 		})
 	}
 }

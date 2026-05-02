@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate go run go.uber.org/mock/mockgen@latest -source=account.go -destination=mocks/mock_account.go -package=mocks
 type AccountRepository interface {
 	Create(ctx context.Context, account models.AccountModel) (int, error)
 	LinkAccountAndUser(ctx context.Context, accountId int, userId int) (int, error)
@@ -20,12 +21,14 @@ type AccountRepository interface {
 	GetAccountIdByUserId(ctx context.Context, userId int) (int, error)
 
 	GetById(ctx context.Context, userId int, accountId int) (models.AccountModel, error)
+	GetByAccountId(ctx context.Context, accountId int) (models.AccountModel, error)
 	GetByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
 	GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error)
 	GetAllAccountsByUserId(ctx context.Context, userId int) ([]models.AccountModel, error)
 
 	Update(ctx context.Context, userId int, accountId int, account models.AccountUpdateModel) (models.AccountModel, error)
 	Delete(ctx context.Context, userId int, accountId int) error
+	GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error)
 }
 
 type AccountPostgres struct {
@@ -62,6 +65,61 @@ func mapAccountPgError(ctx context.Context, err error, action string) error {
 	}
 	log.Error(action, zap.Error(err))
 	return err
+}
+
+func (obj *AccountPostgres) GetByAccountId(ctx context.Context, accountId int) (models.AccountModel, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+
+	query := `
+		select id, name, balance, currency, created_at, updated_at
+		from account
+		where id = $1
+		  and deleted_at is null`
+
+	args := []any{accountId}
+
+	var account models.AccountModel
+	start := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(
+		&account.Id,
+		&account.Name,
+		&account.Balance,
+		&account.Currency,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+	)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+
+	if mappedErr := mapAccountPgError(ctx, err, "failed to get account by account id"); mappedErr != nil {
+		return models.AccountModel{}, mappedErr
+	}
+
+	log.Info("Query executed")
+	return account, nil
+}
+
+func (obj *AccountPostgres) GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+
+	query := `
+		select currency
+		from account
+		where id = $1
+		  and deleted_at is null`
+
+	args := []any{accountId}
+
+	var currency string
+	start := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&currency)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+
+	if mappedErr := mapAccountPgError(ctx, err, "failed to get currency by account id"); mappedErr != nil {
+		return "", mappedErr
+	}
+
+	log.Info("Query executed")
+	return currency, nil
 }
 
 func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountModel) (int, error) {

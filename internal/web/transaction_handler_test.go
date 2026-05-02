@@ -86,7 +86,6 @@ func TestTransactionHandler_Create(t *testing.T) {
 		Value:       100,
 		Type:        "income",
 		Category:    "salary",
-		Currency:    "RUB",
 	}
 
 	cases := []struct {
@@ -109,9 +108,9 @@ func TestTransactionHandler_Create(t *testing.T) {
 			body: web_helpers.TransactionRequest{Title: ""},
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
-				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"income"})
+				// Убрали GetCurrencyCodes
+				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"salary"})
-				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
 			},
 			expectedCode: http.StatusBadRequest,
 		},
@@ -120,9 +119,8 @@ func TestTransactionHandler_Create(t *testing.T) {
 			body: validBody,
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
-				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"income"})
+				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"salary"})
-				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
 				accApp.EXPECT().IsUserAuthorOfAccount(gomock.Any(), testUser.Id, 1).Return(false)
 			},
 			expectedCode: http.StatusForbidden,
@@ -132,9 +130,8 @@ func TestTransactionHandler_Create(t *testing.T) {
 			body: validBody,
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
-				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"income"})
+				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"salary"})
-				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
 				accApp.EXPECT().IsUserAuthorOfAccount(gomock.Any(), testUser.Id, 1).Return(true)
 				trxApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(10, nil)
 			},
@@ -175,21 +172,21 @@ func TestTransactionHandler_Detail(t *testing.T) {
 		name         string
 		id           string
 		ctx          context.Context
-		setupMocks   func(trxApp *appmocks.MockTransactionUseCase)
+		setupMocks   func(trxApp *appmocks.MockTransactionUseCase, accApp *appmocks.MockAccountUseCase)
 		expectedCode int
 	}{
 		{
 			name:         "invalid id",
 			id:           "abc",
 			ctx:          context.WithValue(context.Background(), "user", testUser),
-			setupMocks:   func(trxApp *appmocks.MockTransactionUseCase) {},
+			setupMocks:   func(trxApp *appmocks.MockTransactionUseCase, accApp *appmocks.MockAccountUseCase) {},
 			expectedCode: http.StatusBadRequest,
 		},
 		{
 			name: "forbidden",
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
-			setupMocks: func(trxApp *appmocks.MockTransactionUseCase) {
+			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, accApp *appmocks.MockAccountUseCase) {
 				trxApp.EXPECT().Detail(gomock.Any(), 1, testUser.Id).Return(models.TransactionModel{}, application.ForbiddenError)
 			},
 			expectedCode: http.StatusForbidden,
@@ -198,8 +195,9 @@ func TestTransactionHandler_Detail(t *testing.T) {
 			name: "success",
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
-			setupMocks: func(trxApp *appmocks.MockTransactionUseCase) {
-				trxApp.EXPECT().Detail(gomock.Any(), 1, testUser.Id).Return(models.TransactionModel{Id: 1}, nil)
+			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, accApp *appmocks.MockAccountUseCase) {
+				trxApp.EXPECT().Detail(gomock.Any(), 1, testUser.Id).Return(models.TransactionModel{Id: 1, AccountId: 0}, nil)
+				accApp.EXPECT().GetCurrencyByAccountId(gomock.Any(), 0).Return("RUB", nil)
 			},
 			expectedCode: http.StatusOK,
 		},
@@ -215,7 +213,7 @@ func TestTransactionHandler_Detail(t *testing.T) {
 			trxApp := appmocks.NewMockTransactionUseCase(ctrl)
 			enumsApp := appmocks.NewMockEnumsUseCase(ctrl)
 			accApp := appmocks.NewMockAccountUseCase(ctrl)
-			c.setupMocks(trxApp)
+			c.setupMocks(trxApp, accApp)
 
 			handler := NewTransactionHandler(trxApp, enumsApp, accApp)
 			req := httptest.NewRequest(http.MethodGet, "/transactions/", nil).WithContext(c.ctx)
@@ -240,7 +238,6 @@ func TestTransactionHandler_Update(t *testing.T) {
 		Value:       100,
 		Type:        "income",
 		Category:    "salary",
-		Currency:    "RUB",
 	}
 
 	cases := []struct {
@@ -266,9 +263,8 @@ func TestTransactionHandler_Update(t *testing.T) {
 			body: validBody,
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
-				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"income"})
+				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"salary"})
-				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
 				accApp.EXPECT().IsUserAuthorOfAccount(gomock.Any(), testUser.Id, 1).Return(true)
 				trxApp.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 			},

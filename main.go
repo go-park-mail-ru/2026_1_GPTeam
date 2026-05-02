@@ -108,6 +108,7 @@ func main() {
 	jwtPostgres := repository.NewJwtPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
 	accountPostgres := repository.NewAccountPostgres(pool)
+	supportPostgres := repository.NewPostgresSupport(pool)
 	log.Info("repositories initialized")
 
 	enumsApp := application.NewEnums(enumsPostgres)
@@ -122,13 +123,12 @@ func main() {
 	if err != nil {
 		return
 	}
-	budgetApp := application.NewBudget(budgetPostgres)
-	transactionApp := application.NewTransaction(transactionPostgres)
+	transactionApp := application.NewTransaction(transactionPostgres, accountPostgres)
 	accountApp := application.NewAccount(accountPostgres)
-
+	budgetApp := application.NewBudget(budgetPostgres, transactionApp, accountApp)
+	supportApp := application.NewSupport(supportPostgres)
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
 	voiceApp := application.NewVoiceTransactionService(groqClient, enumsApp)
-
 	log.Info("use cases initialized")
 
 	enumsHandler := web.NewEnumsHandler(enumsApp)
@@ -138,6 +138,7 @@ func main() {
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
 	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
+	supportHandler := web.NewSupportHandler(supportApp, userApp)
 	log.Info("handlers initialized")
 
 	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
@@ -197,11 +198,18 @@ func main() {
 	mux.Handle("/api/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
 	mux.Handle("/api/transactions", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(transactionHandler.Transactions)))
 	mux.Handle("/api/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete, http.MethodPut)(http.HandlerFunc(transactionHandler.Transaction)))
+	mux.Handle("/api/transactions/search", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(transactionHandler.Search)))
 	mux.Handle("/api/transactions/voice", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(voiceHandler.CreateVoiceTransaction)))
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
 	mux.Handle("/img/", middleware.NoDirListing(fileServer))
+	mux.Handle("/support/get_all_appeals", middleware.MethodValidationMiddleware(http.MethodGet)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.GetAll), userApp)))
+	mux.Handle("/support/get_appeal/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(supportHandler.Detail)))
+	mux.Handle("/support/get_appeals", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(supportHandler.GetAllByUser)))
+	mux.Handle("/support/create_appeal", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(supportHandler.Create)))
+	mux.Handle("/support/update/{id}", middleware.MethodValidationMiddleware(http.MethodPut)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.Update), userApp)))
+	mux.Handle("/api/is_staff", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.IsStaff)))
 
 	handler := middleware.CSPMiddleware(mux)
 	handler = middleware.CSRFMiddleware(handler, csrfService)

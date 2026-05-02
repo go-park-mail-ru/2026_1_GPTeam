@@ -245,3 +245,23 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	response := web_helpers.NewUpdateProfileSuccessResponse(userResponse)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
+
+func (obj *UserHandler) IsStaff(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWithRequestId(r.Context())
+	log.Info("check staff request")
+	authUser, ok := web_helpers.GetAuthUser(r)
+	if !ok {
+		log.Warn("user unauthorized")
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	isStaff, err := obj.userApp.IsStaff(r.Context(), authUser.Id)
+	if err != nil {
+		response := web_helpers.NewInternalServerErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	response := web_helpers.NewIsStaffResponse(isStaff)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
