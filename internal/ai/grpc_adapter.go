@@ -51,10 +51,6 @@ func (a *GrpcAiAdapter) ParseTransaction(ctx context.Context, transcript string,
 		return nil, err
 	}
 
-	if !resp.GetSuccess() {
-		return nil, nil
-	}
-
 	draft := resp.GetDraft()
 	if draft == nil {
 		return nil, nil

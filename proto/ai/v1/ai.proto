@@ -25,8 +25,7 @@ message ParseTransactionRequest {
 }
 
 message ParseTransactionResponse {
-  bool success = 1;
-  TransactionDraft draft = 2;
+  TransactionDraft draft = 1;
 }
 
 message TransactionDraft {

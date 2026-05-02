@@ -40,13 +40,10 @@ func (s *Server) ParseTransaction(ctx context.Context, req *aiv1.ParseTransactio
 	}
 
 	if draft == nil {
-		return &aiv1.ParseTransactionResponse{
-			Success: false,
-		}, nil
+		return nil, status.Error(codes.NotFound, "transaction draft not found")
 	}
 
 	return &aiv1.ParseTransactionResponse{
-		Success: true,
 		Draft: &aiv1.TransactionDraft{
 			Value:       draft.Value,
 			Type:        draft.Type,
