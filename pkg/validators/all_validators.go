@@ -12,7 +12,7 @@ import (
 
 // User section
 
-func ValidateUsername(username string) error {
+func validateUsername(username string) error {
 	if len(username) < 3 {
 		return UsernameShortError
 	}
@@ -27,7 +27,7 @@ func ValidateUsername(username string) error {
 	return nil
 }
 
-func ValidatePassword(passwordStr string) error {
+func validatePassword(passwordStr string) error {
 	password := []rune(passwordStr)
 	if len(password) < 8 {
 		return IncorrectPasswordError
@@ -62,14 +62,14 @@ func ValidatePassword(passwordStr string) error {
 	return nil
 }
 
-func ValidateConfirmPassword(passwordStr string, confirmPasswordStr string) error {
+func validateConfirmPassword(passwordStr string, confirmPasswordStr string) error {
 	if passwordStr != confirmPasswordStr {
 		return PasswordsNotSameError
 	}
 	return nil
 }
 
-func ValidateEmail(email string) error {
+func validateEmail(email string) error {
 	if len(email) == 0 || len(email) >= 255 {
 		return EmailError
 	}
@@ -86,7 +86,7 @@ func ValidateEmail(email string) error {
 
 // Budget section
 
-func ValidateBudgetTitle(title string) error {
+func validateBudgetTitle(title string) error {
 	if len(title) == 0 {
 		return BudgetTitleEmpty
 	}
@@ -96,21 +96,21 @@ func ValidateBudgetTitle(title string) error {
 	return nil
 }
 
-func ValidateBudgetDescription(description string) error {
+func validateBudgetDescription(description string) error {
 	if len(description) == 0 {
 		return BudgetDescriptionEmpty
 	}
 	return nil
 }
 
-func ValidateCurrency(currency string, allowedCurrencies []string) error {
+func validateCurrency(currency string, allowedCurrencies []string) error {
 	if !slices.Contains(allowedCurrencies, currency) {
 		return CurrencyNotAllowedError
 	}
 	return nil
 }
 
-func ValidateTargetBudget(target int) error {
+func validateTargetBudget(target int) error {
 	if target < 0 {
 		return TargetIsNegativeError
 	}
@@ -123,7 +123,7 @@ func ValidateTargetBudget(target int) error {
 	return nil
 }
 
-func ValidateActualBudget(actual int) error {
+func validateActualBudget(actual int) error {
 	if actual < 0 {
 		return ValueIsNegativeError
 	}
@@ -133,7 +133,7 @@ func ValidateActualBudget(actual int) error {
 	return nil
 }
 
-func ValidateBudgetStartDate(startDate time.Time) error {
+func validateBudgetStartDate(startDate time.Time) error {
 	nowTime := time.Now()
 	nowDate := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(), 0, 0, 0, 0, startDate.Location())
 	if startDate.Before(nowDate) {
@@ -142,7 +142,7 @@ func ValidateBudgetStartDate(startDate time.Time) error {
 	return nil
 }
 
-func ValidateBudgetEndDate(startDate time.Time, endDate time.Time) error {
+func validateBudgetEndDate(startDate time.Time, endDate time.Time) error {
 	if endDate.IsZero() {
 		return nil
 	}
@@ -154,7 +154,7 @@ func ValidateBudgetEndDate(startDate time.Time, endDate time.Time) error {
 
 // Transaction section
 
-func ValidateTransactionTitle(title string) error {
+func validateTransactionTitle(title string) error {
 	title = strings.TrimSpace(title)
 	if utf8.RuneCountInString(title) == 0 {
 		return TransactionTitleEmptyError
@@ -165,7 +165,7 @@ func ValidateTransactionTitle(title string) error {
 	return nil
 }
 
-func ValidateTransactionDescription(description string) error {
+func validateTransactionDescription(description string) error {
 	description = strings.TrimSpace(description)
 	if utf8.RuneCountInString(description) == 0 {
 		return TransactionDescriptionEmptyError
@@ -173,7 +173,7 @@ func ValidateTransactionDescription(description string) error {
 	return nil
 }
 
-func ValidateTransactionValue(value float64) error {
+func validateTransactionValue(value float64) error {
 	if value <= 0 {
 		return ValueIsNegativeError
 	}
@@ -183,7 +183,7 @@ func ValidateTransactionValue(value float64) error {
 	return nil
 }
 
-func ValidateTransactionType(transactionType string, allowedTypes []string) error {
+func validateTransactionType(transactionType string, allowedTypes []string) error {
 	for _, t := range allowedTypes {
 		if t == transactionType {
 			return nil
@@ -192,20 +192,13 @@ func ValidateTransactionType(transactionType string, allowedTypes []string) erro
 	return TransactionTypeNotAllowedError
 }
 
-func ValidateTransactionCategory(category string, allowedCategories []string) error {
+func validateCategory(category string, allowedCategories []string) error {
 	for _, c := range allowedCategories {
 		if c == category {
 			return nil
 		}
 	}
-	return TransactionCategoryNotAllowedError
-}
-
-func ValidateTransactionAccountId(accountId int) error {
-	if accountId <= 0 {
-		return errors.New("account_id must be positive")
-	}
-	return nil
+	return CategoryNotAllowedError
 }
 
 func validateLength(text string, minLength int, maxLength int) error {
@@ -221,6 +214,13 @@ func validateLength(text string, minLength int, maxLength int) error {
 func checkEqual[T comparable](a, b T) error {
 	if a != b {
 		return NoEqualsError
+	}
+	return nil
+}
+
+func ValidateTransactionAccountId(accountId int) error {
+	if accountId <= 0 {
+		return errors.New("account_id must be positive")
 	}
 	return nil
 }

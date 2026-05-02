@@ -93,6 +93,7 @@ type BudgetRequest struct {
 	Actual      int       `json:"actual"`
 	Target      int       `json:"target"`
 	Currency    string    `json:"currency"`
+	Category    []string  `json:"category"`
 }
 
 type CurrencyBalance struct {

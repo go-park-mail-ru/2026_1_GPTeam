@@ -79,7 +79,7 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	budget, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
+	budget, category, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
 	if err != nil {
 		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
 			response := web_helpers.NewForbiddenErrorResponse()
@@ -104,7 +104,8 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		EndAt:       budget.EndAt,
 		Actual:      int(budget.Actual),
 		Target:      int(budget.Target),
-		Currency:    budget.Currency,
+		Currency:    "RUB",
+		Category:    category,
 	}
 	log.Info("get budget success",
 		zap.Int("user_id", authUser.Id),
@@ -134,9 +135,10 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	categories := body.Category
 	body.Title = secure.SanitizeXss(body.Title)
 	body.Description = secure.SanitizeXss(body.Description)
-	validationErrors := validators.ValidateBudget(body, obj.enumsApp.GetCurrencyCodes())
+	validationErrors := validators.ValidateBudget(body, obj.enumsApp.GetCurrencyCodes(), obj.enumsApp.GetCategoryTypes())
 	if len(validationErrors) > 0 {
 		log.Warn("validation error when budget creating",
 			zap.Int("user_id", authUser.Id),
@@ -153,10 +155,10 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		EndAt:       body.EndAt,
 		Actual:      0,
 		Target:      float64(body.Target),
-		Currency:    body.Currency,
+		Currency:    "RUB",
 		Author:      authUser.Id,
 	}
-	id, err := obj.budgetApp.Create(r.Context(), budget)
+	id, err := obj.budgetApp.Create(r.Context(), budget, categories)
 	if err != nil {
 		if errors.Is(err, repository.DuplicatedDataError) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})

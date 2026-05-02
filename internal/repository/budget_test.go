@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/jackc/pgx/v5"
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -109,4 +110,82 @@ func TestBudgetPostgres_Delete(t *testing.T) {
 
 	err := repo.Delete(context.Background(), 1)
 	require.NoError(t, err)
+}
+
+func TestBudgetPostgres_GetCategoryOfBudget(t *testing.T) {
+	testCases := []struct {
+		name       string
+		setupMock  func(mock pgxmock.PgxPoolIface)
+		id         int
+		categories []string
+		err        error
+	}{
+		{
+			name: "ok",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("select category from budget_category").
+					WithArgs(pgxmock.AnyArg()).
+					WillReturnRows(pgxmock.NewRows([]string{"category"}).AddRow("a").AddRow("b"))
+			},
+			id:         1,
+			categories: []string{"a", "b"},
+			err:        nil,
+		},
+		{
+			name: "empty",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectQuery("select category from budget_category").
+					WithArgs(pgxmock.AnyArg()).
+					WillReturnError(pgx.ErrNoRows)
+			},
+			id:         0,
+			categories: []string{},
+			err:        NothingInTableError,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			repo, mock := newBudgetPostgres(t)
+			testCase.setupMock(mock)
+			categories, err := repo.GetCategoryOfBudget(context.Background(), testCase.id)
+			require.ErrorIs(t, err, testCase.err)
+			require.Equal(t, testCase.categories, categories)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestBudgetPostgres_LinkBudgetAndCategory(t *testing.T) {
+	testCases := []struct {
+		name      string
+		setupMock func(mock pgxmock.PgxPoolIface)
+		budgetId  int
+		category  string
+		err       error
+	}{
+		{
+			name: "ok",
+			setupMock: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectExec("insert into budget_category").
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnResult(pgxmock.NewResult("INSERT", 1))
+			},
+			budgetId: 1,
+			category: "a",
+			err:      nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			repo, mock := newBudgetPostgres(t)
+			testCase.setupMock(mock)
+			err := repo.LinkBudgetAndCategory(context.Background(), testCase.budgetId, testCase.category)
+			require.ErrorIs(t, err, testCase.err)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
