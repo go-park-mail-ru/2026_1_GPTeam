@@ -12,8 +12,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    expose:
-      - "5432"
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -28,8 +28,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    expose:
-      - "6379"
+    ports:
+      - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
@@ -38,6 +38,7 @@ services:
   migrations:
     image: ghcr.io/jackc/tern:latest
     container_name: gpteam-db-migrations
+    network_mode: host
     volumes:
       - ./db/migrations:/migrations
     working_dir: /migrations
@@ -46,13 +47,11 @@ services:
       db:
         condition: service_healthy
     environment:
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=localhost
       - POSTGRES_PORT=5432
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-    networks:
-      - gpteam-network
 
   auth:
     build: .
@@ -65,13 +64,24 @@ services:
     env_file:
       - .env
     environment:
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=localhost
       - POSTGRES_PORT=5432
       - AUTH_GRPC_LISTEN=:50051
-    expose:
-      - "50051"
-    networks:
-      - gpteam-network
+    network_mode: host
+
+  ai:
+    build: .
+    container_name: gpteam-ai
+    command: ["./ai-service"]
+    restart: always
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - AI_GRPC_LISTEN=:50052
+    network_mode: host
 
   app:
     build: .
@@ -82,24 +92,21 @@ services:
         condition: service_completed_successfully
       auth:
         condition: service_started
-    read_only: true
-    security_opt:
-      - no-new-privileges:true
-    ports:
-     - "8080:8080"
+      ai:
+        condition: service_started
+    network_mode: host
     volumes:
       - ./static:/app/static
       - ./logs:/app/log
     env_file:
       - .env
     environment:
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=localhost
       - POSTGRES_PORT=5432
-      - REDIS_HOST=redis
+      - REDIS_HOST=localhost
       - REDIS_PORT=6379
-      - AUTH_GRPC_ADDR=auth:50051
-    networks:
-      - gpteam-network
+      - AUTH_GRPC_ADDR=localhost:50051
+      - AI_GRPC_ADDR=localhost:50052
 
 volumes:
   postgres_data:

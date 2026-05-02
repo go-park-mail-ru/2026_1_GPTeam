@@ -3,6 +3,7 @@ EXCLUDE_DIRS := grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '
 .PHONY: proto
 proto:
 	protoc --go_out=. --go_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam --go-grpc_out=. --go-grpc_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam proto/auth/v1/auth.proto
+	protoc --go_out=. --go_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam --go-grpc_out=. --go-grpc_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam proto/ai/v1/ai.proto
 
 .PHONY: mocks
 mocks:
