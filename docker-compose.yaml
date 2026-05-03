@@ -90,6 +90,26 @@ services:
     networks:
       - gpteam-network
 
+  fileserver:
+    build: .
+    container_name: gpteam-fileserver
+    command: ["./fileserver"]
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - FILESERVER_LISTEN=:8082
+      - FILESERVER_STORAGE_PATH=/app/static
+      - FILESERVER_UPLOAD_TOKEN=${FILESERVER_UPLOAD_TOKEN:?set FILESERVER_UPLOAD_TOKEN in .env (same value as BFF)}
+    volumes:
+      - fileserver_static:/app/static
+    expose:
+      - "8082"
+    ports:
+      - "8083:8082"
+    networks:
+      - gpteam-network
+
   app:
     build: .
     container_name: gpteam-server
@@ -101,13 +121,14 @@ services:
         condition: service_started
       ai:
         condition: service_started
+      fileserver:
+        condition: service_started
     read_only: true
     security_opt:
       - no-new-privileges:true
     ports:
      - "8080:8080"
     volumes:
-      - ./static:/app/static
       - ./logs:/app/log
     env_file:
       - .env
@@ -118,12 +139,16 @@ services:
       - REDIS_PORT=6379
       - AUTH_GRPC_ADDR=auth:50051
       - AI_GRPC_ADDR=ai:50052
+      - FILESERVER_INTERNAL_URL=http://fileserver:8082
+      - FILESERVER_UPLOAD_TOKEN=${FILESERVER_UPLOAD_TOKEN:?set FILESERVER_UPLOAD_TOKEN in .env (same value as fileserver)}
+      - FILESERVER_PUBLIC_BASE=${FILESERVER_PUBLIC_BASE:-http://localhost:8083}
     networks:
       - gpteam-network
 
 volumes:
   postgres_data:
   redis-data:
+  fileserver_static:
 
 networks:
   gpteam-network:

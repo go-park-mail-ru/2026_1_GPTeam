@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/storage"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/bcrypt"
@@ -66,7 +67,7 @@ func TestUserUseCase_GetById(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo, dummyEnumsApp{})
+			uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(t.TempDir()))
 			user, err := uc.GetById(context.Background(), c.id)
 
 			if c.expectedErr {
@@ -118,7 +119,7 @@ func TestUserUseCase_Create(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo, dummyEnumsApp{})
+			uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(t.TempDir()))
 			authUser, err := uc.Create(context.Background(), c.req)
 
 			if c.expectedErr {
@@ -175,7 +176,7 @@ func TestUserUseCase_GetByCredentials(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo, dummyEnumsApp{})
+			uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(t.TempDir()))
 			_, err := uc.GetByCredentials(context.Background(), c.req)
 			require.Error(t, err)
 		})
@@ -200,7 +201,7 @@ func TestUserUseCase_GetByCredentials_Success(t *testing.T) {
 	repo := repomocks.NewMockUserRepository(ctrl)
 	repo.EXPECT().GetByUsername(gomock.Any(), "testuser").Return(hashedUser, nil)
 
-	uc := NewUser(repo, dummyEnumsApp{})
+	uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(t.TempDir()))
 	user, err := uc.GetByCredentials(context.Background(), web_helpers.LoginBodyRequest{
 		Username: "testuser",
 		Password: "Admin123",
@@ -260,7 +261,7 @@ func TestUserUseCase_IsAuthUserExists(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo, dummyEnumsApp{})
+			uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(t.TempDir()))
 			_, ok := uc.IsAuthUserExists(context.Background(), c.isAuth, c.userId)
 			require.Equal(t, c.expectOk, ok)
 		})
@@ -302,7 +303,7 @@ func TestUserUseCase_UpdateLastLogin(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo, dummyEnumsApp{})
+			uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(t.TempDir()))
 			err := uc.UpdateLastLogin(context.Background(), 1)
 
 			if c.expectedErr {
@@ -355,7 +356,7 @@ func TestUserUseCase_Update(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo, dummyEnumsApp{})
+			uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(t.TempDir()))
 			user, err := uc.Update(context.Background(), c.profile)
 
 			if c.expectedErr {
@@ -422,7 +423,7 @@ func TestUserUseCase_Update_WithPassword(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo, &capturedProfile)
 
-			uc := NewUser(repo, dummyEnumsApp{})
+			uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(t.TempDir()))
 			user, err := uc.Update(context.Background(), profile)
 
 			if c.expectedErr {
@@ -440,10 +441,6 @@ func TestUserUseCase_Update_WithPassword(t *testing.T) {
 }
 
 func TestUserUseCase_UploadAvatar(t *testing.T) {
-	err := os.MkdirAll("./static", 0755)
-	require.NoError(t, err)
-	t.Cleanup(func() { os.RemoveAll("./static") })
-
 	cases := []struct {
 		name        string
 		setupMocks  func(repo *repomocks.MockUserRepository)
@@ -477,7 +474,8 @@ func TestUserUseCase_UploadAvatar(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			c.setupMocks(repo)
 
-			uc := NewUser(repo, dummyEnumsApp{})
+			dir := t.TempDir()
+			uc := NewUser(repo, dummyEnumsApp{}, storage.NewLocalAvatar(dir))
 			avatarUrl, err := uc.UploadAvatar(
 				context.Background(),
 				1,
@@ -492,7 +490,7 @@ func TestUserUseCase_UploadAvatar(t *testing.T) {
 				require.NoError(t, err)
 				require.NotEmpty(t, avatarUrl)
 				require.True(t, strings.HasSuffix(avatarUrl, ".png"))
-				os.Remove(filepath.Join("./static", avatarUrl))
+				_ = os.Remove(filepath.Join(dir, avatarUrl))
 			}
 		})
 	}
@@ -543,7 +541,7 @@ func TestUser_IsStaff(t *testing.T) {
 			repo := repomocks.NewMockUserRepository(ctrl)
 			testCase.setupMocks(repo)
 			enumsApp := mocks.NewMockEnumsUseCase(ctrl)
-			app := NewUser(repo, enumsApp)
+			app := NewUser(repo, enumsApp, storage.NewLocalAvatar(t.TempDir()))
 			isStaff, err := app.IsStaff(context.Background(), testCase.userId)
 			require.ErrorIs(t, testCase.err, err)
 			require.Equal(t, testCase.isStaff, isStaff)

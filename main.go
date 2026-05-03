@@ -11,11 +11,13 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	fileupload "github.com/go-park-mail-ru/2026_1_GPTeam/internal/clients/fileserver"
 	groq "github.com/go-park-mail-ru/2026_1_GPTeam/internal/clients/groq"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/storage"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
@@ -142,8 +144,24 @@ func main() {
 	supportPostgres := repository.NewPostgresSupport(pool)
 	log.Info("repositories initialized")
 
+	storagePath := os.Getenv("FILESERVER_STORAGE_PATH")
+	if storagePath == "" {
+		storagePath = "./static"
+	}
+	internalFileURL := strings.TrimSpace(os.Getenv("FILESERVER_INTERNAL_URL"))
+	uploadToken := strings.TrimSpace(os.Getenv("FILESERVER_UPLOAD_TOKEN"))
+	var avatarUploader application.AvatarUploader
+	if internalFileURL != "" {
+		if uploadToken == "" {
+			log.Fatal("FILESERVER_UPLOAD_TOKEN is required when FILESERVER_INTERNAL_URL is set")
+		}
+		avatarUploader = fileupload.NewUploader(internalFileURL, uploadToken)
+	} else {
+		avatarUploader = storage.NewLocalAvatar(storagePath)
+	}
+
 	enumsApp := application.NewEnums(enumsPostgres)
-	userApp := application.NewUser(userPostgres, enumsApp)
+	userApp := application.NewUser(userPostgres, enumsApp, avatarUploader)
 	csrfService, err := secure.NewCsrf(os.Getenv("CSRF_SECRET"))
 	if err != nil {
 		return
@@ -165,8 +183,6 @@ func main() {
 	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
 	supportHandler := web.NewSupportHandler(supportApp, userApp)
 	log.Info("handlers initialized")
-
-	fileServer := http.StripPrefix("/img/", http.FileServer(http.Dir("./static")))
 
 	secure.XssSanitizerInit()
 	redisHost := os.Getenv("REDIS_HOST")
@@ -227,7 +243,10 @@ func main() {
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
-	mux.Handle("/img/", middleware.NoDirListing(fileServer))
+	if internalFileURL == "" {
+		fileServerLocal := http.StripPrefix("/img/", http.FileServer(http.Dir(storagePath)))
+		mux.Handle("/img/", middleware.NoDirListing(fileServerLocal))
+	}
 	mux.Handle("/support/get_all_appeals", middleware.MethodValidationMiddleware(http.MethodGet)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.GetAll), userApp)))
 	mux.Handle("/support/get_appeal/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(supportHandler.Detail)))
 	mux.Handle("/support/get_appeals", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(supportHandler.GetAllByUser)))
@@ -250,7 +269,11 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 120 * time.Second,
 	}
-	log.Info("starting server", zap.String("addr", addr), zap.String("auth_grpc", authGrpcAddr))
+	avatarMode := "local:" + storagePath
+	if internalFileURL != "" {
+		avatarMode = "remote:" + internalFileURL
+	}
+	log.Info("starting server", zap.String("addr", addr), zap.String("auth_grpc", authGrpcAddr), zap.String("avatar_storage", avatarMode))
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))

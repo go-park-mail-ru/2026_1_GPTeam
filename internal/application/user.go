@@ -3,15 +3,12 @@ package application
 import (
 	"context"
 	"io"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,18 +27,20 @@ type UserUseCase interface {
 type User struct {
 	repository repository.UserRepository
 	enumsApp   EnumsUseCase
+	avatars    AvatarUploader
 }
 
-func NewUser(repo repository.UserRepository, enumsApp EnumsUseCase) *User {
+func NewUser(repo repository.UserRepository, enumsApp EnumsUseCase, avatars AvatarUploader) *User {
 	return &User{
 		repository: repo,
 		enumsApp:   enumsApp,
+		avatars:    avatars,
 	}
 }
 
 func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyRequest) (web_helpers.AuthUser, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost) // ToDo: add pepper (на будущее, так как надо сделать поддержку старых перцов и плавную миграцию на новый перец)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Warn("failed to hash password",
 			zap.Error(err))
@@ -75,19 +74,9 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 
 func (obj *User) UploadAvatar(ctx context.Context, userID int, file io.Reader, extension string) (string, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	avatarUrl := uuid.New().String() + extension
-	filePath := filepath.Join("./static", avatarUrl)
-	dst, err := os.Create(filePath)
+	avatarUrl, err := obj.avatars.Upload(ctx, file, extension)
 	if err != nil {
-		log.Warn("failed to create avatar file",
-			zap.Int("user_id", userID),
-			zap.Error(err))
-		return "", err
-	}
-	defer dst.Close()
-
-	if _, err = io.Copy(dst, file); err != nil {
-		log.Warn("failed to copy avatar file",
+		log.Warn("failed to store avatar file",
 			zap.Int("user_id", userID),
 			zap.Error(err))
 		return "", err
