@@ -128,3 +128,17 @@ func (mr *MockBudgetRepositoryMockRecorder) LinkBudgetAndCategory(ctx, budgetId,
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkBudgetAndCategory", reflect.TypeOf((*MockBudgetRepository)(nil).LinkBudgetAndCategory), ctx, budgetId, category)
 }
+
+// Update mocks base method.
+func (m *MockBudgetRepository) Update(ctx context.Context, budget models.BudgetModel) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", ctx, budget)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockBudgetRepositoryMockRecorder) Update(ctx, budget any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockBudgetRepository)(nil).Update), ctx, budget)
+}

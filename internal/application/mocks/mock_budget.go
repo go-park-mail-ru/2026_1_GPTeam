@@ -114,3 +114,17 @@ func (mr *MockBudgetUseCaseMockRecorder) IsUserAuthorOfBudget(budget, user any) 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUserAuthorOfBudget", reflect.TypeOf((*MockBudgetUseCase)(nil).IsUserAuthorOfBudget), budget, user)
 }
+
+// Update mocks base method.
+func (m *MockBudgetUseCase) Update(ctx context.Context, budget models.BudgetModel) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", ctx, budget)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockBudgetUseCaseMockRecorder) Update(ctx, budget any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockBudgetUseCase)(nil).Update), ctx, budget)
+}

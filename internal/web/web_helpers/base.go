@@ -91,9 +91,15 @@ type BudgetRequest struct {
 	StartAt     time.Time `json:"start_at"`
 	EndAt       time.Time `json:"end_at"`
 	Actual      int       `json:"actual"`
-	Target      int       `json:"target"`
+	Target      float64   `json:"target"`
 	Currency    string    `json:"currency"`
 	Category    []string  `json:"category"`
+}
+
+type BudgetUpdateRequest struct {
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Target      float64 `json:"target"`
 }
 
 type CurrencyBalance struct {
