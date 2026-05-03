@@ -196,6 +196,7 @@ func main() {
 	mux.Handle("/api/get_budget/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(budgetHandler.GetBudget)))
 	mux.Handle("/api/budget", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Create)))
 	mux.Handle("/api/budget/{id}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(budgetHandler.Delete)))
+	mux.Handle("/api/budget/update/{id}", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(budgetHandler.Update)))
 	mux.Handle("/api/transactions", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(transactionHandler.Transactions)))
 	mux.Handle("/api/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete, http.MethodPut)(http.HandlerFunc(transactionHandler.Transaction)))
 	mux.Handle("/api/transactions/search", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(transactionHandler.Search)))

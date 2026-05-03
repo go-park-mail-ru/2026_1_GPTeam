@@ -43,3 +43,20 @@ func ValidateBudget(body web_helpers.BudgetRequest, currencyCodes []string, allo
 	}
 	return validationErrors
 }
+
+func ValidateBudgetUpdate(body web_helpers.BudgetUpdateRequest) []web_helpers.FieldError {
+	var validationErrors []web_helpers.FieldError
+	err := validateBudgetTitle(body.Title)
+	if err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("title", err.Error()))
+	}
+	err = validateBudgetDescription(body.Description)
+	if err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("description", err.Error()))
+	}
+	err = validateTargetBudget(body.Target)
+	if err != nil {
+		validationErrors = append(validationErrors, web_helpers.NewFieldError("target", err.Error()))
+	}
+	return validationErrors
+}

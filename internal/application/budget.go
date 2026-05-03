@@ -19,6 +19,7 @@ type BudgetUseCase interface {
 	GetById(ctx context.Context, id int, user models.UserModel) (models.BudgetModel, []string, error)
 	GetBudgetsOfUser(ctx context.Context, user models.UserModel) ([]int, error)
 	IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool
+	Update(ctx context.Context, budget models.BudgetModel) error
 }
 
 type Budget struct {
@@ -88,6 +89,11 @@ func (obj *Budget) GetBudgetsOfUser(ctx context.Context, user models.UserModel) 
 
 func (obj *Budget) IsUserAuthorOfBudget(budget models.BudgetModel, user models.UserModel) bool {
 	return user.Id == budget.Author
+}
+
+func (obj *Budget) Update(ctx context.Context, budget models.BudgetModel) error {
+	err := obj.repository.Update(ctx, budget)
+	return err
 }
 
 func calculateActual(ctx context.Context, budget models.BudgetModel, categories []string, transactionApp TransactionUseCase, accountApp AccountUseCase) (float64, error) {

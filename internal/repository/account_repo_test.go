@@ -37,7 +37,7 @@ func TestAccountPostgres_Create(t *testing.T) {
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				rows := pgxmock.NewRows([]string{"id"}).AddRow(1)
 				mock.ExpectQuery(`insert into account`).
-					WithArgs("base", float64(0), "RUB", pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WithArgs("base", float64(0), "RUB", pgxmock.AnyArg()).
 					WillReturnRows(rows)
 			},
 			expectedId:  1,
@@ -47,7 +47,7 @@ func TestAccountPostgres_Create(t *testing.T) {
 			name: "ошибка БД",
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`insert into account`).
-					WithArgs("base", float64(0), "RUB", pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WithArgs("base", float64(0), "RUB", pgxmock.AnyArg()).
 					WillReturnError(errors.New("db error"))
 			},
 			expectedId:  -1,

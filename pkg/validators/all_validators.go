@@ -110,7 +110,7 @@ func validateCurrency(currency string, allowedCurrencies []string) error {
 	return nil
 }
 
-func validateTargetBudget(target int) error {
+func validateTargetBudget(target float64) error {
 	if target < 0 {
 		return TargetIsNegativeError
 	}

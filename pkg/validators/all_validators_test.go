@@ -163,7 +163,7 @@ func TestValidateCurrency(t *testing.T) {
 func TestValidateTargetBudget(t *testing.T) {
 	testCases := []struct {
 		Name   string
-		Target int
+		Target float64
 		err    error
 	}{
 		{"Negative", -1, TargetIsNegativeError},

@@ -22,6 +22,7 @@ type BudgetRepository interface {
 	Delete(ctx context.Context, id int) error
 	GetCategoryOfBudget(ctx context.Context, id int) ([]string, error)
 	LinkBudgetAndCategory(ctx context.Context, budgetId int, category string) error
+	Update(ctx context.Context, budget models.BudgetModel) error
 }
 
 type BudgetPostgres struct {
@@ -211,6 +212,61 @@ func (obj *BudgetPostgres) LinkBudgetAndCategory(ctx context.Context, budgetId i
 			zap.Int("budget_id", budgetId),
 			zap.Error(err))
 		return err
+	}
+	log.Info("Query executed")
+	return nil
+}
+
+func (obj *BudgetPostgres) Update(ctx context.Context, budget models.BudgetModel) error {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `update budget set (title, description, target) = ($1, $2, $3) where id = $4 and author = $5;`
+	args := []any{
+		budget.Title,
+		budget.Description,
+		budget.Target,
+		budget.Id,
+		budget.Author,
+	}
+	startTime := time.Now()
+	res, err := obj.db.Exec(ctx, query, args...)
+	duration := time.Since(startTime)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if ok {
+		log.Error("failed to update budget (db error)",
+			zap.Int("budget_id", budget.Id),
+			zap.Int("user_id", budget.Author),
+			zap.Error(pgErr))
+		switch pgErr.Code {
+		case pgerrcode.CheckViolation:
+			return ConstraintError
+		case pgerrcode.UniqueViolation:
+			return DuplicatedDataError
+		default:
+			return pgErr
+		}
+	}
+	if err != nil {
+		log.Error("failed to update budget (not db error)",
+			zap.Int("budget_id", budget.Id),
+			zap.Int("user_id", budget.Author),
+			zap.Error(err))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return NothingInTableError
+		}
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		log.Warn("failed to update budget (no rows affected)",
+			zap.Int("budget_id", budget.Id),
+			zap.Int("user_id", budget.Author))
+		return NothingInTableError
+	}
+	if res.RowsAffected() != 1 {
+		log.Warn("failed to update budget (too many rows affected)",
+			zap.Int("budget_id", budget.Id),
+			zap.Int("user_id", budget.Author))
+		return IncorrectRowsAffectedError
 	}
 	log.Info("Query executed")
 	return nil

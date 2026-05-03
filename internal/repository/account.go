@@ -124,8 +124,8 @@ func (obj *AccountPostgres) GetCurrencyByAccountId(ctx context.Context, accountI
 
 func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountModel) (int, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `insert into account (name, balance, currency, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) returning id;`
-	args := []any{account.Name, account.Balance, account.Currency, account.CreatedAt, account.UpdatedAt}
+	query := `insert into account (name, balance, currency, created_at) VALUES ($1, $2, $3, $4) returning id;`
+	args := []any{account.Name, account.Balance, account.Currency, account.CreatedAt}
 	var id int
 	timeStart := time.Now()
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
@@ -362,8 +362,7 @@ func (obj *AccountPostgres) Update(ctx context.Context, userId int, accountId in
 		set
 			name = coalesce($3, a.name),
 			balance = coalesce($4, a.balance),
-			currency = coalesce($5, a.currency),
-			updated_at = now()
+			currency = coalesce($5, a.currency)
 		from account_user au
 		where au.account_id = a.id and au.user_id = $1 and a.id = $2 and a.deleted_at is null
 		returning a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at`
@@ -404,8 +403,7 @@ func (obj *AccountPostgres) Delete(ctx context.Context, userId int, accountId in
 
 		batch.Queue(`
 			update account a
-			set deleted_at = now(),
-			    updated_at = now()
+			set deleted_at = now()
 			where a.id = $1
 			  and a.deleted_at is null
 			  and exists (
