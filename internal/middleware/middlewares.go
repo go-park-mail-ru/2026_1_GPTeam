@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/metrics"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
@@ -154,6 +156,9 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			zap.String("request_id", requestId),
 			zap.Int("status_code", wr.StatusCode),
 			zap.String("duration", duration.String()))
+		appMetrics := metrics.GetMetrics()
+		appMetrics.HttpRequestsTotal.WithLabelValues(r.Method, web_helpers.NormalizePath(r.URL.Path), strconv.Itoa(wr.StatusCode)).Inc()
+		appMetrics.HttpRequestDuration.WithLabelValues(r.Method, web_helpers.NormalizePath(r.URL.Path)).Observe(float64(duration.Milliseconds()))
 	})
 }
 

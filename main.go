@@ -12,6 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	groq "github.com/go-park-mail-ru/2026_1_GPTeam/internal/clients/groq"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/metrics"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
@@ -21,6 +22,8 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -219,6 +222,25 @@ func main() {
 	handler = middleware.RateLimitMiddleware(handler, rateLimiter)
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
+
+	registry := prometheus.NewRegistry()
+	metrics.InitMetrics(registry)
+	mux2 := http.NewServeMux()
+	mux2.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	server2 := &http.Server{
+		Addr:         ":8081",
+		Handler:      mux2,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		log.Info("starting metrics", zap.String("addr", ":8081"))
+		err = server2.ListenAndServe()
+		if err != nil {
+			log.Fatal("Error starting metrics server", zap.Error(err))
+			return
+		}
+	}()
 
 	addr := ":" + os.Getenv("PORT")
 	server := http.Server{

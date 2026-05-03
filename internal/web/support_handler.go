@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/metrics"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
@@ -73,6 +74,8 @@ func (obj *SupportHandler) Create(w http.ResponseWriter, r *http.Request) {
 	log.Info("created support", zap.Int("support_id", id), zap.Int("user_id", authUser.Id))
 	response := web_helpers.NewOkResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.SupportCreationsTotal.WithLabelValues().Inc()
 }
 
 func (obj *SupportHandler) GetAll(w http.ResponseWriter, r *http.Request) {

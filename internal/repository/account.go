@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/metrics"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -88,7 +89,10 @@ func (obj *AccountPostgres) GetByAccountId(ctx context.Context, accountId int) (
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 
 	if mappedErr := mapAccountPgError(ctx, err, "failed to get account by account id"); mappedErr != nil {
 		return models.AccountModel{}, mappedErr
@@ -112,7 +116,10 @@ func (obj *AccountPostgres) GetCurrencyByAccountId(ctx context.Context, accountI
 	var currency string
 	start := time.Now()
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&currency)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 
 	if mappedErr := mapAccountPgError(ctx, err, "failed to get currency by account id"); mappedErr != nil {
 		return "", mappedErr

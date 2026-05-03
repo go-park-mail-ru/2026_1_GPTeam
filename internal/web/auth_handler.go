@@ -8,6 +8,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/metrics"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
@@ -38,6 +39,8 @@ func (obj *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	log.Info("logout success")
 	response := web_helpers.NewLogoutSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.ActiveUsers.Dec()
 }
 
 func (obj *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
@@ -198,4 +201,6 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	response := web_helpers.NewLoginSuccessResponse(user)
 	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.ActiveUsers.Inc()
 }
