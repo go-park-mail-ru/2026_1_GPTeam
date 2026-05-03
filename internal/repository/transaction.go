@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/metrics"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/currency_converter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgerrcode"
@@ -64,6 +65,8 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		duration := time.Since(startTime)
 		totalDuration += duration
 		log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+		appMetrics := metrics.GetMetrics()
+		appMetrics.DbQueryDuration.WithLabelValues(query, "transaction").Observe(float64(duration.Milliseconds()))
 		pgErr, ok := errors.AsType[*pgconn.PgError](err)
 		if ok {
 			log.Error("failed to create transaction (db error)",
@@ -119,6 +122,8 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "transaction").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get transaction ids by user (not db error)", zap.Error(err))
 		return []int{}, err
@@ -169,6 +174,8 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 		duration := time.Since(startTime)
 		totalDuration += duration
 		log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+		appMetrics := metrics.GetMetrics()
+		appMetrics.DbQueryDuration.WithLabelValues(query, "transaction").Observe(float64(duration.Milliseconds()))
 		pgErr, ok := errors.AsType[*pgconn.PgError](err)
 		if ok {
 			log.Error("failed to update transaction (db error)",
@@ -237,6 +244,8 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int, a
 		err := dbTransaction.QueryRow(ctx, query, args...).Scan(&id, &transactionType, &transactionValue, &accountId, &userId, &category)
 		duration := time.Since(startTime)
 		log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+		appMetrics := metrics.GetMetrics()
+		appMetrics.DbQueryDuration.WithLabelValues(query, "transaction").Observe(float64(duration.Milliseconds()))
 		if err != nil {
 			log.Error("failed to delete transaction (not db error)",
 				zap.Error(err))
@@ -282,6 +291,8 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&transaction.UserId, &transaction.AccountId, &transaction.Value, &transaction.Type, &transaction.Category, &transaction.Title, &transaction.Description, &transaction.CreatedAt, &transaction.TransactionDate, &transaction.UpdatedAt)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "transaction").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get transaction (not db error)", zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -338,6 +349,8 @@ func (obj *TransactionPostgres) Search(ctx context.Context, userId int, filters 
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "transaction").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to search transactions (not db error)", zap.Error(err))
 		return []models.TransactionModel{}, err
@@ -491,6 +504,8 @@ func increaseBalanceOfAccount(ctx context.Context, dbTransaction pgx.Tx, queryAr
 	_, err := dbTransaction.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to increase account (db error)",
@@ -535,6 +550,8 @@ func increaseActualOfBudget(ctx context.Context, dbTransaction pgx.Tx, queryArgs
 	_, err := dbTransaction.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to increase budget (db error)",
@@ -573,6 +590,8 @@ func decreaseBalanceOfAccount(ctx context.Context, dbTransaction pgx.Tx, queryAr
 	_, err := dbTransaction.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to decrease account (db error)",
@@ -612,6 +631,8 @@ func decreaseActualOfBudget(ctx context.Context, dbTransaction pgx.Tx, queryArgs
 	_, err := dbTransaction.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to decrease budget (db error)",
@@ -658,6 +679,8 @@ func changeBalanceOfAccountWithNewType(ctx context.Context, dbTransaction pgx.Tx
 	_, err := dbTransaction.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to update account (db error)",
@@ -706,6 +729,8 @@ func changeActualOfBudgetWithNewType(ctx context.Context, dbTransaction pgx.Tx, 
 	_, err := dbTransaction.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to update budget (db error)",

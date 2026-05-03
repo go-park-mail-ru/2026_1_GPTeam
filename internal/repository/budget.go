@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/metrics"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -58,6 +59,8 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to create budget (db error)",
@@ -90,6 +93,8 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&budget.Title, &budget.Description, &budget.CreatedAt, &budget.StartAt, &endAt, &budget.UpdatedAt, &budget.Actual, &budget.Target, &budget.Currency, &budget.Author, &budget.Active)
 	duration := time.Since(timeStart)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get budget (not db error)",
 			zap.Error(err))
@@ -115,6 +120,8 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get budget ids by user (not db error)",
 			zap.Error(err))
@@ -155,6 +162,8 @@ func (obj *BudgetPostgres) Delete(ctx context.Context, id int) error {
 	_, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to delete budget (not db error)",
 			zap.Error(err))
@@ -173,6 +182,8 @@ func (obj *BudgetPostgres) GetCategoryOfBudget(ctx context.Context, id int) ([]s
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get category of budget (not db error)",
 			zap.Error(err))
@@ -207,6 +218,8 @@ func (obj *BudgetPostgres) LinkBudgetAndCategory(ctx context.Context, budgetId i
 	_, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to link budget category (not db error)",
 			zap.Int("budget_id", budgetId),
@@ -231,6 +244,8 @@ func (obj *BudgetPostgres) Update(ctx context.Context, budget models.BudgetModel
 	res, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "budget").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to update budget (db error)",
