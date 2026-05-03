@@ -91,9 +91,15 @@ type BudgetRequest struct {
 	StartAt     time.Time `json:"start_at"`
 	EndAt       time.Time `json:"end_at"`
 	Actual      int       `json:"actual"`
-	Target      int       `json:"target"`
+	Target      float64   `json:"target"`
 	Currency    string    `json:"currency"`
 	Category    []string  `json:"category"`
+}
+
+type BudgetUpdateRequest struct {
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Target      float64 `json:"target"`
 }
 
 type CurrencyBalance struct {
@@ -367,6 +373,7 @@ type TransactionRequest struct {
 	Value           float64   `json:"value"`
 	Type            string    `json:"type"`
 	Category        string    `json:"category"`
+	Currency        string    `json:"currency"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
 	TransactionDate time.Time `json:"transaction_date"`
@@ -579,32 +586,93 @@ func NewTooManyRequestsResponse() TooManyRequestsResponse {
 	}
 }
 
-type ShortAccount struct {
-	Id      int     `json:"id"`
-	Name    string  `json:"name"`
-	Balance float64 `json:"balance"`
+type AccountRequest struct {
+	Name     string   `json:"name"`
+	Balance  *float64 `json:"balance,omitempty"`
+	Currency string   `json:"currency"`
 }
 
-func NewShortAccount(id int, name string, balance float64) ShortAccount {
-	return ShortAccount{
-		Id:      id,
-		Name:    name,
-		Balance: balance,
+type AccountPatchRequest struct {
+	Name     *string  `json:"name,omitempty"`
+	Balance  *float64 `json:"balance,omitempty"`
+	Currency *string  `json:"currency,omitempty"`
+}
+
+type AccountResponse struct {
+	Id        int       `json:"id"`
+	Name      string    `json:"name"`
+	Balance   float64   `json:"balance"`
+	Currency  string    `json:"currency"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type AccountListResponse struct {
+	SimpleResponse
+	Accounts []AccountResponse `json:"accounts"`
+}
+
+func NewAccountListResponse(accounts []AccountResponse) AccountListResponse {
+	return AccountListResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Ok",
+		},
+		Accounts: accounts,
 	}
 }
 
-type ShortAccountsResponse struct {
+type AccountGetSuccessResponse struct {
 	SimpleResponse
-	Accounts []ShortAccount `json:"accounts"`
+	Account AccountResponse `json:"account"`
 }
 
-func NewShortAccountsResponse(accounts []ShortAccount) ShortAccountsResponse {
-	return ShortAccountsResponse{
+func NewAccountGetSuccessResponse(account AccountResponse) AccountGetSuccessResponse {
+	return AccountGetSuccessResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
-			Message: "OK",
+			Message: "Счёт успешно получен",
 		},
-		Accounts: accounts,
+		Account: account,
+	}
+}
+
+type AccountCreateSuccessResponse struct {
+	SimpleResponse
+	Account AccountResponse `json:"account"`
+}
+
+func NewAccountCreateSuccessResponse(account AccountResponse) AccountCreateSuccessResponse {
+	return AccountCreateSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Счёт успешно создан",
+		},
+		Account: account,
+	}
+}
+
+type AccountUpdateSuccessResponse struct {
+	SimpleResponse
+	Account AccountResponse `json:"account"`
+}
+
+func NewAccountUpdateSuccessResponse(account AccountResponse) AccountUpdateSuccessResponse {
+	return AccountUpdateSuccessResponse{
+		SimpleResponse: SimpleResponse{
+			Code:    http.StatusOK,
+			Message: "Счёт успешно обновлён",
+		},
+		Account: account,
+	}
+}
+
+type AccountDeleteSuccessResponse SimpleResponse
+
+func NewAccountDeleteSuccessResponse() AccountDeleteSuccessResponse {
+	return AccountDeleteSuccessResponse{
+		Code:    http.StatusOK,
+		Message: "Счёт успешно удалён",
 	}
 }
 

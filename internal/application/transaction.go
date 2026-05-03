@@ -33,7 +33,7 @@ func NewTransaction(repo repository.TransactionRepository, accRepo repository.Ac
 }
 
 func (obj *Transaction) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
-	account, err := obj.accountRepo.GetById(ctx, transaction.AccountId)
+	account, err := obj.accountRepo.GetByAccountId(ctx, transaction.AccountId)
 	if err != nil {
 		return 0, err
 	}
@@ -51,11 +51,11 @@ func (obj *Transaction) Update(ctx context.Context, transaction models.Transacti
 	if err != nil {
 		return err
 	}
-	oldAccount, err := obj.accountRepo.GetById(ctx, oldTransaction.AccountId)
+	oldAccount, err := obj.accountRepo.GetByAccountId(ctx, oldTransaction.AccountId)
 	if err != nil {
 		return err
 	}
-	newAccount, err := obj.accountRepo.GetById(ctx, transaction.AccountId)
+	newAccount, err := obj.accountRepo.GetByAccountId(ctx, transaction.AccountId)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId in
 			zap.Int("transaction_id", transactionId))
 		return 0, ForbiddenError
 	}
-	account, err := obj.accountRepo.GetById(ctx, transaction.AccountId)
+	account, err := obj.accountRepo.GetByAccountId(ctx, transaction.AccountId)
 	if err != nil {
 		return 0, err
 	}

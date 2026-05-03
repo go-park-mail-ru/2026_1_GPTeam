@@ -103,7 +103,7 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 		StartAt:     budget.StartAt,
 		EndAt:       budget.EndAt,
 		Actual:      int(budget.Actual),
-		Target:      int(budget.Target),
+		Target:      budget.Target,
 		Currency:    "RUB",
 		Category:    category,
 	}
@@ -227,5 +227,83 @@ func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		zap.Int("user_id", authUser.Id),
 		zap.Int("budget_id", budgetId))
 	response := web_helpers.NewBudgetDeleteSuccessResponse()
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *BudgetHandler) Update(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWithRequestId(r.Context())
+	log.Info("update budget request")
+	authUser, ok := web_helpers.GetAuthUser(r)
+	if !ok {
+		log.Warn("user unauthorized")
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		log.Warn("budget id required",
+			zap.Int("user_id", authUser.Id))
+		response := web_helpers.NewNotFoundErrorResponse("Не указан ID бюджета")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	budgetId, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Warn("budget id required",
+			zap.Int("user_id", authUser.Id),
+			zap.Error(err))
+		response := web_helpers.NewNotFoundErrorResponse("Неверный ID бюджета")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	var body web_helpers.BudgetUpdateRequest
+	if err = web_helpers.ReadRequestJSON(r, &body); err != nil {
+		log.Warn("failed to read body",
+			zap.Int("user_id", authUser.Id),
+			zap.Error(err))
+		response := web_helpers.NewBudgetErrorResponse(http.StatusBadRequest, "Неверный формат запроса", []web_helpers.FieldError{
+			web_helpers.NewFieldError("", "Не удалось прочитать тело запроса"),
+		})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	validationErrors := validators.ValidateBudgetUpdate(body)
+	if len(validationErrors) > 0 {
+		response := web_helpers.NewValidationErrorResponse(validationErrors)
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	budget := models.BudgetModel{
+		Id:          budgetId,
+		Title:       secure.SanitizeXss(body.Title),
+		Description: secure.SanitizeXss(body.Description),
+		Target:      body.Target,
+		Author:      authUser.Id,
+	}
+	err = obj.budgetApp.Update(r.Context(), budget)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			response := web_helpers.NewNotFoundErrorResponse("бюджет не найден")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.DuplicatedDataError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "такой бюджет уже есть"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		if errors.Is(err, repository.ConstraintError) {
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
+			response.Message = "введены невалидные данные"
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+		response := web_helpers.NewInternalServerErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	response := web_helpers.NewBudgetUpdateSuccessResponse()
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }

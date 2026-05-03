@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestGetLoggerWIthRequestId(t *testing.T) {
+func TestGetLoggerWithRequestId(t *testing.T) {
 	cases := []struct {
 		name        string
 		ctx         context.Context
