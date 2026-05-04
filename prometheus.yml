@@ -15,6 +15,10 @@ scrape_configs:
     static_configs:
       - targets: ["redis-exporter:9121"]
 
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
   - job_name: "app"
     static_configs:
       - targets: ["app:8081"]
