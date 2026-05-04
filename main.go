@@ -17,9 +17,9 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/storage"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
+	fsv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/gomodule/redigo/redis"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -144,21 +144,29 @@ func main() {
 	supportPostgres := repository.NewPostgresSupport(pool)
 	log.Info("repositories initialized")
 
-	storagePath := os.Getenv("FILESERVER_STORAGE_PATH")
-	if storagePath == "" {
-		storagePath = "./static"
+	fsGrpcAddr := strings.TrimSpace(os.Getenv("FILESERVER_GRPC_ADDR"))
+	if fsGrpcAddr == "" {
+		fsGrpcAddr = "localhost:50053"
 	}
-	internalFileURL := strings.TrimSpace(os.Getenv("FILESERVER_INTERNAL_URL"))
-	uploadToken := strings.TrimSpace(os.Getenv("FILESERVER_UPLOAD_TOKEN"))
-	var avatarUploader application.AvatarUploader
-	if internalFileURL != "" {
-		if uploadToken == "" {
-			log.Fatal("FILESERVER_UPLOAD_TOKEN is required when FILESERVER_INTERNAL_URL is set")
-		}
-		avatarUploader = fileupload.NewUploader(internalFileURL, uploadToken)
-	} else {
-		avatarUploader = storage.NewLocalAvatar(storagePath)
+	fsConn, err := grpc.NewClient(
+		fsGrpcAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallSendMsgSize(8<<20),
+			grpc.MaxCallRecvMsgSize(8<<20),
+		),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			d := net.Dialer{Timeout: 10 * time.Second}
+			return d.DialContext(ctx, "tcp4", addr)
+		}),
+	)
+	if err != nil {
+		log.Fatal("fileserver gRPC dial", zap.String("addr", fsGrpcAddr), zap.Error(err))
+		return
 	}
+	defer fsConn.Close()
+	fsClient := fsv1.NewFileServiceClient(fsConn)
+	var avatarUploader application.AvatarUploader = fileupload.NewGrpcUploader(fsClient)
 
 	enumsApp := application.NewEnums(enumsPostgres)
 	userApp := application.NewUser(userPostgres, enumsApp, avatarUploader)
@@ -222,6 +230,13 @@ func main() {
 	log.Info("secure package initialized")
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.Handle("/auth/logout", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("/auth/refresh", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.RefreshToken)))
 	mux.Handle("/auth/signup", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.SignUp)))
@@ -243,10 +258,6 @@ func main() {
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
-	if internalFileURL == "" {
-		fileServerLocal := http.StripPrefix("/img/", http.FileServer(http.Dir(storagePath)))
-		mux.Handle("/img/", middleware.NoDirListing(fileServerLocal))
-	}
 	mux.Handle("/support/get_all_appeals", middleware.MethodValidationMiddleware(http.MethodGet)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.GetAll), userApp)))
 	mux.Handle("/support/get_appeal/{id}", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(supportHandler.Detail)))
 	mux.Handle("/support/get_appeals", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(supportHandler.GetAllByUser)))
@@ -269,11 +280,11 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 120 * time.Second,
 	}
-	avatarMode := "local:" + storagePath
-	if internalFileURL != "" {
-		avatarMode = "remote:" + internalFileURL
-	}
-	log.Info("starting server", zap.String("addr", addr), zap.String("auth_grpc", authGrpcAddr), zap.String("avatar_storage", avatarMode))
+	log.Info("starting server",
+		zap.String("addr", addr),
+		zap.String("auth_grpc", authGrpcAddr),
+		zap.String("fileserver_grpc", fsGrpcAddr),
+	)
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal("Error starting server", zap.Error(err))

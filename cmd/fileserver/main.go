@@ -2,16 +2,22 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/fileserver"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/fileserver/application"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/fileserver/grpcserver"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/fileserver/httpserver"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/fileserver/storage"
+	fsv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -19,8 +25,8 @@ func main() {
 		fmt.Println("Error loading .env file:", err)
 	}
 
-	DEBUG := os.Getenv("DEBUG") == "true"
-	if err := logger.InitLogger(DEBUG); err != nil {
+	debug := os.Getenv("DEBUG") == "true"
+	if err := logger.InitLogger(debug); err != nil {
 		fmt.Println("Error initializing logger:", err)
 		return
 	}
@@ -28,31 +34,52 @@ func main() {
 
 	log := logger.GetLogger()
 
-	storage := os.Getenv("FILESERVER_STORAGE_PATH")
-	if storage == "" {
-		storage = "./static"
+	storageRoot := os.Getenv("FILESERVER_STORAGE_PATH")
+	if storageRoot == "" {
+		storageRoot = "./static"
 	}
-	if err := os.MkdirAll(storage, 0755); err != nil {
+	if err := os.MkdirAll(storageRoot, 0o755); err != nil {
 		log.Fatal("fileserver storage", zap.Error(err))
 	}
-	token := os.Getenv("FILESERVER_UPLOAD_TOKEN")
 
-	addr := os.Getenv("FILESERVER_LISTEN")
-	if addr == "" {
-		addr = ":8082"
+	httpAddr := os.Getenv("FILESERVER_HTTP_LISTEN")
+	if httpAddr == "" {
+		httpAddr = ":8082"
+	}
+	grpcAddr := os.Getenv("FILESERVER_GRPC_LISTEN")
+	if grpcAddr == "" {
+		grpcAddr = ":50053"
 	}
 
-	handler := fileserver.NewRouter(storage, token)
-	srv := &http.Server{
-		Addr:         addr,
-		Handler:      handler,
+	avatarStorage := storage.NewLocalStorage(storageRoot)
+	avatarApp := application.NewAvatarService(avatarStorage)
+	server := grpcserver.NewServer(avatarApp)
+
+	grpcLis, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		log.Fatal("fileserver grpc listen", zap.String("addr", grpcAddr), zap.Error(err))
+	}
+	grpcServer := grpc.NewServer()
+	fsv1.RegisterFileServiceServer(grpcServer, server)
+
+	go func() {
+		log.Info("fileserver gRPC listening", zap.String("addr", grpcAddr))
+		if err := grpcServer.Serve(grpcLis); err != nil {
+			log.Fatal("fileserver grpc serve", zap.Error(err))
+		}
+	}()
+
+	httpHandler := httpserver.NewRouter(storageRoot)
+	httpSrv := &http.Server{
+		Addr:         httpAddr,
+		Handler:      httpHandler,
 		ReadTimeout:  parseDurSec(os.Getenv("FILESERVER_READ_TIMEOUT_SEC"), 30*time.Second),
 		WriteTimeout: parseDurSec(os.Getenv("FILESERVER_WRITE_TIMEOUT_SEC"), 120*time.Second),
 	}
 
-	log.Info("fileserver listening", zap.String("addr", addr), zap.String("storage", storage))
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal("fileserver", zap.Error(err))
+	log.Info("fileserver HTTP listening", zap.String("addr", httpAddr), zap.String("storage", storageRoot))
+	if err := httpSrv.ListenAndServe(); err != nil {
+		log.Fatal("fileserver http", zap.Error(err))
 	}
 }
 

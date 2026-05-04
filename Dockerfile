@@ -9,6 +9,7 @@ COPY . .
 RUN mkdir -p /out && go build -o /out/app . && go build -o /out/auth-service ./cmd/auth && go build -o /out/ai-service ./cmd/ai && go build -o /out/fileserver ./cmd/fileserver
 
 FROM alpine:latest
+RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=builder /out/app ./app
 COPY --from=builder /out/auth-service ./auth-service

@@ -1,82 +1,37 @@
 package fileserver
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
-	"net/http"
-	"strings"
-	"time"
+
+	fsv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1"
 )
 
-type Uploader struct {
-	baseURL    string
-	httpClient *http.Client
-	token      string
+const MaxClientReadBytes = 8 << 20
+
+type GrpcUploader struct {
+	client fsv1.FileServiceClient
 }
 
-func NewUploader(baseURL, token string) *Uploader {
-	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	return &Uploader{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
-		},
-		token: strings.TrimSpace(token),
-	}
+func NewGrpcUploader(client fsv1.FileServiceClient) *GrpcUploader {
+	return &GrpcUploader{client: client}
 }
 
-type uploadResponse struct {
-	Filename string `json:"filename"`
-}
-
-func (c *Uploader) Upload(ctx context.Context, reader io.Reader, extension string) (string, error) {
-	var buf bytes.Buffer
-	w := multipart.NewWriter(&buf)
-	part, err := w.CreateFormFile("file", "upload"+extension)
+func (c *GrpcUploader) Upload(ctx context.Context, reader io.Reader, extension string) (string, error) {
+	data, err := io.ReadAll(io.LimitReader(reader, MaxClientReadBytes))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("fileserver: read body: %w", err)
 	}
-	if _, err := io.Copy(part, reader); err != nil {
-		return "", err
-	}
-	if err := w.WriteField("extension", extension); err != nil {
-		return "", err
-	}
-	if err := w.Close(); err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/internal/upload", &buf)
+	resp, err := c.client.Upload(ctx, &fsv1.UploadRequest{
+		Data:      data,
+		Extension: extension,
+	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("fileserver: upload rpc: %w", err)
 	}
-	req.Header.Set("Content-Type", w.FormDataContentType())
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("fileserver: status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	var out uploadResponse
-	if err := json.Unmarshal(body, &out); err != nil {
-		return "", err
-	}
-	if out.Filename == "" {
+	if resp.GetFilename() == "" {
 		return "", fmt.Errorf("fileserver: empty filename")
 	}
-	return out.Filename, nil
+	return resp.GetFilename(), nil
 }

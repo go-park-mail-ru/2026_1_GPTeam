@@ -70,6 +70,12 @@ services:
       - AUTH_GRPC_LISTEN=:50051
     expose:
       - "50051"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 50051"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks:
       - gpteam-network
 
@@ -87,6 +93,13 @@ services:
       - AI_GRPC_LISTEN=:50052
     expose:
       - "50052"
+    # healthcheck не сработал, поэтому отключила
+    # healthcheck:
+    #   test: ["CMD-SHELL", "nc -z 127.0.0.1 50052"]
+    #   interval: 10s
+    #   timeout: 3s
+    #   retries: 5
+    #   start_period: 5s
     networks:
       - gpteam-network
 
@@ -98,15 +111,22 @@ services:
     env_file:
       - .env
     environment:
-      - FILESERVER_LISTEN=:8082
+      - FILESERVER_HTTP_LISTEN=:8082
+      - FILESERVER_GRPC_LISTEN=:50053
       - FILESERVER_STORAGE_PATH=/app/static
-      - FILESERVER_UPLOAD_TOKEN=${FILESERVER_UPLOAD_TOKEN:?set FILESERVER_UPLOAD_TOKEN in .env (same value as BFF)}
     volumes:
       - fileserver_static:/app/static
     expose:
       - "8082"
+      - "50053"
     ports:
       - "8083:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8082/healthz && nc -z 127.0.0.1 50053"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks:
       - gpteam-network
 
@@ -118,11 +138,12 @@ services:
       migrations:
         condition: service_completed_successfully
       auth:
-        condition: service_started
+        condition: service_healthy
       ai:
+        # service_started, потому что у ai пока нет healthcheck — см. блок ai выше
         condition: service_started
       fileserver:
-        condition: service_started
+        condition: service_healthy
     read_only: true
     security_opt:
       - no-new-privileges:true
@@ -139,9 +160,14 @@ services:
       - REDIS_PORT=6379
       - AUTH_GRPC_ADDR=auth:50051
       - AI_GRPC_ADDR=ai:50052
-      - FILESERVER_INTERNAL_URL=http://fileserver:8082
-      - FILESERVER_UPLOAD_TOKEN=${FILESERVER_UPLOAD_TOKEN:?set FILESERVER_UPLOAD_TOKEN in .env (same value as fileserver)}
+      - FILESERVER_GRPC_ADDR=fileserver:50053
       - FILESERVER_PUBLIC_BASE=${FILESERVER_PUBLIC_BASE:-http://localhost:8083}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks:
       - gpteam-network
 
