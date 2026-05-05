@@ -1,5 +1,11 @@
 EXCLUDE_DIRS := grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '/web_helpers' | grep -vE '/pkg$$' | grep -vE 'github.com/go-park-mail-ru/2026_1_GPTeam$$'
 
+.PHONY: proto
+proto:
+	protoc --go_out=. --go_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam --go-grpc_out=. --go-grpc_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam proto/auth/v1/auth.proto
+	protoc --go_out=. --go_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam --go-grpc_out=. --go-grpc_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam proto/ai/v1/ai.proto
+	protoc --go_out=. --go_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam --go-grpc_out=. --go-grpc_opt=module=github.com/go-park-mail-ru/2026_1_GPTeam proto/fileserver/v1/fileserver.proto
+
 .PHONY: mocks
 mocks:
 	@echo "Генерация моков для application..."
@@ -9,6 +15,9 @@ mocks:
 	mockgen -source=internal/application/transaction.go -destination=internal/application/mocks/mock_transaction.go -package=mocks
 	mockgen -source=internal/application/enums.go -destination=internal/application/mocks/mock_enums.go -package=mocks
 	mockgen -source=internal/application/voice_transaction.go -destination=internal/application/mocks/mock_voice_transaction.go -package=mocks
+	mockgen -source=internal/application/avatar_uploader.go -destination=internal/application/mocks/mock_avatar_uploader.go -package=mocks
+	mockgen -source=internal/fileserver/application/avatar.go -destination=internal/fileserver/application/mocks/mock_avatar.go -package=mocks
+	mockgen -source=internal/fileserver/grpcserver/server.go -destination=internal/fileserver/grpcserver/mocks/mock_server.go -package=mocks
 	
 	@echo "Генерация моков для repository..."
 	mockgen -source=internal/repository/account.go -destination=internal/repository/mocks/mock_account_repo.go -package=mocks

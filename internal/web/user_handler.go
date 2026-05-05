@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
@@ -139,13 +140,19 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serverURL := os.Getenv("SERVER_URL")
-	if serverURL == "" {
-		log.Warn("SERVER_URL not set, using default value")
-		serverURL = "http://localhost:8081"
+	publicBase := strings.TrimSpace(os.Getenv("FILESERVER_PUBLIC_BASE"))
+	if publicBase == "" {
+		serverURL := strings.TrimSpace(os.Getenv("SERVER_URL"))
+		if serverURL == "" {
+			log.Warn("SERVER_URL not set, using default value")
+			serverURL = "http://localhost:8081"
+		}
+		publicBase = strings.TrimSuffix(serverURL, "/")
+	} else {
+		publicBase = strings.TrimSuffix(publicBase, "/")
 	}
 
-	finalUrl, err := url.JoinPath(serverURL, "img", avatarName)
+	finalUrl, err := url.JoinPath(publicBase, "img", avatarName)
 	if err != nil {
 		log.Error("failed to build final url", zap.Error(err))
 		response := web_helpers.NewServerErrorResponse("Внутренняя ошибка при формировании ссылки")
