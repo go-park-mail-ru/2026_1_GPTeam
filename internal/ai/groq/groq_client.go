@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"go.uber.org/zap"
 )
 
@@ -146,8 +147,9 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 	}
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-
+	timeStart := time.Now()
 	resp, err := c.httpClient.Do(req)
+	duration := time.Since(timeStart)
 	if err != nil {
 		log.Error("transcription: request failed", zap.Error(err))
 		return "", fmt.Errorf("groq stt request: %w", err)
@@ -159,6 +161,9 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 		log.Error("transcription: failed to read response body", zap.Error(err))
 		return "", fmt.Errorf("read response body: %w", err)
 	}
+
+	appMetrics := metrics.GetMetrics()
+	appMetrics.AiGroqTranscribeRequestsDuration.WithLabelValues(resp.Status).Observe(float64(duration.Milliseconds()))
 
 	if resp.StatusCode != http.StatusOK {
 		var groqErr groqErrorResponse
@@ -245,8 +250,9 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 	}
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
-
+	startTime := time.Now()
 	resp, err := c.httpClient.Do(req)
+	duration := time.Since(startTime)
 	if err != nil {
 		log.Error("parser: groq request failed", zap.Error(err))
 		return nil, err
@@ -258,6 +264,9 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 		log.Error("parser: failed to read response body", zap.Error(err))
 		return nil, err
 	}
+
+	appMetrics := metrics.GetMetrics()
+	appMetrics.AiGroqParseRequestsDuration.WithLabelValues(resp.Status).Observe(float64(duration.Milliseconds()))
 
 	if resp.StatusCode != http.StatusOK {
 		log.Error("parser: groq api error", zap.Int("status", resp.StatusCode))

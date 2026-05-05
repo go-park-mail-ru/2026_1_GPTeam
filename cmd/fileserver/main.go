@@ -56,19 +56,25 @@ func main() {
 		grpcAddr = ":50053"
 	}
 
+	metricsPort := os.Getenv("FILESERVER_METRICS_PORT")
+	if metricsPort == "" {
+		log.Fatal("FILESERVER_METRICS_PORT environment variable not set")
+		return
+	}
+	metricsPort = ":" + metricsPort
 	registry := prometheus.NewRegistry()
 	metrics.InitMetrics(registry)
-	mux2 := http.NewServeMux()
-	mux2.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
-	server2 := &http.Server{
-		Addr:         ":50083",
-		Handler:      mux2,
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	metricsServer := &http.Server{
+		Addr:         metricsPort,
+		Handler:      metricsMux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 	go func() {
-		log.Info("starting metrics", zap.String("addr", ":50083"))
-		err := server2.ListenAndServe()
+		log.Info("starting metrics", zap.String("addr", metricsPort))
+		err := metricsServer.ListenAndServe()
 		if err != nil {
 			log.Fatal("Error starting metrics server", zap.Error(err))
 			return

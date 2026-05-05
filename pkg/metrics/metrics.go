@@ -13,14 +13,19 @@ type AppMetrics struct {
 	DbQueryDuration       *prometheus.HistogramVec
 	SupportCreationsTotal *prometheus.CounterVec
 	// Auth microservice
-	AuthGrpcRequestsTotal    *prometheus.CounterVec
-	AuthGrpcRequestsDuration *prometheus.HistogramVec
+	AuthGrpcRequestsTotal         *prometheus.CounterVec
+	AuthGrpcRequestsDuration      *prometheus.HistogramVec
+	AuthValidateTokenTotal        *prometheus.CounterVec
+	AuthValidateRefreshTokenTotal *prometheus.CounterVec
 	// FS microservice
 	FsGrpcRequestsTotal    *prometheus.CounterVec
 	FsGrpcRequestsDuration *prometheus.HistogramVec
+	FsAvatarUploadDuration *prometheus.HistogramVec
 	// AI microservice
-	AiGrpcRequestsTotal    *prometheus.CounterVec
-	AiGrpcRequestsDuration *prometheus.HistogramVec
+	AiGrpcRequestsTotal              *prometheus.CounterVec
+	AiGrpcRequestsDuration           *prometheus.HistogramVec
+	AiGroqTranscribeRequestsDuration *prometheus.HistogramVec
+	AiGroqParseRequestsDuration      *prometheus.HistogramVec
 }
 
 var once sync.Once
@@ -82,6 +87,20 @@ func InitMetrics(registry *prometheus.Registry) {
 				},
 				[]string{"method"},
 			),
+			AuthValidateTokenTotal: prometheus.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "auth_validate_token_total",
+					Help: "Общее количество проверок access token",
+				},
+				[]string{"valid"},
+			),
+			AuthValidateRefreshTokenTotal: prometheus.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "auth_validate_refresh_token_total",
+					Help: "Общее количество проверок refresh token",
+				},
+				[]string{"valid"},
+			),
 			// FS microservice
 			FsGrpcRequestsTotal: prometheus.NewCounterVec(
 				prometheus.CounterOpts{
@@ -98,6 +117,13 @@ func InitMetrics(registry *prometheus.Registry) {
 				},
 				[]string{"method"},
 			),
+			FsAvatarUploadDuration: prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name: "fs_avatar_upload_duration_milliseconds",
+					Help: "Общее время загрузки аватара в миллисекундах",
+				},
+				[]string{"status"},
+			),
 			// AI microservice
 			AiGrpcRequestsTotal: prometheus.NewCounterVec(
 				prometheus.CounterOpts{
@@ -113,6 +139,20 @@ func InitMetrics(registry *prometheus.Registry) {
 					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
 				},
 				[]string{"method"},
+			),
+			AiGroqTranscribeRequestsDuration: prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name: "ai_groq_http_requests_duration_milliseconds",
+					Help: "Длительность HTTP запросов к Groq API в миллисекундах",
+				},
+				[]string{"status"},
+			),
+			AiGroqParseRequestsDuration: prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name: "ai_groq_http_requests_duration_milliseconds",
+					Help: "Длительность HTTP запросов к Groq API в миллисекундах",
+				},
+				[]string{"status"},
 			),
 		}
 		metrics.register(registry)
@@ -166,9 +206,14 @@ func (obj *AppMetrics) register(registry *prometheus.Registry) {
 		obj.DbQueryDuration,
 		obj.AuthGrpcRequestsTotal,
 		obj.AuthGrpcRequestsDuration,
+		obj.AuthValidateTokenTotal,
+		obj.AuthValidateRefreshTokenTotal,
 		obj.FsGrpcRequestsTotal,
 		obj.FsGrpcRequestsDuration,
+		obj.FsAvatarUploadDuration,
 		obj.AiGrpcRequestsTotal,
 		obj.AiGrpcRequestsDuration,
+		obj.AiGroqTranscribeRequestsDuration,
+		obj.AiGroqParseRequestsDuration,
 	)
 }
