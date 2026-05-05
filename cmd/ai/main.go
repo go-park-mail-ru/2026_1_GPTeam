@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -16,6 +17,8 @@ import (
 	aiv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/ai/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -47,6 +50,25 @@ func main() {
 		zap.String("suffix", "..."+groqKey[max(0, len(groqKey)-4):]),
 		zap.String("proxy", proxyURLStr),
 	)
+
+	registry := prometheus.NewRegistry()
+	metrics.InitMetrics(registry)
+	mux2 := http.NewServeMux()
+	mux2.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	server2 := &http.Server{
+		Addr:         ":50082",
+		Handler:      mux2,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		log.Info("starting metrics", zap.String("addr", ":50082"))
+		err = server2.ListenAndServe()
+		if err != nil {
+			log.Fatal("Error starting metrics server", zap.Error(err))
+			return
+		}
+	}()
 
 	listenAddr := os.Getenv("AI_GRPC_LISTEN")
 	if listenAddr == "" {

@@ -23,6 +23,14 @@ scrape_configs:
     static_configs:
       - targets: ["auth:50081"]
 
+  - job_name: "ai"
+    static_configs:
+      - targets: ["ai:50082"]
+
+  - job_name: "fs"
+    static_configs:
+      - targets: ["fileserver:50083"]
+
   - job_name: "app"
     static_configs:
       - targets: ["app:8081"]

@@ -69,15 +69,15 @@ func InitMetrics(registry *prometheus.Registry) {
 			// Auth microservice
 			AuthGrpcRequestsTotal: prometheus.NewCounterVec(
 				prometheus.CounterOpts{
-					Name: "",
-					Help: "",
+					Name: "auth_grpc_requests_total",
+					Help: "Общее количество gRPC запросов к микросервису авторизации",
 				},
 				[]string{"method", "status"},
 			),
 			AuthGrpcRequestsDuration: prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
-					Name:    "",
-					Help:    "",
+					Name:    "auth_grpc_request_duration_milliseconds",
+					Help:    "Длительность gRPC запросов к микросервису авторизации в миллисекундах",
 					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
 				},
 				[]string{"method"},
@@ -85,15 +85,15 @@ func InitMetrics(registry *prometheus.Registry) {
 			// FS microservice
 			FsGrpcRequestsTotal: prometheus.NewCounterVec(
 				prometheus.CounterOpts{
-					Name: "",
-					Help: "",
+					Name: "fs_grpc_requests_total",
+					Help: "Общее количество gRPC запросов к файловому микросервису",
 				},
 				[]string{"method", "status"},
 			),
 			FsGrpcRequestsDuration: prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
-					Name:    "",
-					Help:    "",
+					Name:    "fs_grpc_request_duration_milliseconds",
+					Help:    "Длительность gRPC запросов к файловому микросервису в миллисекундах",
 					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
 				},
 				[]string{"method"},
@@ -101,15 +101,15 @@ func InitMetrics(registry *prometheus.Registry) {
 			// AI microservice
 			AiGrpcRequestsTotal: prometheus.NewCounterVec(
 				prometheus.CounterOpts{
-					Name: "",
-					Help: "",
+					Name: "ai_grpc_requests_total",
+					Help: "Общее количество gRPC запросов к AI микросервису",
 				},
 				[]string{"method", "status"},
 			),
 			AiGrpcRequestsDuration: prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
-					Name:    "",
-					Help:    "",
+					Name:    "ai_grpc_request_duration_milliseconds",
+					Help:    "Длительность gRPC запросов к AI микросервису в миллисекундах",
 					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
 				},
 				[]string{"method"},
@@ -164,5 +164,11 @@ func (obj *AppMetrics) register(registry *prometheus.Registry) {
 		obj.HttpRequestDuration,
 		obj.ActiveUsers,
 		obj.DbQueryDuration,
+		obj.AuthGrpcRequestsTotal,
+		obj.AuthGrpcRequestsDuration,
+		obj.FsGrpcRequestsTotal,
+		obj.FsGrpcRequestsDuration,
+		obj.AiGrpcRequestsTotal,
+		obj.AiGrpcRequestsDuration,
 	)
 }

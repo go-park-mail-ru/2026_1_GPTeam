@@ -18,6 +18,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -53,6 +55,25 @@ func main() {
 	if grpcAddr == "" {
 		grpcAddr = ":50053"
 	}
+
+	registry := prometheus.NewRegistry()
+	metrics.InitMetrics(registry)
+	mux2 := http.NewServeMux()
+	mux2.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	server2 := &http.Server{
+		Addr:         ":50083",
+		Handler:      mux2,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		log.Info("starting metrics", zap.String("addr", ":50083"))
+		err := server2.ListenAndServe()
+		if err != nil {
+			log.Fatal("Error starting metrics server", zap.Error(err))
+			return
+		}
+	}()
 
 	avatarStorage := storage.NewLocalStorage(storageRoot)
 	avatarApp := application.NewAvatarService(avatarStorage)
