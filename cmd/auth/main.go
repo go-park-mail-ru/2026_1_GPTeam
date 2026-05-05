@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -38,6 +41,25 @@ func main() {
 	}()
 
 	log := logger.GetLogger()
+
+	registry := prometheus.NewRegistry()
+	metrics.InitMetrics(registry)
+	mux2 := http.NewServeMux()
+	mux2.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	server2 := &http.Server{
+		Addr:         ":50081",
+		Handler:      mux2,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		log.Info("starting metrics", zap.String("addr", ":50081"))
+		err = server2.ListenAndServe()
+		if err != nil {
+			log.Fatal("Error starting metrics server", zap.Error(err))
+			return
+		}
+	}()
 
 	user := os.Getenv("POSTGRES_USER")
 	password := os.Getenv("POSTGRES_PASSWORD")
@@ -75,8 +97,7 @@ func main() {
 		return
 	}
 
-	s := grpc.NewServer()
-	//s := grpc.NewServer(grpc.ChainUnaryInterceptor(prometheusUnaryInterceptor))
+	s := grpc.NewServer(grpc.ChainUnaryInterceptor(prometheusUnaryInterceptor))
 	authv1.RegisterAuthServiceServer(s, &grpcserver.Server{JWT: jwtService})
 
 	log.Info("auth gRPC server listening", zap.String("addr", lisAddr))

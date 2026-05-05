@@ -199,7 +199,6 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	log.Info("login success",
 		zap.Int("user_id", storedUser.Id))
 	response := web_helpers.NewLoginSuccessResponse(user)
-	log.Info("!!! login success")
 	obj.authService.GenerateNewAuth(r.Context(), w, storedUser.Id)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 	appMetrics := metrics.GetMetrics()

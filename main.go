@@ -65,6 +65,25 @@ func main() {
 		}
 	}()
 
+	registry := prometheus.NewRegistry()
+	metrics.InitMetrics(registry)
+	mux2 := http.NewServeMux()
+	mux2.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	server2 := &http.Server{
+		Addr:         ":8081",
+		Handler:      mux2,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		log.Info("starting metrics", zap.String("addr", ":8081"))
+		err = server2.ListenAndServe()
+		if err != nil {
+			log.Fatal("Error starting metrics server", zap.Error(err))
+			return
+		}
+	}()
+
 	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
 	if groqKey == "" {
 		log.Fatal("GROQ_API_KEY environment variable is required")
@@ -271,25 +290,6 @@ func main() {
 	handler = middleware.RateLimitMiddleware(handler, rateLimiter)
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
-
-	registry := prometheus.NewRegistry()
-	metrics.InitMetrics(registry)
-	mux2 := http.NewServeMux()
-	mux2.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
-	server2 := &http.Server{
-		Addr:         ":8081",
-		Handler:      mux2,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-	go func() {
-		log.Info("starting metrics", zap.String("addr", ":8081"))
-		err = server2.ListenAndServe()
-		if err != nil {
-			log.Fatal("Error starting metrics server", zap.Error(err))
-			return
-		}
-	}()
 
 	addr := ":" + os.Getenv("PORT")
 	server := http.Server{
