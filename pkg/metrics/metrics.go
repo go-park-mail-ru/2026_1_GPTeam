@@ -142,15 +142,15 @@ func InitMetrics(registry *prometheus.Registry) {
 			),
 			AiGroqTranscribeRequestsDuration: prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
-					Name: "ai_groq_http_requests_duration_milliseconds",
-					Help: "Длительность HTTP запросов к Groq API в миллисекундах",
+					Name: "ai_groq_transcribe_http_requests_duration_milliseconds",
+					Help: "Длительность HTTP запросов на конвертацию голоса в текст к Groq API в миллисекундах",
 				},
 				[]string{"status"},
 			),
 			AiGroqParseRequestsDuration: prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
-					Name: "ai_groq_http_requests_duration_milliseconds",
-					Help: "Длительность HTTP запросов к Groq API в миллисекундах",
+					Name: "ai_groq_parse_http_requests_duration_milliseconds",
+					Help: "Длительность HTTP запросов на парсинг текста к Groq API в миллисекундах",
 				},
 				[]string{"status"},
 			),
