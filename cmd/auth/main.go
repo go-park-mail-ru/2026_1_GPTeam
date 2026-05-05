@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/grpcserver"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
@@ -73,6 +76,7 @@ func main() {
 	}
 
 	s := grpc.NewServer()
+	//s := grpc.NewServer(grpc.ChainUnaryInterceptor(prometheusUnaryInterceptor))
 	authv1.RegisterAuthServiceServer(s, &grpcserver.Server{JWT: jwtService})
 
 	log.Info("auth gRPC server listening", zap.String("addr", lisAddr))
@@ -80,4 +84,24 @@ func main() {
 	if err != nil {
 		log.Fatal("auth grpc serve", zap.Error(err))
 	}
+}
+
+func prometheusUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	start := time.Now()
+	method := info.FullMethod
+	resp, err := handler(ctx, req)
+	duration := time.Since(start)
+
+	appMetrics := metrics.GetMetrics()
+	appMetrics.AuthGrpcRequestsDuration.WithLabelValues(method).Observe(float64(duration.Milliseconds()))
+	statusCode := "OK"
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			statusCode = st.Code().String()
+		} else {
+			statusCode = "Unknown"
+		}
+	}
+	appMetrics.AuthGrpcRequestsTotal.WithLabelValues(method, statusCode).Inc()
+	return resp, err
 }

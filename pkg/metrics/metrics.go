@@ -12,6 +12,15 @@ type AppMetrics struct {
 	ActiveUsers           prometheus.Gauge
 	DbQueryDuration       *prometheus.HistogramVec
 	SupportCreationsTotal *prometheus.CounterVec
+	// Auth microservice
+	AuthGrpcRequestsTotal    *prometheus.CounterVec
+	AuthGrpcRequestsDuration *prometheus.HistogramVec
+	// FS microservice
+	FsGrpcRequestsTotal    *prometheus.CounterVec
+	FsGrpcRequestsDuration *prometheus.HistogramVec
+	// AI microservice
+	AiGrpcRequestsTotal    *prometheus.CounterVec
+	AiGrpcRequestsDuration *prometheus.HistogramVec
 }
 
 var once sync.Once
@@ -56,6 +65,54 @@ func InitMetrics(registry *prometheus.Registry) {
 					Help: "Общее количество заявок в техподдержку",
 				},
 				[]string{},
+			),
+			// Auth microservice
+			AuthGrpcRequestsTotal: prometheus.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "",
+					Help: "",
+				},
+				[]string{"method", "status"},
+			),
+			AuthGrpcRequestsDuration: prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "",
+					Help:    "",
+					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+				},
+				[]string{"method"},
+			),
+			// FS microservice
+			FsGrpcRequestsTotal: prometheus.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "",
+					Help: "",
+				},
+				[]string{"method", "status"},
+			),
+			FsGrpcRequestsDuration: prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "",
+					Help:    "",
+					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+				},
+				[]string{"method"},
+			),
+			// AI microservice
+			AiGrpcRequestsTotal: prometheus.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "",
+					Help: "",
+				},
+				[]string{"method", "status"},
+			),
+			AiGrpcRequestsDuration: prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "",
+					Help:    "",
+					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+				},
+				[]string{"method"},
 			),
 		}
 		metrics.register(registry)

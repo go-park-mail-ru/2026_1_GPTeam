@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,9 +16,11 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/fileserver/storage"
 	fsv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
@@ -59,7 +62,7 @@ func main() {
 	if err != nil {
 		log.Fatal("fileserver grpc listen", zap.String("addr", grpcAddr), zap.Error(err))
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(prometheusUnaryInterceptor))
 	fsv1.RegisterFileServiceServer(grpcServer, server)
 
 	go func() {
@@ -93,4 +96,24 @@ func parseDurSec(s string, def time.Duration) time.Duration {
 		return def
 	}
 	return time.Duration(sec) * time.Second
+}
+
+func prometheusUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	start := time.Now()
+	method := info.FullMethod
+	resp, err := handler(ctx, req)
+	duration := time.Since(start)
+
+	appMetrics := metrics.GetMetrics()
+	appMetrics.FsGrpcRequestsDuration.WithLabelValues(method).Observe(float64(duration.Milliseconds()))
+	statusCode := "OK"
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			statusCode = st.Code().String()
+		} else {
+			statusCode = "Unknown"
+		}
+	}
+	appMetrics.FsGrpcRequestsTotal.WithLabelValues(method, statusCode).Inc()
+	return resp, err
 }

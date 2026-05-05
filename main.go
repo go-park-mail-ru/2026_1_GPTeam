@@ -13,7 +13,6 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
 	fileupload "github.com/go-park-mail-ru/2026_1_GPTeam/internal/clients/fileserver"
 	groq "github.com/go-park-mail-ru/2026_1_GPTeam/internal/clients/groq"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/metrics"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
@@ -22,6 +21,7 @@ import (
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	fsv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/gomodule/redigo/redis"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -64,12 +64,6 @@ func main() {
 			fmt.Println("Error closing access logger: ", err)
 		}
 	}()
-
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file", zap.Error(err))
-		return
-	}
 
 	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
 	if groqKey == "" {

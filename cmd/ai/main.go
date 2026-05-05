@@ -15,8 +15,10 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/ai/grpcserver"
 	aiv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/ai/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
@@ -54,7 +56,7 @@ func main() {
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
 	aiService := ai.NewGroqAiService(groqClient)
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(prometheusUnaryInterceptor))
 	aiv1.RegisterAiServiceServer(grpcServer, &grpcserver.Server{AI: aiService})
 
 	lis, err := net.Listen("tcp", listenAddr)
@@ -106,4 +108,24 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func prometheusUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	start := time.Now()
+	method := info.FullMethod
+	resp, err := handler(ctx, req)
+	duration := time.Since(start)
+
+	appMetrics := metrics.GetMetrics()
+	appMetrics.AiGrpcRequestsDuration.WithLabelValues(method).Observe(float64(duration.Milliseconds()))
+	statusCode := "OK"
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			statusCode = st.Code().String()
+		} else {
+			statusCode = "Unknown"
+		}
+	}
+	appMetrics.AiGrpcRequestsTotal.WithLabelValues(method, statusCode).Inc()
+	return resp, err
 }
