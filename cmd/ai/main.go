@@ -147,7 +147,6 @@ func prometheusUnaryInterceptor(ctx context.Context, req interface{}, info *grpc
 	duration := time.Since(start)
 
 	appMetrics := metrics.GetMetrics()
-	appMetrics.AiGrpcRequestsDuration.WithLabelValues(method).Observe(float64(duration.Milliseconds()))
 	statusCode := "OK"
 	if err != nil {
 		if st, ok := status.FromError(err); ok {
@@ -156,6 +155,7 @@ func prometheusUnaryInterceptor(ctx context.Context, req interface{}, info *grpc
 			statusCode = "Unknown"
 		}
 	}
+	appMetrics.AiGrpcRequestsDuration.WithLabelValues(method, statusCode).Observe(float64(duration.Milliseconds()))
 	appMetrics.AiGrpcRequestsTotal.WithLabelValues(method, statusCode).Inc()
 	return resp, err
 }

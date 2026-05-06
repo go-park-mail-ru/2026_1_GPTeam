@@ -163,7 +163,7 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 	}
 
 	appMetrics := metrics.GetMetrics()
-	appMetrics.AiGroqTranscribeRequestsDuration.WithLabelValues(resp.Status).Observe(float64(duration.Milliseconds()))
+	appMetrics.AiGroqRequestsDuration.WithLabelValues(resp.Status, "transcribe").Observe(float64(duration.Milliseconds()))
 
 	if resp.StatusCode != http.StatusOK {
 		var groqErr groqErrorResponse
@@ -266,7 +266,7 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 	}
 
 	appMetrics := metrics.GetMetrics()
-	appMetrics.AiGroqParseRequestsDuration.WithLabelValues(resp.Status).Observe(float64(duration.Milliseconds()))
+	appMetrics.AiGroqRequestsDuration.WithLabelValues(resp.Status, "parse").Observe(float64(duration.Milliseconds()))
 
 	if resp.StatusCode != http.StatusOK {
 		log.Error("parser: groq api error", zap.Int("status", resp.StatusCode))

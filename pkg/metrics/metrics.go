@@ -22,10 +22,9 @@ type AppMetrics struct {
 	FsGrpcRequestsDuration *prometheus.HistogramVec
 	FsAvatarUploadDuration *prometheus.HistogramVec
 	// AI microservice
-	AiGrpcRequestsTotal              *prometheus.CounterVec
-	AiGrpcRequestsDuration           *prometheus.HistogramVec
-	AiGroqTranscribeRequestsDuration *prometheus.HistogramVec
-	AiGroqParseRequestsDuration      *prometheus.HistogramVec
+	AiGrpcRequestsTotal    *prometheus.CounterVec
+	AiGrpcRequestsDuration *prometheus.HistogramVec
+	AiGroqRequestsDuration *prometheus.HistogramVec
 }
 
 var once sync.Once
@@ -48,7 +47,7 @@ func InitMetrics(registry *prometheus.Registry) {
 					Help:    "Длительность HTTP-запроса в миллисекундах",
 					Buckets: prometheus.DefBuckets,
 				},
-				[]string{"method", "endpoint"},
+				[]string{"method", "endpoint", "status"},
 			),
 			ActiveUsers: prometheus.NewGauge(
 				prometheus.GaugeOpts{
@@ -60,7 +59,7 @@ func InitMetrics(registry *prometheus.Registry) {
 				prometheus.HistogramOpts{
 					Name:    "app_db_query_duration_milliseconds",
 					Help:    "Длительность запроса к базе данных в миллисекундах",
-					Buckets: []float64{1, 2, 5, 10, 20, 50, 100, 200, 500, 1000},
+					Buckets: prometheus.DefBuckets,
 				},
 				[]string{"query", "table"},
 			),
@@ -83,9 +82,9 @@ func InitMetrics(registry *prometheus.Registry) {
 				prometheus.HistogramOpts{
 					Name:    "auth_grpc_request_duration_milliseconds",
 					Help:    "Длительность gRPC запросов к микросервису авторизации в миллисекундах",
-					Buckets: []float64{1, 2, 5, 10, 20, 50, 100, 200, 500, 1000},
+					Buckets: prometheus.DefBuckets,
 				},
-				[]string{"method"},
+				[]string{"method", "status"},
 			),
 			AuthValidateTokenTotal: prometheus.NewCounterVec(
 				prometheus.CounterOpts{
@@ -113,9 +112,9 @@ func InitMetrics(registry *prometheus.Registry) {
 				prometheus.HistogramOpts{
 					Name:    "fs_grpc_request_duration_milliseconds",
 					Help:    "Длительность gRPC запросов к файловому микросервису в миллисекундах",
-					Buckets: []float64{1, 2, 5, 10, 20, 50, 100, 200, 500, 1000},
+					Buckets: prometheus.DefBuckets,
 				},
-				[]string{"method"},
+				[]string{"method", "status"},
 			),
 			FsAvatarUploadDuration: prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
@@ -136,23 +135,16 @@ func InitMetrics(registry *prometheus.Registry) {
 				prometheus.HistogramOpts{
 					Name:    "ai_grpc_request_duration_milliseconds",
 					Help:    "Длительность gRPC запросов к AI микросервису в миллисекундах",
-					Buckets: []float64{1, 2, 5, 10, 20, 50, 100, 200, 500, 1000},
+					Buckets: prometheus.DefBuckets,
 				},
-				[]string{"method"},
+				[]string{"method", "status"},
 			),
-			AiGroqTranscribeRequestsDuration: prometheus.NewHistogramVec(
+			AiGroqRequestsDuration: prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
 					Name: "ai_groq_transcribe_http_requests_duration_milliseconds",
 					Help: "Длительность HTTP запросов на конвертацию голоса в текст к Groq API в миллисекундах",
 				},
-				[]string{"status"},
-			),
-			AiGroqParseRequestsDuration: prometheus.NewHistogramVec(
-				prometheus.HistogramOpts{
-					Name: "ai_groq_parse_http_requests_duration_milliseconds",
-					Help: "Длительность HTTP запросов на парсинг текста к Groq API в миллисекундах",
-				},
-				[]string{"status"},
+				[]string{"status", "action"},
 			),
 		}
 		metrics.register(registry)
@@ -214,7 +206,6 @@ func (obj *AppMetrics) register(registry *prometheus.Registry) {
 		obj.FsAvatarUploadDuration,
 		obj.AiGrpcRequestsTotal,
 		obj.AiGrpcRequestsDuration,
-		obj.AiGroqTranscribeRequestsDuration,
-		obj.AiGroqParseRequestsDuration,
+		obj.AiGroqRequestsDuration,
 	)
 }

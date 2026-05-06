@@ -158,7 +158,7 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			zap.String("duration", duration.String()))
 		appMetrics := metrics.GetMetrics()
 		appMetrics.HttpRequestsTotal.WithLabelValues(r.Method, web_helpers.NormalizePath(r.URL.Path), strconv.Itoa(wr.StatusCode)).Inc()
-		appMetrics.HttpRequestDuration.WithLabelValues(r.Method, web_helpers.NormalizePath(r.URL.Path)).Observe(float64(duration.Milliseconds()))
+		appMetrics.HttpRequestDuration.WithLabelValues(r.Method, web_helpers.NormalizePath(r.URL.Path), strconv.Itoa(wr.StatusCode)).Observe(float64(duration.Milliseconds()))
 	})
 }
 
