@@ -18,6 +18,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -59,6 +60,7 @@ func main() {
 	metricsPort = ":" + metricsPort
 	registry := prometheus.NewRegistry()
 	metrics.InitMetrics(registry)
+	registry.MustRegister(collectors.NewGoCollector())
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
 	metricsServer := &http.Server{
