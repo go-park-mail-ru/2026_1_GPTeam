@@ -225,6 +225,57 @@ func TestCsrf_GetCsrfFromHeader(t *testing.T) {
 	})
 }
 
+func TestAddCSPHeader(t *testing.T) {
+	t.Run("Базовый набор без env", func(t *testing.T) {
+		t.Setenv("FILESERVER_PUBLIC_BASE", "")
+		t.Setenv("ADVERTISEMENT_URL", "")
+
+		w := httptest.NewRecorder()
+		AddCSPHeader(w)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		require.NotEmpty(t, csp)
+		require.Contains(t, csp, "default-src 'self'")
+		require.Contains(t, csp, "script-src 'self'")
+		require.Contains(t, csp, "style-src 'self' 'unsafe-inline'")
+		require.Contains(t, csp, "img-src 'self' data:;")
+		require.Contains(t, csp, "frame-src 'self';")
+	})
+
+	t.Run("С FILESERVER_PUBLIC_BASE добавляется в img-src", func(t *testing.T) {
+		t.Setenv("FILESERVER_PUBLIC_BASE", "https://files.example.com/path")
+		t.Setenv("ADVERTISEMENT_URL", "")
+
+		w := httptest.NewRecorder()
+		AddCSPHeader(w)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		require.Contains(t, csp, "img-src 'self' data: https://files.example.com")
+	})
+
+	t.Run("Невалидный FILESERVER_PUBLIC_BASE игнорируется", func(t *testing.T) {
+		t.Setenv("FILESERVER_PUBLIC_BASE", "not-a-url")
+		t.Setenv("ADVERTISEMENT_URL", "")
+
+		w := httptest.NewRecorder()
+		AddCSPHeader(w)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		require.Contains(t, csp, "img-src 'self' data:;")
+	})
+
+	t.Run("С ADVERTISEMENT_URL добавляется в frame-src", func(t *testing.T) {
+		t.Setenv("FILESERVER_PUBLIC_BASE", "")
+		t.Setenv("ADVERTISEMENT_URL", "https://ads.example.com")
+
+		w := httptest.NewRecorder()
+		AddCSPHeader(w)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		require.Contains(t, csp, "frame-src 'self' https://ads.example.com")
+	})
+}
+
 func TestCsrf_ValidateSecFetchSite(t *testing.T) {
 	t.Parallel()
 	csrfService, _ := NewCsrf("secret")
