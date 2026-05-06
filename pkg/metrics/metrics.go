@@ -204,6 +204,7 @@ func (obj *AppMetrics) register(registry *prometheus.Registry) {
 		obj.HttpRequestDuration,
 		obj.ActiveUsers,
 		obj.DbQueryDuration,
+		obj.SupportCreationsTotal,
 		obj.AuthGrpcRequestsTotal,
 		obj.AuthGrpcRequestsDuration,
 		obj.AuthValidateTokenTotal,
