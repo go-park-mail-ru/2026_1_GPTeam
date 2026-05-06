@@ -307,6 +307,14 @@ func TestAuthMiddleware(t *testing.T) {
 			expectedCode: http.StatusOK,
 		},
 		{
+			name:   "/healthz — публичный путь",
+			path:   "/healthz",
+			method: http.MethodGet,
+			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase) {
+			},
+			expectedCode: http.StatusOK,
+		},
+		{
 			name:   "/auth/logout — без токена → 401",
 			path:   "/auth/logout",
 			method: http.MethodPost,
@@ -576,6 +584,13 @@ func TestCSRFMiddleware(t *testing.T) {
 			path:         "/auth/login",
 			method:       http.MethodPost,
 			mockSetup:    fakeCsrf{validSite: false}, // Игнорируется
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "Путь /healthz пропускается",
+			path:         "/healthz",
+			method:       http.MethodGet,
+			mockSetup:    fakeCsrf{validSite: false},
 			expectedCode: http.StatusOK,
 		},
 		{
