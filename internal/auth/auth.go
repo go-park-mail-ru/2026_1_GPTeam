@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"go.uber.org/zap"
 )
 
@@ -78,14 +77,7 @@ func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, i
 		return false, -1
 	}
 	token := cookie.Value
-	isValid, userId := obj.jwt.CheckToken(token)
-	appMetrics := metrics.GetMetrics()
-	label := "ok"
-	if !isValid {
-		label = "fail"
-	}
-	appMetrics.AuthValidateTokenTotal.WithLabelValues(label).Inc()
-	return isValid, userId
+	return obj.jwt.CheckToken(token)
 }
 
 func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -111,12 +103,6 @@ func (obj *JwtAuthService) Refresh(ctx context.Context, w http.ResponseWriter, r
 	}
 	token := cookie.Value
 	isValid, userId := obj.jwt.CheckRefreshToken(ctx, token)
-	appMetrics := metrics.GetMetrics()
-	label := "ok"
-	if !isValid {
-		label = "fail"
-	}
-	appMetrics.AuthValidateRefreshTokenTotal.WithLabelValues(label).Inc()
 	if !isValid {
 		return false, -1
 	}
