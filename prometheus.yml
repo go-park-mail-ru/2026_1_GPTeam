@@ -1,36 +1,41 @@
 global:
-    scrape_interval: 15s
+  scrape_interval: 15s
 #    evaluation_interval: 15s
 
 scrape_configs:
   - job_name: "prometheus"
     static_configs:
-      - targets: ["localhost:9090"]
+      - targets: [ "localhost:9090" ]
 
   - job_name: "db"
     static_configs:
-      - targets: ["postgres-exporter:9187"]
+      - targets: [ "postgres-exporter:9187" ]
 
   - job_name: "redis"
     static_configs:
-      - targets: ["redis-exporter:9121"]
+      - targets: [ "redis-exporter:9121" ]
 
   - job_name: "node-exporter"
     static_configs:
-      - targets: ["node-exporter:9100"]
+      - targets: [ "node-exporter:9100" ]
 
   - job_name: "auth"
     static_configs:
-      - targets: ["auth:50081"]
+      - targets: [ "auth:50081" ]
 
   - job_name: "ai"
     static_configs:
-      - targets: ["ai:50082"]
+      - targets: [ "ai:50082" ]
 
   - job_name: "fs"
     static_configs:
-      - targets: ["fileserver:50083"]
+      - targets: [ "fileserver:50083" ]
 
   - job_name: "app"
     static_configs:
-      - targets: ["app:8081"]
+      - targets: [ "app:8081" ]
+
+  - job_name: "nginx"
+    static_configs:
+      - targets: [ "nginx-exporter:9113" ]
+    metrics_path: "/metrics"
