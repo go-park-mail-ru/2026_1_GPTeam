@@ -162,11 +162,21 @@ func GetMetrics() *AppMetrics {
 
 func NewNoopMetrics() *AppMetrics {
 	return &AppMetrics{
-		HttpRequestsTotal:     newNoopCounterVec(),
-		HttpRequestDuration:   newNoopHistogramVec(),
-		ActiveUsers:           newNoopGauge(),
-		DbQueryDuration:       newNoopHistogramVec(),
-		SupportCreationsTotal: newNoopCounterVec(),
+		HttpRequestsTotal:             newNoopCounterVec(3),
+		HttpRequestDuration:           newNoopHistogramVec(3),
+		ActiveUsers:                   newNoopGauge(),
+		DbQueryDuration:               newNoopHistogramVec(2),
+		SupportCreationsTotal:         newNoopCounterVec(0),
+		AuthGrpcRequestsTotal:         newNoopCounterVec(2),
+		AuthGrpcRequestsDuration:      newNoopHistogramVec(2),
+		AuthValidateTokenTotal:        newNoopCounterVec(1),
+		AuthValidateRefreshTokenTotal: newNoopCounterVec(1),
+		FsGrpcRequestsTotal:           newNoopCounterVec(2),
+		FsGrpcRequestsDuration:        newNoopHistogramVec(2),
+		FsAvatarUploadDuration:        newNoopHistogramVec(1),
+		AiGrpcRequestsTotal:           newNoopCounterVec(2),
+		AiGrpcRequestsDuration:        newNoopHistogramVec(2),
+		AiGroqRequestsDuration:        newNoopHistogramVec(2),
 	}
 }
 
@@ -176,17 +186,17 @@ func newNoopGauge() prometheus.Gauge {
 	)
 }
 
-func newNoopHistogramVec() *prometheus.HistogramVec {
+func newNoopHistogramVec(labelsCount int) *prometheus.HistogramVec {
 	return prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{Name: "noop"},
-		[]string{},
+		make([]string, labelsCount),
 	)
 }
 
-func newNoopCounterVec() *prometheus.CounterVec {
+func newNoopCounterVec(labelsCount int) *prometheus.CounterVec {
 	return prometheus.NewCounterVec(
 		prometheus.CounterOpts{Name: "noop"},
-		[]string{},
+		make([]string, labelsCount),
 	)
 }
 
