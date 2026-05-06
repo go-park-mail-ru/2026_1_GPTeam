@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
@@ -35,36 +34,17 @@ func (obj *JwtAuthService) GenerateNewAuth(ctx context.Context, w http.ResponseW
 	log := logger.GetLoggerWithRequestId(ctx)
 	log.Info("generating new auth for user",
 		zap.Int("user_id", userId))
-	token, err := obj.jwt.GenerateToken(userId)
+	access, err := obj.jwt.GenerateToken(userId)
 	if err != nil {
 		return
 	}
-	cookie := &http.Cookie{
-		Name:     TokenName,
-		Value:    token,
-		Path:     "/",
-		Expires:  time.Now().Add(jwt_auth.AccessTokenExpirationTime),
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(w, cookie)
 	log.Info("set access token cookie",
 		zap.Int("user_id", userId))
-	token, err = obj.jwt.GenerateRefreshToken(ctx, userId, "pass")
+	refresh, err := obj.jwt.GenerateRefreshToken(ctx, userId, "pass")
 	if err != nil {
 		return
 	}
-	cookie = &http.Cookie{
-		Name:     RefreshTokenName,
-		Value:    token,
-		Path:     "/auth/",
-		Expires:  time.Now().Add(jwt_auth.RefreshTokenExpirationTime),
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(w, cookie)
+	WriteAuthCookies(w, access, refresh)
 	log.Info("set refresh token cookie",
 		zap.Int("user_id", userId))
 }
@@ -97,8 +77,7 @@ func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, i
 		return false, -1
 	}
 	token := cookie.Value
-	isValid, userId := obj.jwt.CheckToken(token)
-	return isValid, userId
+	return obj.jwt.CheckToken(token)
 }
 
 func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -110,27 +89,8 @@ func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, 
 		obj.jwt.DeleteRefreshToken(ctx, refreshToken)
 	}
 
-	cookie = &http.Cookie{
-		Name:     TokenName,
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Now().AddDate(0, -1, 0),
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	}
-	http.SetCookie(w, cookie)
+	ClearAuthCookies(w)
 	log.Info("set empty old token cookie")
-	cookie = &http.Cookie{
-		Name:     RefreshTokenName,
-		Value:    "",
-		Path:     "/auth/",
-		Expires:  time.Now().AddDate(0, -1, 0),
-		Secure:   true,
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	}
-	http.SetCookie(w, cookie)
 	log.Info("set empty old refresh token cookie")
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -43,6 +44,8 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 	_, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "jwt").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to create refresh token (db error)",
@@ -73,6 +76,8 @@ func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
 	_, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "jwt").Observe(float64(duration.Milliseconds()))
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Error("failed to delete refresh token (no such uuid)",
 			zap.Error(pgx.ErrNoRows))
@@ -95,6 +100,8 @@ func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 	_, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "jwt").Observe(float64(duration.Milliseconds()))
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Error("failed to delete refresh token (no such user)",
 			zap.Error(pgx.ErrNoRows))
@@ -118,6 +125,8 @@ func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTok
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&token.UserId, &token.ExpiredAt)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, []any{}, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "jwt").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get refresh token (not db error)",
 			zap.Error(err))

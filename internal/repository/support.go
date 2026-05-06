@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,6 +46,8 @@ func (obj *SupportPostgres) Create(ctx context.Context, support models.SupportMo
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "support").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to create support (db error)",
@@ -79,6 +82,8 @@ func (obj *SupportPostgres) GetById(ctx context.Context, id int) (models.Support
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&support.UserId, &support.Category, &support.Message, &support.Status, &support.CreatedAt, &support.UpdatedAt)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "support").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get support (not db error)",
 			zap.Error(err))
@@ -100,6 +105,8 @@ func (obj *SupportPostgres) GetAll(ctx context.Context) ([]models.SupportModel, 
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "support").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get supports (not db error)",
 			zap.Error(err))
@@ -139,6 +146,8 @@ func (obj *SupportPostgres) GetAllByUser(ctx context.Context, userId int) ([]mod
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "support").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get supports by user (not db error)",
 			zap.Int("user_id", userId),
@@ -179,6 +188,8 @@ func (obj *SupportPostgres) UpdateStatus(ctx context.Context, id int, status str
 	_, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "support").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to update status of support (not db error)",
 			zap.Error(err))

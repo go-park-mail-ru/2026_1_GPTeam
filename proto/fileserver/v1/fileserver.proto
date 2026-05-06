@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package fileserver.v1;
+
+option go_package = "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1;fileserverv1";
+
+service FileService {
+  rpc Upload(UploadRequest) returns (UploadResponse);
+}
+
+message UploadRequest {
+  bytes data = 1;
+  string extension = 2;
+}
+
+message UploadResponse {
+  string filename = 1;
+}

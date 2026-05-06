@@ -54,6 +54,81 @@ services:
     networks:
       - gpteam-network
 
+  auth:
+    build: .
+    container_name: gpteam-auth
+    command: [ "./auth-service" ]
+    restart: always
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - AUTH_GRPC_LISTEN=:50051
+      - AUTH_METRICS_PORT=50081
+    expose:
+      - "50051"
+      - "50081"
+    healthcheck:
+      test: [ "CMD-SHELL", "nc -z 127.0.0.1 50051" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - gpteam-network
+
+  ai:
+    build: .
+    container_name: gpteam-ai
+    command: [ "./ai-service" ]
+    restart: always
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - AI_GRPC_LISTEN=:50052
+      - AI_METRICS_PORT=50082
+    expose:
+      - "50052"
+      - "50082"
+    networks:
+      - gpteam-network
+
+  fileserver:
+    build: .
+    container_name: gpteam-fileserver
+    command: [ "./fileserver" ]
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - FILESERVER_HTTP_LISTEN=:8082
+      - FILESERVER_GRPC_LISTEN=:50053
+      - FILESERVER_STORAGE_PATH=/app/static
+      - FILESERVER_METRICS_PORT=50083
+    volumes:
+      - fileserver_static:/app/static
+    expose:
+      - "8082"
+      - "50053"
+      - "50083"
+    ports:
+      - "8083:8082"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://127.0.0.1:8082/healthz && nc -z 127.0.0.1 50053" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - gpteam-network
+
   app:
     build: .
     container_name: gpteam-server
@@ -61,13 +136,19 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+      ai:
+        condition: service_started
+      fileserver:
+        condition: service_healthy
     read_only: true
     security_opt:
       - no-new-privileges:true
     expose:
       - "8080"
+      - "8081"
     volumes:
-      - ./static:/app/static
       - ./logs:/app/log
     env_file:
       - .env
@@ -76,12 +157,109 @@ services:
       - POSTGRES_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - AUTH_GRPC_ADDR=auth:50051
+      - AI_GRPC_ADDR=ai:50052
+      - FILESERVER_GRPC_ADDR=fileserver:50053
+      - FILESERVER_PUBLIC_BASE=${FILESERVER_PUBLIC_BASE:-http://localhost:8083}
+      - METRICS_PORT=8081
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks:
       - gpteam-network
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    container_name: postgres_exporter
+    environment:
+      DATA_SOURCE_URI: "db:5432/${POSTGRES_DB}?sslmode=disable"
+      DATA_SOURCE_USER: ${POSTGRES_USER}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD}
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+    expose:
+      - "9187"
+    networks:
+      - gpteam-network
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis_exporter
+    environment:
+      REDIS_ADDR: "redis:6379"
+      REDIS_EXPORTER_LOG_FORMAT: "json"
+    expose:
+      - "9121"
+    depends_on:
+      - redis
+    networks:
+      - gpteam-network
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    expose:
+      - "9100"
+    networks:
+      - gpteam-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gpteam-prometheus
+    restart: unless-stopped
+    expose:
+      - "9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - gpteam-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_PASSWORD}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+      - GF_SERVER_ROOT_URL=https://money-first.ru/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    networks:
+      - gpteam-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   redis-data:
+  fileserver_static:
+  prometheus_data:
+  grafana_data:
 
 networks:
   gpteam-network:

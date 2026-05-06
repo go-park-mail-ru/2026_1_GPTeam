@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -88,7 +89,10 @@ func (obj *AccountPostgres) GetByAccountId(ctx context.Context, accountId int) (
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 
 	if mappedErr := mapAccountPgError(ctx, err, "failed to get account by account id"); mappedErr != nil {
 		return models.AccountModel{}, mappedErr
@@ -112,7 +116,10 @@ func (obj *AccountPostgres) GetCurrencyByAccountId(ctx context.Context, accountI
 	var currency string
 	start := time.Now()
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&currency)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 
 	if mappedErr := mapAccountPgError(ctx, err, "failed to get currency by account id"); mappedErr != nil {
 		return "", mappedErr
@@ -131,6 +138,8 @@ func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountMo
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
 	duration := time.Since(timeStart)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if mappedErr := mapAccountPgError(ctx, err, "failed to create account"); mappedErr != nil {
 		return -1, mappedErr
 	}
@@ -147,6 +156,8 @@ func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId in
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
 	duration := time.Since(timeStart)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if mappedErr := mapAccountPgError(ctx, err, "failed to link account and user"); mappedErr != nil {
 		return -1, mappedErr
 	}
@@ -172,6 +183,8 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get account ids by user & account in db", zap.Error(err))
 		return []int{}, UnableToGetAccountUserIdsError
@@ -209,6 +222,8 @@ func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&accountId)
 	duration := time.Since(timeStart)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if mappedErr := mapAccountPgError(ctx, err, "failed to get account id by user id"); mappedErr != nil {
 		return -1, mappedErr
 	}
@@ -234,7 +249,10 @@ func (obj *AccountPostgres) GetById(ctx context.Context, userId int, accountId i
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if mappedErr := mapAccountPgError(ctx, err, "failed to get account by id"); mappedErr != nil {
 		return models.AccountModel{}, mappedErr
 	}
@@ -253,7 +271,10 @@ func (obj *AccountPostgres) GetByUserId(ctx context.Context, userId int) ([]mode
 	args := []any{userId}
 	start := time.Now()
 	rows, err := obj.db.Query(ctx, query, args...)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get accounts by user id", zap.Error(err))
 		return nil, err
@@ -283,7 +304,6 @@ func (obj *AccountPostgres) GetAllAccountsByUserId(ctx context.Context, userId i
 
 func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-
 	query := `
 		select
 			a.id,
@@ -309,8 +329,10 @@ func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Contex
 
 	start := time.Now()
 	rows, err := obj.db.Query(ctx, query, args...)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
-
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get accounts with balance by user id", zap.Error(err))
 		return nil, nil, nil, err
@@ -377,7 +399,10 @@ func (obj *AccountPostgres) Update(ctx context.Context, userId int, accountId in
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 	)
-	log = logger.ModifyLoggerWithDBQuery(log, query, args, time.Since(start))
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if mappedErr := mapAccountPgError(ctx, err, "failed to update account"); mappedErr != nil {
 		return models.AccountModel{}, mappedErr
 	}

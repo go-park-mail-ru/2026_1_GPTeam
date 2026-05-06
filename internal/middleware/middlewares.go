@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -63,7 +65,7 @@ func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, u
 		path := r.URL.Path
 		log.Info("[auth middleware] checking",
 			zap.String("path", path))
-		if (strings.HasPrefix(path, "/auth/") && path != "/auth/logout") || strings.HasPrefix(path, "/enums/") || strings.HasPrefix(path, "/img/") {
+		if (strings.HasPrefix(path, "/auth/") && path != "/auth/logout") || strings.HasPrefix(path, "/enums/") || strings.HasPrefix(path, "/img/") || path == "/healthz" {
 			log.Info("[auth middleware] pass without checking",
 				zap.String("path", path))
 			next.ServeHTTP(w, r)
@@ -154,12 +156,15 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			zap.String("request_id", requestId),
 			zap.Int("status_code", wr.StatusCode),
 			zap.String("duration", duration.String()))
+		appMetrics := metrics.GetMetrics()
+		appMetrics.HttpRequestsTotal.WithLabelValues(r.Method, web_helpers.NormalizePath(r.URL.Path), strconv.Itoa(wr.StatusCode)).Inc()
+		appMetrics.HttpRequestDuration.WithLabelValues(r.Method, web_helpers.NormalizePath(r.URL.Path), strconv.Itoa(wr.StatusCode)).Observe(float64(duration.Milliseconds()))
 	})
 }
 
 func CSRFMiddleware(next http.Handler, csrfService secure.CsrfService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/auth/") || strings.HasPrefix(r.URL.Path, "/support/") {
+		if strings.HasPrefix(r.URL.Path, "/auth/") || strings.HasPrefix(r.URL.Path, "/support/") || r.URL.Path == "/healthz" {
 			next.ServeHTTP(w, r)
 			return
 		}
