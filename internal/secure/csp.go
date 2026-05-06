@@ -27,6 +27,7 @@ func AddCSPHeader(w http.ResponseWriter) {
 	adUrl := os.Getenv("ADVERTISEMENT_URL")
 	if adUrl != "" {
 		frameSrc = fmt.Sprintf("'self' %s", adUrl)
+		frameAncestors = fmt.Sprintf("'self' %s", adUrl)
 	}
 
 	value := fmt.Sprintf(
