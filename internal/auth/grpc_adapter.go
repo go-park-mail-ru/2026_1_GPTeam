@@ -8,6 +8,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"go.uber.org/zap"
 )
 
@@ -56,7 +57,14 @@ func (a *GrpcAuthAdapter) IsAuth(ctx context.Context, r *http.Request) (bool, in
 	if err != nil {
 		return false, -1
 	}
-	return jwt_auth.ValidateAccessToken(cookie.Value, a.secret, a.version)
+	isValid, userId := jwt_auth.ValidateAccessToken(cookie.Value, a.secret, a.version)
+	appMetrics := metrics.GetMetrics()
+	label := "ok"
+	if !isValid {
+		label = "fail"
+	}
+	appMetrics.AuthValidateTokenTotal.WithLabelValues(label).Inc()
+	return isValid, userId
 }
 
 func (a *GrpcAuthAdapter) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -92,6 +100,12 @@ func (a *GrpcAuthAdapter) Refresh(ctx context.Context, w http.ResponseWriter, r 
 	}
 	log.Info("Refresh grpc ok",
 		zap.Duration("grpc_duration", time.Since(t0)))
+	appMetrics := metrics.GetMetrics()
+	label := "ok"
+	if !resp.GetValid() {
+		label = "fail"
+	}
+	appMetrics.AuthValidateRefreshTokenTotal.WithLabelValues(label).Inc()
 	if !resp.GetValid() {
 		return false, -1
 	}

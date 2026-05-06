@@ -77,8 +77,7 @@ func (obj *JwtAuthService) IsAuth(ctx context.Context, r *http.Request) (bool, i
 		return false, -1
 	}
 	token := cookie.Value
-	isValid, userId := obj.jwt.CheckToken(token)
-	return isValid, userId
+	return obj.jwt.CheckToken(token)
 }
 
 func (obj *JwtAuthService) ClearOld(ctx context.Context, w http.ResponseWriter, r *http.Request) {

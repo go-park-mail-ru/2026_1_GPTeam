@@ -4,17 +4,24 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/grpcserver"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
@@ -35,6 +42,32 @@ func main() {
 	}()
 
 	log := logger.GetLogger()
+
+	metricsPort := os.Getenv("AUTH_METRICS_PORT")
+	if metricsPort == "" {
+		log.Fatal("AUTH_METRICS_PORT environment variable not set")
+		return
+	}
+	metricsPort = ":" + metricsPort
+	registry := prometheus.NewRegistry()
+	metrics.InitMetrics(registry)
+	registry.MustRegister(collectors.NewGoCollector())
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	metricsServer := &http.Server{
+		Addr:         metricsPort,
+		Handler:      metricsMux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		log.Info("starting metrics", zap.String("addr", metricsPort))
+		err = metricsServer.ListenAndServe()
+		if err != nil {
+			log.Fatal("Error starting metrics server", zap.Error(err))
+			return
+		}
+	}()
 
 	user := os.Getenv("POSTGRES_USER")
 	password := os.Getenv("POSTGRES_PASSWORD")
@@ -72,7 +105,7 @@ func main() {
 		return
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc.ChainUnaryInterceptor(prometheusUnaryInterceptor))
 	authv1.RegisterAuthServiceServer(s, &grpcserver.Server{JWT: jwtService})
 
 	log.Info("auth gRPC server listening", zap.String("addr", lisAddr))
@@ -80,4 +113,24 @@ func main() {
 	if err != nil {
 		log.Fatal("auth grpc serve", zap.Error(err))
 	}
+}
+
+func prometheusUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	start := time.Now()
+	method := info.FullMethod
+	resp, err := handler(ctx, req)
+	duration := time.Since(start)
+
+	appMetrics := metrics.GetMetrics()
+	statusCode := "OK"
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			statusCode = st.Code().String()
+		} else {
+			statusCode = "Unknown"
+		}
+	}
+	appMetrics.AuthGrpcRequestsDuration.WithLabelValues(method, statusCode).Observe(float64(duration.Milliseconds()))
+	appMetrics.AuthGrpcRequestsTotal.WithLabelValues(method, statusCode).Inc()
+	return resp, err
 }

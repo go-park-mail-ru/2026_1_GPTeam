@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,6 +46,8 @@ func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) 
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "user").Observe(float64(duration.Milliseconds()))
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error("failed to create user (db error)",
@@ -81,6 +84,8 @@ func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel
 	)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "user").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get user (not db error)",
 			zap.Error(err))
@@ -110,6 +115,8 @@ func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*m
 	)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "user").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get user by username (not db error)",
 			zap.Error(err))
@@ -139,6 +146,8 @@ func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (*models.
 	)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "user").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get user by email (not db error)",
 			zap.Error(err))
@@ -162,6 +171,8 @@ func (obj *UserPostgres) UpdateLastLogin(ctx context.Context, userId int, lastLo
 	_, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "user").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to update last login for user (not db error)",
 			zap.Error(err))
@@ -204,6 +215,8 @@ func (obj *UserPostgres) Update(ctx context.Context, profile models.UpdateUserPr
 		profile.UpdatedAt,
 		profile.Id,
 	}, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "user").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to update user (not db error)",
 			zap.Error(err))
@@ -230,6 +243,8 @@ func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl str
 	result, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(startTime)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "user").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Warn("failed to update avatar (not db error)",
 			zap.Int("user_id", id),

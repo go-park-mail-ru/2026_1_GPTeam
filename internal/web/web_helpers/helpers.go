@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
@@ -45,4 +46,12 @@ func SetCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, PATCH")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Origin, Cache-Control, X-Requested-With")
+}
+
+func NormalizePath(path string) string {
+	uuidRegex := regexp.MustCompile(`/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+	path = uuidRegex.ReplaceAllString(path, "/:uuid")
+	numIdRegex := regexp.MustCompile(`/\d+`)
+	path = numIdRegex.ReplaceAllString(path, "/:id")
+	return path
 }

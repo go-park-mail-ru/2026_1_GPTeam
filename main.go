@@ -21,9 +21,13 @@ import (
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	fsv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/gomodule/redigo/redis"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -62,11 +66,31 @@ func main() {
 		}
 	}()
 
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file", zap.Error(err))
+	metricsPort := os.Getenv("METRICS_PORT")
+	if metricsPort == "" {
+		log.Fatal("METRICS_PORT environment variable not set")
 		return
 	}
+	metricsPort = ":" + metricsPort
+	registry := prometheus.NewRegistry()
+	metrics.InitMetrics(registry)
+	registry.MustRegister(collectors.NewGoCollector())
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	metricsServer := &http.Server{
+		Addr:         metricsPort,
+		Handler:      metricsMux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		log.Info("starting metrics", zap.String("addr", metricsPort))
+		err = metricsServer.ListenAndServe()
+		if err != nil {
+			log.Fatal("Error starting metrics server", zap.Error(err))
+			return
+		}
+	}()
 
 	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
 	if groqKey == "" {

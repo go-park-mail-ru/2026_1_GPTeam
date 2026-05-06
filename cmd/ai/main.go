@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,8 +16,13 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/ai/grpcserver"
 	aiv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/ai/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 func main() {
@@ -46,6 +52,32 @@ func main() {
 		zap.String("proxy", proxyURLStr),
 	)
 
+	metricsPort := os.Getenv("AI_METRICS_PORT")
+	if metricsPort == "" {
+		log.Fatal("AI_METRICS_PORT environment variable is required")
+		return
+	}
+	metricsPort = ":" + metricsPort
+	registry := prometheus.NewRegistry()
+	metrics.InitMetrics(registry)
+	registry.MustRegister(collectors.NewGoCollector())
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	metricsServer := &http.Server{
+		Addr:         metricsPort,
+		Handler:      metricsMux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		log.Info("starting metrics", zap.String("addr", metricsPort))
+		err = metricsServer.ListenAndServe()
+		if err != nil {
+			log.Fatal("Error starting metrics server", zap.Error(err))
+			return
+		}
+	}()
+
 	listenAddr := os.Getenv("AI_GRPC_LISTEN")
 	if listenAddr == "" {
 		listenAddr = ":50052"
@@ -54,7 +86,7 @@ func main() {
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
 	aiService := ai.NewGroqAiService(groqClient)
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(prometheusUnaryInterceptor))
 	aiv1.RegisterAiServiceServer(grpcServer, &grpcserver.Server{AI: aiService})
 
 	lis, err := net.Listen("tcp", listenAddr)
@@ -106,4 +138,24 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func prometheusUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	start := time.Now()
+	method := info.FullMethod
+	resp, err := handler(ctx, req)
+	duration := time.Since(start)
+
+	appMetrics := metrics.GetMetrics()
+	statusCode := "OK"
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			statusCode = st.Code().String()
+		} else {
+			statusCode = "Unknown"
+		}
+	}
+	appMetrics.AiGrpcRequestsDuration.WithLabelValues(method, statusCode).Observe(float64(duration.Milliseconds()))
+	appMetrics.AiGrpcRequestsTotal.WithLabelValues(method, statusCode).Inc()
+	return resp, err
 }
