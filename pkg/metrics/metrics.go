@@ -60,7 +60,7 @@ func InitMetrics(registry *prometheus.Registry) {
 				prometheus.HistogramOpts{
 					Name:    "app_db_query_duration_milliseconds",
 					Help:    "Длительность запроса к базе данных в миллисекундах",
-					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+					Buckets: []float64{1, 2, 5, 10, 20, 50, 100, 200, 500, 1000},
 				},
 				[]string{"query", "table"},
 			),
@@ -83,7 +83,7 @@ func InitMetrics(registry *prometheus.Registry) {
 				prometheus.HistogramOpts{
 					Name:    "auth_grpc_request_duration_milliseconds",
 					Help:    "Длительность gRPC запросов к микросервису авторизации в миллисекундах",
-					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+					Buckets: []float64{1, 2, 5, 10, 20, 50, 100, 200, 500, 1000},
 				},
 				[]string{"method"},
 			),
@@ -113,7 +113,7 @@ func InitMetrics(registry *prometheus.Registry) {
 				prometheus.HistogramOpts{
 					Name:    "fs_grpc_request_duration_milliseconds",
 					Help:    "Длительность gRPC запросов к файловому микросервису в миллисекундах",
-					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+					Buckets: []float64{1, 2, 5, 10, 20, 50, 100, 200, 500, 1000},
 				},
 				[]string{"method"},
 			),
@@ -136,7 +136,7 @@ func InitMetrics(registry *prometheus.Registry) {
 				prometheus.HistogramOpts{
 					Name:    "ai_grpc_request_duration_milliseconds",
 					Help:    "Длительность gRPC запросов к AI микросервису в миллисекундах",
-					Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1},
+					Buckets: []float64{1, 2, 5, 10, 20, 50, 100, 200, 500, 1000},
 				},
 				[]string{"method"},
 			),
