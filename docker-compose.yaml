@@ -54,13 +54,35 @@ services:
     networks:
       - gpteam-network
 
+  seed:
+    build:
+      context: .
+      dockerfile: db/migrations/seed/Dockerfile
+    container_name: seed
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - ./.env:/app/.env:ro
+    networks:
+      - gpteam-network
+
   auth:
     build: .
     container_name: gpteam-auth
     command: [ "./auth-service" ]
     restart: always
     depends_on:
-      migrations:
+      seed:
         condition: service_completed_successfully
     env_file:
       - .env
@@ -87,7 +109,7 @@ services:
     command: [ "./ai-service" ]
     restart: always
     depends_on:
-      migrations:
+      seed:
         condition: service_completed_successfully
     env_file:
       - .env
@@ -104,6 +126,9 @@ services:
     build: .
     container_name: gpteam-fileserver
     command: [ "./fileserver" ]
+    depends_on:
+      seed:
+        condition: service_completed_successfully
     restart: always
     env_file:
       - .env
@@ -134,7 +159,7 @@ services:
     container_name: gpteam-server
     restart: always
     depends_on:
-      migrations:
+      seed:
         condition: service_completed_successfully
       auth:
         condition: service_healthy

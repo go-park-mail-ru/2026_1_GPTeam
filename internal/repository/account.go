@@ -304,29 +304,13 @@ func (obj *AccountPostgres) GetAllAccountsByUserId(ctx context.Context, userId i
 
 func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `
-		select
-			a.id,
-			a.name,
-			a.balance,
-			a.currency,
-			a.created_at,
-			a.updated_at,
-			coalesce(sum(t.value) filter (where t.type = 'INCOME'), 0) as income,
-			coalesce(sum(t.value) filter (where t.type = 'EXPENSE'), 0) as expense
-		from account a
-		join account_user au on au.account_id = a.id
-		left join transaction t
-			on t.account_id = a.id
-			and t.user_id = au.user_id
-			and t.deleted_at is null
-		where au.user_id = $1
-		  and a.deleted_at is null
-		group by a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at
-		order by a.id`
-
+	query := `select account.id, name, balance, currency, account.created_at, account.updated_at, coalesce(income, 0) as income, coalesce(expenses, 0) as expenses
+from account join account_user on account.id = account_user.account_id left join (
+select account_id, sum(case when transaction.type = 'INCOME' then transaction.value else 0 end) as income, sum(case when transaction.type = 'EXPENSE' then transaction.value else 0 end) as expenses
+from transaction where deleted_at is null and transaction_date >= date_trunc('month', now()) group by account_id
+) transactions on account.id = transactions.account_id
+where account_user.user_id = $1;`
 	args := []any{userId}
-
 	start := time.Now()
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(start)
