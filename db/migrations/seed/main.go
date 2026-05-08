@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,8 +26,16 @@ func addBaseUser(conn *pgx.Conn) {
 	query := `insert into "user" (username, password, email) VALUES ($1, $2, $3);`
 	_, err = conn.Exec(context.Background(), query, username, password, email)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "23505" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
 	fmt.Println("Added base user")
 }
@@ -42,8 +53,16 @@ func addAdminUser(conn *pgx.Conn) {
 	query := `insert into "user" (username, password, email, is_staff) VALUES ($1, $2, $3, true);`
 	_, err = conn.Exec(context.Background(), query, username, password, email)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "23505" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
 	fmt.Println("Added admin user")
 }
@@ -51,17 +70,35 @@ func addAdminUser(conn *pgx.Conn) {
 func addAppServiceUser(conn *pgx.Conn) {
 	login := os.Getenv("APP_SERVICE_LOGIN")
 	password := os.Getenv("APP_SERVICE_PASSWORD")
-	query := fmt.Sprintf(`create user %s with password $1 login;`, pgx.Identifier{login}.Sanitize())
-	_, err := conn.Exec(context.Background(), query, password)
+	login = strings.ReplaceAll(login, "'", "''")
+	password = strings.ReplaceAll(password, "'", "''")
+	query := fmt.Sprintf(`create user %s with password '%s' login;`, login, password)
+	_, err := conn.Exec(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "42710" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
-	query = fmt.Sprintf(`grant app_service_role to %s;`, pgx.Identifier{login}.Sanitize())
+	query = fmt.Sprintf(`grant app_service_role to %s;`, login)
 	_, err = conn.Exec(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "42710" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
 	fmt.Println("Added app service user")
 }
@@ -69,17 +106,35 @@ func addAppServiceUser(conn *pgx.Conn) {
 func addFileServiceUser(conn *pgx.Conn) {
 	login := os.Getenv("FILE_SERVICE_LOGIN")
 	password := os.Getenv("FILE_SERVICE_PASSWORD")
-	query := fmt.Sprintf(`create user %s with password $1 login;`, pgx.Identifier{login}.Sanitize())
-	_, err := conn.Exec(context.Background(), query, password)
+	login = strings.ReplaceAll(login, "'", "''")
+	password = strings.ReplaceAll(password, "'", "''")
+	query := fmt.Sprintf(`create user %s with password '%s' login;`, login, password)
+	_, err := conn.Exec(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "42710" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
-	query = fmt.Sprintf(`grant file_service_role to %s;`, pgx.Identifier{login}.Sanitize())
+	query = fmt.Sprintf(`grant file_service_role to %s;`, login)
 	_, err = conn.Exec(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "42710" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
 	fmt.Println("Added file service user")
 }
@@ -87,17 +142,35 @@ func addFileServiceUser(conn *pgx.Conn) {
 func addAiServiceUser(conn *pgx.Conn) {
 	login := os.Getenv("AI_SERVICE_LOGIN")
 	password := os.Getenv("AI_SERVICE_PASSWORD")
-	query := fmt.Sprintf(`create user %s with password $1 login;`, pgx.Identifier{login}.Sanitize())
-	_, err := conn.Exec(context.Background(), query, password)
+	login = strings.ReplaceAll(login, "'", "''")
+	password = strings.ReplaceAll(password, "'", "''")
+	query := fmt.Sprintf(`create user %s with password '%s' login;`, login, password)
+	_, err := conn.Exec(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "42710" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
-	query = fmt.Sprintf(`grant ai_service_role to %s;`, pgx.Identifier{login}.Sanitize())
+	query = fmt.Sprintf(`grant ai_service_role to %s;`, login)
 	_, err = conn.Exec(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "42710" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
 	fmt.Println("Added ai service user")
 }
@@ -105,17 +178,35 @@ func addAiServiceUser(conn *pgx.Conn) {
 func addAuthServiceUser(conn *pgx.Conn) {
 	login := os.Getenv("AUTH_SERVICE_LOGIN")
 	password := os.Getenv("AUTH_SERVICE_PASSWORD")
-	query := fmt.Sprintf(`create user %s with password $1 login;`, pgx.Identifier{login}.Sanitize())
-	_, err := conn.Exec(context.Background(), query, password)
+	login = strings.ReplaceAll(login, "'", "''")
+	password = strings.ReplaceAll(password, "'", "''")
+	query := fmt.Sprintf(`create user %s with password '%s' login;`, login, password)
+	_, err := conn.Exec(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "42710" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
-	query = fmt.Sprintf(`grant auth_service_role to %s;`, pgx.Identifier{login}.Sanitize())
+	query = fmt.Sprintf(`grant auth_service_role to %s;`, login)
 	_, err = conn.Exec(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Unable to execute sql: %v\n", err)
-		return
+		pgErr, ok := errors.AsType[*pgconn.PgError](err)
+		if ok {
+			if pgErr.Code != "42710" {
+				fmt.Printf("Unable to execute sql: %v\n", err)
+				panic(err)
+			}
+		} else {
+			fmt.Printf("Unable to execute sql: %v\n", err)
+			panic(err)
+		}
 	}
 	fmt.Println("Added auth service user")
 }

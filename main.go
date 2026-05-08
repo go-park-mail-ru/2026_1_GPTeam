@@ -135,8 +135,8 @@ func main() {
 	authClient := authv1.NewAuthServiceClient(authConn)
 	authService := auth.NewGrpcAuthAdapter(authClient, jwtSecret, jwtVersion)
 
-	user := os.Getenv("POSTGRES_USER")
-	password := os.Getenv("POSTGRES_PASSWORD")
+	user := os.Getenv("APP_SERVICE_LOGIN")
+	password := os.Getenv("APP_SERVICE_PASSWORD")
 	host := os.Getenv("POSTGRES_HOST")
 	port := os.Getenv("POSTGRES_PORT")
 	name := os.Getenv("POSTGRES_DB")

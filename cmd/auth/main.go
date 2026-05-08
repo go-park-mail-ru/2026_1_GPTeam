@@ -69,8 +69,8 @@ func main() {
 		}
 	}()
 
-	user := os.Getenv("POSTGRES_USER")
-	password := os.Getenv("POSTGRES_PASSWORD")
+	user := os.Getenv("AUTH_SERVICE_LOGIN")
+	password := os.Getenv("AUTH_SERVICE_PASSWORD")
 	host := os.Getenv("POSTGRES_HOST")
 	port := os.Getenv("POSTGRES_PORT")
 	name := os.Getenv("POSTGRES_DB")
