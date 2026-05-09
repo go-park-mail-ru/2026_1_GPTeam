@@ -18,6 +18,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres-logs:/var/log/postgresql
     networks:
       - gpteam-network
 
