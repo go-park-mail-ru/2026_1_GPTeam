@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,8 +142,21 @@ func main() {
 	port := os.Getenv("POSTGRES_PORT")
 	name := os.Getenv("POSTGRES_DB")
 	dbUrl := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, name)
-
-	pool, err := pgxpool.New(context.Background(), dbUrl)
+	poolConfig, err := pgxpool.ParseConfig(dbUrl)
+	if err != nil {
+		log.Fatal("Error parsing config", zap.Error(err))
+		return
+	}
+	maxConns, err := strconv.Atoi(os.Getenv("APP_MAX_DB_CONNS"))
+	if err != nil {
+		log.Fatal("Error parsing max connections", zap.Error(err))
+		return
+	}
+	poolConfig.MaxConns = int32(maxConns)
+	poolConfig.MinConns = 10
+	poolConfig.MaxConnIdleTime = 10 * time.Minute
+	poolConfig.MaxConnLifetime = 1 * time.Hour
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		log.Fatal("Failed to create pool", zap.Error(err))
 		return
