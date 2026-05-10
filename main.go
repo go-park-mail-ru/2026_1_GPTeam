@@ -214,6 +214,7 @@ func main() {
 	accountHandler := web.NewAccountHandler(accountApp)
 	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
 	supportHandler := web.NewSupportHandler(supportApp, userApp)
+	analysisHandler := web.NewAnalysisHandler(budgetApp, transactionApp, accountApp)
 	log.Info("handlers initialized")
 
 	secure.XssSanitizerInit()
@@ -290,6 +291,7 @@ func main() {
 	mux.Handle("/support/create_appeal", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(supportHandler.Create)))
 	mux.Handle("/support/update/{id}", middleware.MethodValidationMiddleware(http.MethodPut)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.Update), userApp)))
 	mux.Handle("/api/is_staff", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.IsStaff)))
+	mux.Handle("/api/analysis", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(analysisHandler.Get)))
 
 	handler := middleware.CSPMiddleware(mux)
 	handler = middleware.CSRFMiddleware(handler, csrfService)
