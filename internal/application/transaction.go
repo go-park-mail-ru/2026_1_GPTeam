@@ -2,6 +2,10 @@ package application
 
 import (
 	"context"
+	"encoding/csv"
+	"io"
+	"strconv"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
@@ -108,4 +112,117 @@ func (obj *Transaction) IsUserAuthorOfTransaction(user models.UserModel, transac
 func (obj *Transaction) Search(ctx context.Context, userId int, filters repository.TransactionFilters) ([]models.TransactionModel, error) {
 	transactions, err := obj.repository.Search(ctx, userId, filters)
 	return transactions, err
+}
+
+type CsvTransactionsReaderStrategy interface {
+	ReadTransactions(ctx context.Context) ([]models.TransactionModel, error)
+}
+
+type GpteamReaderStrategy struct {
+	csvReader *csv.Reader
+	userId    int
+}
+
+func NewGpteamReaderStrategy(reader *csv.Reader, userId int) *GpteamReaderStrategy {
+	return &GpteamReaderStrategy{
+		csvReader: reader,
+		userId:    userId,
+	}
+}
+
+func (obj *GpteamReaderStrategy) ReadTransactions(ctx context.Context) ([]models.TransactionModel, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	var transactions []models.TransactionModel
+	for {
+		record, err := obj.csvReader.Read()
+		if err == io.EOF {
+			return transactions, nil
+		}
+		if err != nil {
+			log.Warn("failed to read record", zap.Error(err))
+			continue
+		}
+		accountId, err := strconv.Atoi(record[2])
+		if err != nil {
+			log.Warn("failed to convert account id to int", zap.Error(err))
+			continue
+		}
+		value, err := strconv.ParseFloat(record[1], 64)
+		if err != nil {
+			log.Warn("failed to convert value to int", zap.Error(err))
+			continue
+		}
+		transactionDate, err := time.Parse(time.RFC3339, record[5])
+		if err != nil {
+			log.Warn("failed to convert date to time", zap.Error(err))
+			continue
+		}
+		transaction := models.TransactionModel{
+			UserId:          obj.userId,
+			AccountId:       accountId,
+			Value:           value,
+			Type:            record[3],
+			Category:        record[4],
+			Title:           record[0],
+			Description:     record[6],
+			TransactionDate: transactionDate,
+		}
+		transactions = append(transactions, transaction)
+	}
+}
+
+type SberReaderStrategy struct {
+	csvReader        *csv.Reader
+	userId           int
+	defaultAccountId int
+}
+
+func NewSberReaderStrategy(reader *csv.Reader, userId int, defaultAccountId int) *SberReaderStrategy {
+	return &SberReaderStrategy{
+		csvReader:        reader,
+		userId:           userId,
+		defaultAccountId: defaultAccountId,
+	}
+}
+
+func (obj *SberReaderStrategy) ReadTransactions(ctx context.Context) ([]models.TransactionModel, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	var transactions []models.TransactionModel
+	for {
+		record, err := obj.csvReader.Read()
+		if err == io.EOF {
+			return transactions, nil
+		}
+		if err != nil {
+			log.Warn("failed to read record", zap.Error(err))
+			continue
+		}
+		transactionDate, err := time.Parse("02.01.2006 15:04", record[0])
+		if err != nil {
+			log.Warn("failed to convert date to time", zap.Error(err))
+			continue
+		}
+		value, err := strconv.ParseFloat(record[2], 64)
+		if err != nil {
+			log.Warn("failed to convert value to int", zap.Error(err))
+			continue
+		}
+		var transactionType string
+		if record[1][0] == '+' {
+			transactionType = "INCOME"
+		} else {
+			transactionType = "EXPENSE"
+		}
+		transaction := models.TransactionModel{
+			UserId:          obj.userId,
+			AccountId:       obj.defaultAccountId,
+			Value:           value,
+			Type:            transactionType,
+			Category:        record[1],
+			Title:           record[1],
+			Description:     record[1],
+			TransactionDate: transactionDate,
+		}
+		transactions = append(transactions, transaction)
+	}
 }

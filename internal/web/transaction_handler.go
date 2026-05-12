@@ -1,7 +1,10 @@
 package web
 
 import (
+	"context"
+	"encoding/csv"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +19,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/validators"
 	"go.uber.org/zap"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/transform"
 )
 
 type TransactionHandler struct {
@@ -430,4 +435,129 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 		Currency:         currency,
 	})
 	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
+	log := logger.GetLoggerWithRequestId(r.Context())
+	log.Info("import transaction request")
+	authUser, ok := web_helpers.GetAuthUser(r)
+	if !ok {
+		log.Warn("user unauthorized")
+		response := web_helpers.NewUnauthorizedErrorResponse()
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	err := r.ParseMultipartForm(5 << 20)
+	if err != nil {
+		log.Warn("failed to read body", zap.Error(err))
+		response := web_helpers.NewBadRequestErrorResponse("Слишком большой файл")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		log.Warn("failed to change avatar (no file)",
+			zap.Error(err))
+		response := web_helpers.NewBadRequestErrorResponse("Нет файла аватара")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	defer func() {
+		if err = file.Close(); err != nil {
+			log.Warn("failed to close file", zap.Error(err))
+		}
+	}()
+	buff := make([]byte, 512)
+	if _, err = file.Read(buff); err != nil {
+		log.Warn("failed to read buff", zap.Error(err))
+		response := web_helpers.NewServerErrorResponse("Ошибка чтения")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	fileType := http.DetectContentType(buff)
+	if fileType != "text/csv" && fileType != "application/octet-stream" {
+		log.Warn("file type not supported",
+			zap.String("file type", fileType),
+			zap.Error(err))
+		response := web_helpers.NewBadRequestErrorResponse("Доступен только формат CSV")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	if _, err = file.Seek(0, 0); err != nil {
+		log.Warn("failed to seek file", zap.Error(err))
+		response := web_helpers.NewServerErrorResponse("Внутренняя ошибка")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	_ = header
+	ruReader := transform.NewReader(file, charmap.Windows1251.NewDecoder())
+	csvReader := csv.NewReader(ruReader)
+	csvReader.Comma, csvReader.FieldsPerRecord = detectSeparatorAndFields(r.Context(), file)
+	firstLine, err := csvReader.Read()
+	if err != nil {
+		log.Warn("failed to read first line", zap.Error(err))
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: "Невалидный файл"}})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+	}
+	fileTypeContent := validators.ValidateImportFileColumns(firstLine)
+	if fileTypeContent == "" {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: "Неверный формат колонок"}})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	var csvReaderStrategy application.CsvTransactionsReaderStrategy
+	switch fileTypeContent {
+	case "gpteam":
+		csvReaderStrategy = application.NewGpteamReaderStrategy(csvReader, authUser.Id)
+	case "sber":
+		csvReaderStrategy = application.NewSberReaderStrategy(csvReader, authUser.Id, -1)
+	}
+	transactions, err := csvReaderStrategy.ReadTransactions(r.Context())
+	for _, transaction := range transactions {
+		_, err = obj.transactionApp.Create(r.Context(), transaction)
+		if err != nil {
+			log.Warn("failed to create transaction", zap.Error(err))
+			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", err.Error()}})
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+			return
+		}
+	}
+	log.Info("transactions successfully imported", zap.Int("count", len(transactions)))
+	response := web_helpers.NewOkResponse()
+	web_helpers.WriteResponseJSON(w, response.Code, response)
+}
+
+func detectSeparatorAndFields(ctx context.Context, file io.ReadSeeker) (rune, int) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	pos, err := file.Seek(0, io.SeekCurrent)
+	defer func() {
+		_, err = file.Seek(pos, io.SeekStart)
+		if err != nil {
+			log.Warn("failed to seek file", zap.Error(err))
+		}
+	}()
+	if err != nil {
+		log.Warn("failed to seek file", zap.Error(err))
+		return ',', -1
+	}
+	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = -1
+	record, err := reader.Read()
+	if err != nil {
+		return ',', -1
+	}
+	if len(record) > 1 {
+		return ',', len(record)
+	}
+	_, err = file.Seek(pos, io.SeekStart)
+	if err != nil {
+		log.Warn("failed to seek file", zap.Error(err))
+		return ',', -1
+	}
+	reader.Comma = ';'
+	record, err = reader.Read()
+	if err == nil && len(record) > 1 {
+		return ';', len(record)
+	}
+	return ',', -1
 }
