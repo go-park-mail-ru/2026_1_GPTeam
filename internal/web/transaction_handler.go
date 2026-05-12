@@ -505,12 +505,20 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
+	accountIdStr := r.FormValue("account_id")
+	accountId, err := strconv.Atoi(accountIdStr)
+	if err != nil {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", "Неверный id счёта"}})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	account, err := obj.accountApp.GetById(r.Context(), authUser.Id, accountId)
 	var csvReaderStrategy application.CsvTransactionsReaderStrategy
 	switch fileTypeContent {
 	case "gpteam":
 		csvReaderStrategy = application.NewGpteamReaderStrategy(csvReader, authUser.Id)
 	case "sber":
-		csvReaderStrategy = application.NewSberReaderStrategy(csvReader, authUser.Id, -1)
+		csvReaderStrategy = application.NewSberReaderStrategy(csvReader, authUser.Id, account.Id)
 	}
 	transactions, err := csvReaderStrategy.ReadTransactions(r.Context())
 	for _, transaction := range transactions {
