@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -22,6 +23,7 @@ type TransactionUseCase interface {
 	Detail(ctx context.Context, transactionId int, userId int) (models.TransactionModel, error)
 	IsUserAuthorOfTransaction(user models.UserModel, transaction models.TransactionModel) bool
 	Search(ctx context.Context, userId int, filters repository.TransactionFilters) ([]models.TransactionModel, error)
+	BulkCreate(ctx context.Context, transactions []models.TransactionModel, accounts []models.AccountModel) error
 }
 
 type Transaction struct {
@@ -114,29 +116,36 @@ func (obj *Transaction) Search(ctx context.Context, userId int, filters reposito
 	return transactions, err
 }
 
+func (obj *Transaction) BulkCreate(ctx context.Context, transactions []models.TransactionModel, accounts []models.AccountModel) error {
+	return obj.repository.BulkCreate(ctx, transactions, accounts)
+}
+
 type CsvTransactionsReaderStrategy interface {
-	ReadTransactions(ctx context.Context) ([]models.TransactionModel, error)
+	ReadTransactions(ctx context.Context) ([]models.TransactionModel, []models.AccountModel, error)
 }
 
 type GpteamReaderStrategy struct {
-	csvReader *csv.Reader
-	userId    int
+	csvReader  *csv.Reader
+	userId     int
+	accountApp AccountUseCase
 }
 
-func NewGpteamReaderStrategy(reader *csv.Reader, userId int) *GpteamReaderStrategy {
+func NewGpteamReaderStrategy(reader *csv.Reader, userId int, accApp AccountUseCase) *GpteamReaderStrategy {
 	return &GpteamReaderStrategy{
-		csvReader: reader,
-		userId:    userId,
+		csvReader:  reader,
+		userId:     userId,
+		accountApp: accApp,
 	}
 }
 
-func (obj *GpteamReaderStrategy) ReadTransactions(ctx context.Context) ([]models.TransactionModel, error) {
+func (obj *GpteamReaderStrategy) ReadTransactions(ctx context.Context) ([]models.TransactionModel, []models.AccountModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
+	var accounts []models.AccountModel
 	var transactions []models.TransactionModel
 	for {
 		record, err := obj.csvReader.Read()
 		if err == io.EOF {
-			return transactions, nil
+			return transactions, accounts, nil
 		}
 		if err != nil {
 			log.Warn("failed to read record", zap.Error(err))
@@ -147,12 +156,16 @@ func (obj *GpteamReaderStrategy) ReadTransactions(ctx context.Context) ([]models
 			log.Warn("failed to convert account id to int", zap.Error(err))
 			continue
 		}
+		account, err := obj.accountApp.GetById(ctx, obj.userId, accountId)
+		if err != nil {
+			continue
+		}
 		value, err := strconv.ParseFloat(record[1], 64)
 		if err != nil {
 			log.Warn("failed to convert value to int", zap.Error(err))
 			continue
 		}
-		transactionDate, err := time.Parse(time.RFC3339, record[5])
+		transactionDate, err := time.Parse(time.RFC3339, strings.TrimSpace(record[5]))
 		if err != nil {
 			log.Warn("failed to convert date to time", zap.Error(err))
 			continue
@@ -168,6 +181,7 @@ func (obj *GpteamReaderStrategy) ReadTransactions(ctx context.Context) ([]models
 			TransactionDate: transactionDate,
 		}
 		transactions = append(transactions, transaction)
+		accounts = append(accounts, account)
 	}
 }
 
@@ -175,29 +189,36 @@ type SberReaderStrategy struct {
 	csvReader        *csv.Reader
 	userId           int
 	defaultAccountId int
+	accountApp       AccountUseCase
 }
 
-func NewSberReaderStrategy(reader *csv.Reader, userId int, defaultAccountId int) *SberReaderStrategy {
+func NewSberReaderStrategy(reader *csv.Reader, userId int, defaultAccountId int, accApp AccountUseCase) *SberReaderStrategy {
 	return &SberReaderStrategy{
 		csvReader:        reader,
 		userId:           userId,
 		defaultAccountId: defaultAccountId,
+		accountApp:       accApp,
 	}
 }
 
-func (obj *SberReaderStrategy) ReadTransactions(ctx context.Context) ([]models.TransactionModel, error) {
+func (obj *SberReaderStrategy) ReadTransactions(ctx context.Context) ([]models.TransactionModel, []models.AccountModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
+	defaultAccount, err := obj.accountApp.GetById(ctx, obj.userId, obj.defaultAccountId)
+	if err != nil {
+		return []models.TransactionModel{}, []models.AccountModel{}, err
+	}
+	var accounts []models.AccountModel
 	var transactions []models.TransactionModel
 	for {
 		record, err := obj.csvReader.Read()
 		if err == io.EOF {
-			return transactions, nil
+			return transactions, accounts, nil
 		}
 		if err != nil {
 			log.Warn("failed to read record", zap.Error(err))
 			continue
 		}
-		transactionDate, err := time.Parse("02.01.2006 15:04", record[0])
+		transactionDate, err := time.Parse("02.01.2006 15:04", strings.TrimSpace(record[0]))
 		if err != nil {
 			log.Warn("failed to convert date to time", zap.Error(err))
 			continue
@@ -224,5 +245,6 @@ func (obj *SberReaderStrategy) ReadTransactions(ctx context.Context) ([]models.T
 			TransactionDate: transactionDate,
 		}
 		transactions = append(transactions, transaction)
+		accounts = append(accounts, defaultAccount)
 	}
 }

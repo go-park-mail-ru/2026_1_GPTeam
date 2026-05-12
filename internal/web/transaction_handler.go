@@ -454,7 +454,7 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	file, header, err := r.FormFile("file")
+	file, _, err := r.FormFile("file")
 	if err != nil {
 		log.Warn("failed to change avatar (no file)",
 			zap.Error(err))
@@ -489,7 +489,6 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	_ = header
 	ruReader := transform.NewReader(file, charmap.Windows1251.NewDecoder())
 	csvReader := csv.NewReader(ruReader)
 	csvReader.Comma, csvReader.FieldsPerRecord = detectSeparatorAndFields(r.Context(), file)
@@ -516,19 +515,23 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 	var csvReaderStrategy application.CsvTransactionsReaderStrategy
 	switch fileTypeContent {
 	case "gpteam":
-		csvReaderStrategy = application.NewGpteamReaderStrategy(csvReader, authUser.Id)
+		csvReaderStrategy = application.NewGpteamReaderStrategy(csvReader, authUser.Id, obj.accountApp)
 	case "sber":
-		csvReaderStrategy = application.NewSberReaderStrategy(csvReader, authUser.Id, account.Id)
+		csvReaderStrategy = application.NewSberReaderStrategy(csvReader, authUser.Id, account.Id, obj.accountApp)
 	}
-	transactions, err := csvReaderStrategy.ReadTransactions(r.Context())
-	for _, transaction := range transactions {
-		_, err = obj.transactionApp.Create(r.Context(), transaction)
-		if err != nil {
-			log.Warn("failed to create transaction", zap.Error(err))
-			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", err.Error()}})
-			web_helpers.WriteResponseJSON(w, response.Code, response)
-			return
-		}
+	transactions, accounts, err := csvReaderStrategy.ReadTransactions(r.Context())
+	if err != nil {
+		log.Warn("failed to read transactions from csv", zap.Error(err))
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: "Невалидный файл"}})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
+	err = obj.transactionApp.BulkCreate(r.Context(), transactions, accounts)
+	if err != nil {
+		log.Warn("failed to create transactions", zap.Error(err))
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", err.Error()}})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
 	}
 	log.Info("transactions successfully imported", zap.Int("count", len(transactions)))
 	response := web_helpers.NewOkResponse()
