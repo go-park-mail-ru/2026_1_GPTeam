@@ -2,10 +2,13 @@ package application
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	appmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
@@ -347,6 +350,108 @@ func TestTransaction_IsUserAuthorOfTransaction(t *testing.T) {
 			app := NewTransaction(repo, accRepo)
 			res := app.IsUserAuthorOfTransaction(testCase.user, testCase.transaction)
 			require.Equal(t, testCase.res, res)
+		})
+	}
+}
+
+func TestTransaction_BulkCreate(t *testing.T) {
+	testCases := []struct {
+		name         string
+		setupFunc    func(repo *repomocks.MockTransactionRepository)
+		transactions []models.TransactionModel
+		accounts     []models.AccountModel
+		err          error
+	}{
+		{
+			name: "success",
+			setupFunc: func(repo *repomocks.MockTransactionRepository) {
+				repo.EXPECT().BulkCreate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			},
+			transactions: []models.TransactionModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			err: nil,
+		},
+		{
+			name: "some error",
+			setupFunc: func(repo *repomocks.MockTransactionRepository) {
+				repo.EXPECT().BulkCreate(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.ConstraintError)
+			},
+			transactions: []models.TransactionModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			err: repository.ConstraintError,
+		},
+		{
+			name: "empty",
+			setupFunc: func(repo *repomocks.MockTransactionRepository) {
+				repo.EXPECT().BulkCreate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			},
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			repo := repomocks.NewMockTransactionRepository(ctrl)
+			accRepo := repomocks.NewMockAccountRepository(ctrl)
+			app := NewTransaction(repo, accRepo)
+			testCase.setupFunc(repo)
+			err := app.BulkCreate(context.Background(), testCase.transactions, testCase.accounts)
+			require.ErrorIs(t, err, testCase.err)
+		})
+	}
+}
+
+func TestGpteamReaderStrategy_ReadTransactions(t *testing.T) {
+	testCases := []struct {
+		name         string
+		setupFunc    func(repo *appmocks.MockAccountUseCase)
+		userId       int
+		csvData      string
+		transactions []models.TransactionModel
+		accounts     []models.AccountModel
+		err          error
+	}{
+		{
+			name: "success",
+			setupFunc: func(repo *appmocks.MockAccountUseCase) {
+
+			},
+			userId: 1,
+			csvData: `title1,100,1,INCOME,Зарплата,2026-01-15T14:30:00Z,test
+title2,20,3,INCOME,Стипендия,2026-01-15T14:30:00Z,test`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			accountApp := appmocks.NewMockAccountUseCase(ctrl)
+			testCase.setupFunc(accountApp)
+			reader := csv.NewReader(strings.NewReader(testCase.csvData))
+			reader.Comma = ','
+			reader.FieldsPerRecord = 7
+			strategy := NewGpteamReaderStrategy(reader, testCase.userId, accountApp)
+			transactions, accounts, err := strategy.ReadTransactions(context.Background())
+			require.Equal(t, testCase.transactions, transactions)
+			require.Equal(t, testCase.accounts, accounts)
+			require.ErrorIs(t, err, testCase.err)
 		})
 	}
 }

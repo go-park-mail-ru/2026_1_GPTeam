@@ -42,6 +42,20 @@ func (m *MockTransactionRepository) EXPECT() *MockTransactionRepositoryMockRecor
 	return m.recorder
 }
 
+// BulkCreate mocks base method.
+func (m *MockTransactionRepository) BulkCreate(ctx context.Context, transactions []models.TransactionModel, accounts []models.AccountModel) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BulkCreate", ctx, transactions, accounts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BulkCreate indicates an expected call of BulkCreate.
+func (mr *MockTransactionRepositoryMockRecorder) BulkCreate(ctx, transactions, accounts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BulkCreate", reflect.TypeOf((*MockTransactionRepository)(nil).BulkCreate), ctx, transactions, accounts)
+}
+
 // Create mocks base method.
 func (m *MockTransactionRepository) Create(ctx context.Context, transaction models.TransactionModel, account models.AccountModel) (int, error) {
 	m.ctrl.T.Helper()

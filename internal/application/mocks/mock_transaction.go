@@ -42,6 +42,20 @@ func (m *MockTransactionUseCase) EXPECT() *MockTransactionUseCaseMockRecorder {
 	return m.recorder
 }
 
+// BulkCreate mocks base method.
+func (m *MockTransactionUseCase) BulkCreate(ctx context.Context, transactions []models.TransactionModel, accounts []models.AccountModel) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BulkCreate", ctx, transactions, accounts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BulkCreate indicates an expected call of BulkCreate.
+func (mr *MockTransactionUseCaseMockRecorder) BulkCreate(ctx, transactions, accounts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BulkCreate", reflect.TypeOf((*MockTransactionUseCase)(nil).BulkCreate), ctx, transactions, accounts)
+}
+
 // Create mocks base method.
 func (m *MockTransactionUseCase) Create(ctx context.Context, transaction models.TransactionModel) (int, error) {
 	m.ctrl.T.Helper()
@@ -143,4 +157,44 @@ func (m *MockTransactionUseCase) Update(ctx context.Context, transaction models.
 func (mr *MockTransactionUseCaseMockRecorder) Update(ctx, transaction any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockTransactionUseCase)(nil).Update), ctx, transaction)
+}
+
+// MockCsvTransactionsReaderStrategy is a mock of CsvTransactionsReaderStrategy interface.
+type MockCsvTransactionsReaderStrategy struct {
+	ctrl     *gomock.Controller
+	recorder *MockCsvTransactionsReaderStrategyMockRecorder
+	isgomock struct{}
+}
+
+// MockCsvTransactionsReaderStrategyMockRecorder is the mock recorder for MockCsvTransactionsReaderStrategy.
+type MockCsvTransactionsReaderStrategyMockRecorder struct {
+	mock *MockCsvTransactionsReaderStrategy
+}
+
+// NewMockCsvTransactionsReaderStrategy creates a new mock instance.
+func NewMockCsvTransactionsReaderStrategy(ctrl *gomock.Controller) *MockCsvTransactionsReaderStrategy {
+	mock := &MockCsvTransactionsReaderStrategy{ctrl: ctrl}
+	mock.recorder = &MockCsvTransactionsReaderStrategyMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCsvTransactionsReaderStrategy) EXPECT() *MockCsvTransactionsReaderStrategyMockRecorder {
+	return m.recorder
+}
+
+// ReadTransactions mocks base method.
+func (m *MockCsvTransactionsReaderStrategy) ReadTransactions(ctx context.Context) ([]models.TransactionModel, []models.AccountModel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadTransactions", ctx)
+	ret0, _ := ret[0].([]models.TransactionModel)
+	ret1, _ := ret[1].([]models.AccountModel)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ReadTransactions indicates an expected call of ReadTransactions.
+func (mr *MockCsvTransactionsReaderStrategyMockRecorder) ReadTransactions(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadTransactions", reflect.TypeOf((*MockCsvTransactionsReaderStrategy)(nil).ReadTransactions), ctx)
 }

@@ -595,3 +595,80 @@ func TestTransactionPostgres_Search(t *testing.T) {
 		})
 	}
 }
+
+func TestTransactionPostgres_BulkCreate(t *testing.T) {
+	testCases := []struct {
+		name         string
+		setupFunc    func(mock pgxmock.PgxPoolIface)
+		transactions []models.TransactionModel
+		accounts     []models.AccountModel
+		err          error
+	}{
+		{
+			name: "success",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				for i := 0; i < 2; i++ {
+					mock.ExpectBegin()
+					mock.ExpectQuery(`insert into transaction`).
+						WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+						WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(42))
+					mock.ExpectExec(`update account set balance`).
+						WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+						WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+					mock.ExpectExec(`update budget set actual`).
+						WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+						WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+					mock.ExpectCommit()
+					mock.ExpectRollback()
+				}
+			},
+			transactions: []models.TransactionModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			err: nil,
+		},
+		{
+			name: "with error",
+			setupFunc: func(mock pgxmock.PgxPoolIface) {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`insert into transaction`).
+					WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
+					WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
+				mock.ExpectRollback()
+				mock.ExpectRollback()
+			},
+			transactions: []models.TransactionModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			err: ConstraintError,
+		},
+		{
+			name:         "empty",
+			setupFunc:    func(mock pgxmock.PgxPoolIface) {},
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			repo, mock := newTransactionPostgres(t)
+			testCase.setupFunc(mock)
+			err := repo.BulkCreate(context.Background(), testCase.transactions, testCase.accounts)
+			require.ErrorIs(t, err, testCase.err)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
