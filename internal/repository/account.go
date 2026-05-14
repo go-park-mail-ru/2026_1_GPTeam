@@ -309,7 +309,7 @@ from account join account_user on account.id = account_user.account_id left join
 select account_id, sum(case when transaction.type = 'INCOME' then transaction.value else 0 end) as income, sum(case when transaction.type = 'EXPENSE' then transaction.value else 0 end) as expenses
 from transaction where deleted_at is null and transaction_date >= date_trunc('month', now()) group by account_id
 ) transactions on account.id = transactions.account_id
-where account_user.user_id = $1;`
+where account_user.user_id = $1 and account.deleted_at is null;`
 	args := []any{userId}
 	start := time.Now()
 	rows, err := obj.db.Query(ctx, query, args...)
