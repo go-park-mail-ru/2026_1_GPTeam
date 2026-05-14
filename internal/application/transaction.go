@@ -140,8 +140,8 @@ func NewGpteamReaderStrategy(reader *csv.Reader, userId int, accApp AccountUseCa
 
 func (obj *GpteamReaderStrategy) ReadTransactions(ctx context.Context) ([]models.TransactionModel, []models.AccountModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	var accounts []models.AccountModel
-	var transactions []models.TransactionModel
+	accounts := make([]models.AccountModel, 0)
+	transactions := make([]models.TransactionModel, 0)
 	for {
 		record, err := obj.csvReader.Read()
 		if err == io.EOF {
@@ -207,8 +207,8 @@ func (obj *SberReaderStrategy) ReadTransactions(ctx context.Context) ([]models.T
 	if err != nil {
 		return []models.TransactionModel{}, []models.AccountModel{}, err
 	}
-	var accounts []models.AccountModel
-	var transactions []models.TransactionModel
+	accounts := make([]models.AccountModel, 0)
+	transactions := make([]models.TransactionModel, 0)
 	for {
 		record, err := obj.csvReader.Read()
 		if err == io.EOF {
@@ -229,7 +229,7 @@ func (obj *SberReaderStrategy) ReadTransactions(ctx context.Context) ([]models.T
 			continue
 		}
 		var transactionType string
-		if record[1][0] == '+' {
+		if record[2][0] == '+' {
 			transactionType = "INCOME"
 		} else {
 			transactionType = "EXPENSE"
