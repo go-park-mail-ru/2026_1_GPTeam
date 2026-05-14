@@ -13,64 +13,29 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func addBaseUser(conn *pgx.Conn) {
-	username := "test"
-	plainPassword := os.Getenv("DEFAULT_USER_PASSWORD")
+func addUser(conn *pgx.Conn, username string, plainPassword string, email string, isStaff bool) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
 	if err != nil {
-		fmt.Printf("Unable to hash DEFAULT_USER_PASSWORD: %v\n", err)
-		return
+		panic(err)
 	}
 	password := string(bytes)
-	email := "test@example.com"
-	query := `insert into "user" (username, password, email) VALUES ($1, $2, $3);`
-	_, err = conn.Exec(context.Background(), query, username, password, email)
+	query := `insert into "user" (username, password, email, is_staff) VALUES ($1, $2, $3, $4);`
+	_, err = conn.Exec(context.Background(), query, username, password, email, isStaff)
 	if err != nil {
 		pgErr, ok := errors.AsType[*pgconn.PgError](err)
 		if ok {
 			if pgErr.Code != "23505" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
 				panic(err)
 			}
 		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
 			panic(err)
 		}
 	}
-	fmt.Println("Added base user")
+	fmt.Printf("Added user: %s\n", username)
 }
 
-func addAdminUser(conn *pgx.Conn) {
-	username := "admin"
-	plainPassword := os.Getenv("ADMIN_USER_PASSWORD")
-	bytes, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
-	if err != nil {
-		fmt.Printf("Unable to hash ADMIN_USER_PASSWORD: %v\n", err)
-		return
-	}
-	password := string(bytes)
-	email := "admin@example.com"
-	query := `insert into "user" (username, password, email, is_staff) VALUES ($1, $2, $3, true);`
-	_, err = conn.Exec(context.Background(), query, username, password, email)
-	if err != nil {
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok {
-			if pgErr.Code != "23505" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
-				panic(err)
-			}
-		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
-			panic(err)
-		}
-	}
-	fmt.Println("Added admin user")
-}
-
-func addAppServiceUser(conn *pgx.Conn) {
-	login := os.Getenv("APP_SERVICE_LOGIN")
-	password := os.Getenv("APP_SERVICE_PASSWORD")
-	login = strings.ReplaceAll(login, "'", "''")
+func addServiceUser(conn *pgx.Conn, login string, password string, role string) {
+	login = pgx.Identifier{login}.Sanitize()
 	password = strings.ReplaceAll(password, "'", "''")
 	query := fmt.Sprintf(`create user %s with password '%s' login;`, login, password)
 	_, err := conn.Exec(context.Background(), query)
@@ -78,137 +43,25 @@ func addAppServiceUser(conn *pgx.Conn) {
 		pgErr, ok := errors.AsType[*pgconn.PgError](err)
 		if ok {
 			if pgErr.Code != "42710" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
 				panic(err)
 			}
 		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
 			panic(err)
 		}
 	}
-	query = fmt.Sprintf(`grant app_service_role to %s;`, login)
+	query = fmt.Sprintf(`grant %s to %s;`, role, login)
 	_, err = conn.Exec(context.Background(), query)
 	if err != nil {
 		pgErr, ok := errors.AsType[*pgconn.PgError](err)
 		if ok {
 			if pgErr.Code != "42710" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
 				panic(err)
 			}
 		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
 			panic(err)
 		}
 	}
-	fmt.Println("Added app service user")
-}
-
-func addFileServiceUser(conn *pgx.Conn) {
-	login := os.Getenv("FILE_SERVICE_LOGIN")
-	password := os.Getenv("FILE_SERVICE_PASSWORD")
-	login = strings.ReplaceAll(login, "'", "''")
-	password = strings.ReplaceAll(password, "'", "''")
-	query := fmt.Sprintf(`create user %s with password '%s' login;`, login, password)
-	_, err := conn.Exec(context.Background(), query)
-	if err != nil {
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok {
-			if pgErr.Code != "42710" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
-				panic(err)
-			}
-		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
-			panic(err)
-		}
-	}
-	query = fmt.Sprintf(`grant file_service_role to %s;`, login)
-	_, err = conn.Exec(context.Background(), query)
-	if err != nil {
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok {
-			if pgErr.Code != "42710" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
-				panic(err)
-			}
-		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
-			panic(err)
-		}
-	}
-	fmt.Println("Added file service user")
-}
-
-func addAiServiceUser(conn *pgx.Conn) {
-	login := os.Getenv("AI_SERVICE_LOGIN")
-	password := os.Getenv("AI_SERVICE_PASSWORD")
-	login = strings.ReplaceAll(login, "'", "''")
-	password = strings.ReplaceAll(password, "'", "''")
-	query := fmt.Sprintf(`create user %s with password '%s' login;`, login, password)
-	_, err := conn.Exec(context.Background(), query)
-	if err != nil {
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok {
-			if pgErr.Code != "42710" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
-				panic(err)
-			}
-		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
-			panic(err)
-		}
-	}
-	query = fmt.Sprintf(`grant ai_service_role to %s;`, login)
-	_, err = conn.Exec(context.Background(), query)
-	if err != nil {
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok {
-			if pgErr.Code != "42710" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
-				panic(err)
-			}
-		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
-			panic(err)
-		}
-	}
-	fmt.Println("Added ai service user")
-}
-
-func addAuthServiceUser(conn *pgx.Conn) {
-	login := os.Getenv("AUTH_SERVICE_LOGIN")
-	password := os.Getenv("AUTH_SERVICE_PASSWORD")
-	login = strings.ReplaceAll(login, "'", "''")
-	password = strings.ReplaceAll(password, "'", "''")
-	query := fmt.Sprintf(`create user %s with password '%s' login;`, login, password)
-	_, err := conn.Exec(context.Background(), query)
-	if err != nil {
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok {
-			if pgErr.Code != "42710" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
-				panic(err)
-			}
-		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
-			panic(err)
-		}
-	}
-	query = fmt.Sprintf(`grant auth_service_role to %s;`, login)
-	_, err = conn.Exec(context.Background(), query)
-	if err != nil {
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok {
-			if pgErr.Code != "42710" {
-				fmt.Printf("Unable to execute sql: %v\n", err)
-				panic(err)
-			}
-		} else {
-			fmt.Printf("Unable to execute sql: %v\n", err)
-			panic(err)
-		}
-	}
-	fmt.Println("Added auth service user")
+	fmt.Printf("Added service user %s\n", login)
 }
 
 func main() {
@@ -228,8 +81,7 @@ func main() {
 		}
 	}
 	if !loaded {
-		fmt.Println("No .env files found")
-		return
+		panic("No .env files found")
 	}
 
 	dbUser := os.Getenv("POSTGRES_USER")
@@ -241,8 +93,7 @@ func main() {
 
 	conn, err := pgx.Connect(context.Background(), dbUrl)
 	if err != nil {
-		fmt.Printf("Unable to connect to database: %v\n", err)
-		return
+		panic(err)
 	}
 	defer func() {
 		err = conn.Close(context.Background())
@@ -251,10 +102,50 @@ func main() {
 		}
 	}()
 
-	addBaseUser(conn)
-	addAdminUser(conn)
-	addAppServiceUser(conn)
-	addAuthServiceUser(conn)
-	addAiServiceUser(conn)
-	addFileServiceUser(conn)
+	defaultUserPassword := os.Getenv("DEFAULT_USER_PASSWORD")
+	if defaultUserPassword == "" {
+		panic("DEFAULT_USER_PASSWORD is not set")
+	}
+	addUser(conn, "test", defaultUserPassword, "test@example.com", false)
+	defaultAdminPassword := os.Getenv("ADMIN_USER_PASSWORD")
+	if defaultAdminPassword == "" {
+		panic("ADMIN_USER_PASSWORD is not set")
+	}
+	addUser(conn, "admin", defaultAdminPassword, "admin@example.com", true)
+	appServiceLogin := os.Getenv("APP_SERVICE_LOGIN")
+	if appServiceLogin == "" {
+		panic("APP_SERVICE_LOGIN is not set")
+	}
+	appServicePassword := os.Getenv("APP_SERVICE_PASSWORD")
+	if appServicePassword == "" {
+		panic("APP_SERVICE_PASSWORD is not set")
+	}
+	addServiceUser(conn, appServiceLogin, appServicePassword, "app_service_role")
+	fileServiceLogin := os.Getenv("FILE_SERVICE_LOGIN")
+	if fileServiceLogin == "" {
+		panic("FILE_SERVICE_LOGIN is not set")
+	}
+	fileServicePassword := os.Getenv("FILE_SERVICE_PASSWORD")
+	if fileServicePassword == "" {
+		panic("FILE_SERVICE_PASSWORD is not set")
+	}
+	addServiceUser(conn, fileServiceLogin, fileServicePassword, "file_service_role")
+	aiServiceLogin := os.Getenv("AI_SERVICE_LOGIN")
+	if aiServiceLogin == "" {
+		panic("AI_SERVICE_LOGIN is not set")
+	}
+	aiServicePassword := os.Getenv("AI_SERVICE_PASSWORD")
+	if aiServicePassword == "" {
+		panic("AI_SERVICE_PASSWORD is not set")
+	}
+	addServiceUser(conn, aiServiceLogin, aiServicePassword, "ai_service_role")
+	authServiceLogin := os.Getenv("AUTH_SERVICE_LOGIN")
+	if authServiceLogin == "" {
+		panic("AUTH_SERVICE_LOGIN is not set")
+	}
+	authServicePassword := os.Getenv("AUTH_SERVICE_PASSWORD")
+	if authServicePassword == "" {
+		panic("AUTH_SERVICE_PASSWORD is not set")
+	}
+	addServiceUser(conn, authServiceLogin, authServicePassword, "auth_service_role")
 }
