@@ -30,6 +30,7 @@ type AccountRepository interface {
 	Update(ctx context.Context, userId int, accountId int, account models.AccountUpdateModel) (models.AccountModel, error)
 	Delete(ctx context.Context, userId int, accountId int) error
 	GetCurrencyByAccountId(ctx context.Context, accountId int) (string, error)
+	GetOwnerByAccountId(ctx context.Context, accountId int) (int, error)
 }
 
 type AccountPostgres struct {
@@ -72,7 +73,7 @@ func (obj *AccountPostgres) GetByAccountId(ctx context.Context, accountId int) (
 	log := logger.GetLoggerWithRequestId(ctx)
 
 	query := `
-		select id, name, balance, currency, created_at, updated_at
+		select id, name, balance, currency, owner_id, created_at, updated_at
 		from account
 		where id = $1
 		  and deleted_at is null`
@@ -86,6 +87,7 @@ func (obj *AccountPostgres) GetByAccountId(ctx context.Context, accountId int) (
 		&account.Name,
 		&account.Balance,
 		&account.Currency,
+		&account.OwnerId,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -131,8 +133,8 @@ func (obj *AccountPostgres) GetCurrencyByAccountId(ctx context.Context, accountI
 
 func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountModel) (int, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `insert into account (name, balance, currency, created_at) VALUES ($1, $2, $3, $4) returning id;`
-	args := []any{account.Name, account.Balance, account.Currency, account.CreatedAt}
+	query := `insert into account (name, balance, currency, owner_id, created_at) VALUES ($1, $2, $3, $4, $5) returning id;`
+	args := []any{account.Name, account.Balance, account.Currency, account.OwnerId, account.CreatedAt}
 	var id int
 	timeStart := time.Now()
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&id)
@@ -149,7 +151,7 @@ func (obj *AccountPostgres) Create(ctx context.Context, account models.AccountMo
 
 func (obj *AccountPostgres) LinkAccountAndUser(ctx context.Context, accountId int, userId int) (int, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `insert into account_user (account_id, user_id) VALUES ($1, $2) returning id;`
+	query := `insert into account_user (account_id, user_id, status) VALUES ($1, $2, 'accepted') returning id;`
 	args := []any{accountId, userId}
 	var id int
 	timeStart := time.Now()
@@ -172,6 +174,7 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 	from account_user au
 	where user_id = $1
 	  and account_id = $2
+	  and (au.status = 'accepted' or au.user_id = (select owner_id from account where id = $2))
 	  and exists (
 		  select 1
 		  from account a
@@ -209,6 +212,7 @@ func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int
 	SELECT account_id
 	FROM account_user au
 	WHERE user_id = $1
+	  AND (au.status = 'accepted' OR au.user_id = (SELECT owner_id FROM account WHERE id = au.account_id))
 	  AND EXISTS (
 		  SELECT 1
 		  FROM account a
@@ -233,11 +237,15 @@ func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int
 
 func (obj *AccountPostgres) GetById(ctx context.Context, userId int, accountId int) (models.AccountModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
+	// owner видит всегда, invited user — только после accepted
 	query := `
-		select a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at
+		select a.id, a.name, a.balance, a.currency, a.owner_id, a.created_at, a.updated_at
 		from account a
 		join account_user au on au.account_id = a.id
-		where au.user_id = $1 and a.id = $2 and a.deleted_at is null`
+		where au.user_id = $1
+		  and a.id = $2
+		  and a.deleted_at is null
+		  and (a.owner_id = $1 OR au.status = 'accepted')`
 	args := []any{userId, accountId}
 	var account models.AccountModel
 	start := time.Now()
@@ -246,6 +254,7 @@ func (obj *AccountPostgres) GetById(ctx context.Context, userId int, accountId i
 		&account.Name,
 		&account.Balance,
 		&account.Currency,
+		&account.OwnerId,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -262,11 +271,14 @@ func (obj *AccountPostgres) GetById(ctx context.Context, userId int, accountId i
 
 func (obj *AccountPostgres) GetByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
+	// owner видит свои счета всегда, приглашённый — только после accepted
 	query := `
-		select a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at
+		select a.id, a.name, a.balance, a.currency, a.owner_id, a.created_at, a.updated_at
 		from account a
 		join account_user au on au.account_id = a.id
-		where au.user_id = $1 and a.deleted_at is null
+		where au.user_id = $1
+		  and a.deleted_at is null
+		  and (a.owner_id = $1 OR au.status = 'accepted')
 		order by a.id`
 	args := []any{userId}
 	start := time.Now()
@@ -284,7 +296,7 @@ func (obj *AccountPostgres) GetByUserId(ctx context.Context, userId int) ([]mode
 	accounts := make([]models.AccountModel, 0)
 	for rows.Next() {
 		var account models.AccountModel
-		if err = rows.Scan(&account.Id, &account.Name, &account.Balance, &account.Currency, &account.CreatedAt, &account.UpdatedAt); err != nil {
+		if err = rows.Scan(&account.Id, &account.Name, &account.Balance, &account.Currency, &account.OwnerId, &account.CreatedAt, &account.UpdatedAt); err != nil {
 			log.Error("failed to scan account", zap.Error(err))
 			return nil, InvalidDataInTableError
 		}
@@ -310,6 +322,7 @@ func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Contex
 			a.name,
 			a.balance,
 			a.currency,
+			a.owner_id,
 			a.created_at,
 			a.updated_at,
 			coalesce(sum(t.value) filter (where t.type = 'INCOME'), 0) as income,
@@ -322,7 +335,8 @@ func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Contex
 			and t.deleted_at is null
 		where au.user_id = $1
 		  and a.deleted_at is null
-		group by a.id, a.name, a.balance, a.currency, a.created_at, a.updated_at
+		  and (a.owner_id = $1 OR au.status = 'accepted')
+		group by a.id, a.name, a.balance, a.currency, a.owner_id, a.created_at, a.updated_at
 		order by a.id`
 
 	args := []any{userId}
@@ -353,6 +367,7 @@ func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Contex
 			&account.Name,
 			&account.Balance,
 			&account.Currency,
+			&account.OwnerId,
 			&account.CreatedAt,
 			&account.UpdatedAt,
 			&income,
@@ -467,4 +482,29 @@ func (obj *AccountPostgres) Delete(ctx context.Context, userId int, accountId in
 
 		return nil
 	})
+}
+
+func (obj *AccountPostgres) GetOwnerByAccountId(ctx context.Context, accountId int) (int, error) {
+	log := logger.GetLoggerWithRequestId(ctx)
+	query := `
+		SELECT owner_id
+		FROM account
+		WHERE id = $1
+		  AND deleted_at IS NULL`
+	args := []any{accountId}
+
+	var ownerId int
+	start := time.Now()
+	err := obj.db.QueryRow(ctx, query, args...).Scan(&ownerId)
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
+	appMetrics := metrics.GetMetrics()
+	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
+
+	if mappedErr := mapAccountPgError(ctx, err, "failed to get owner by account id"); mappedErr != nil {
+		return 0, mappedErr
+	}
+
+	log.Info("Query executed")
+	return ownerId, nil
 }

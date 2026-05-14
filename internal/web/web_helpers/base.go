@@ -77,7 +77,7 @@ type AuthUser struct {
 }
 
 type User struct {
-	Id        int       `json:"id,omitempty"`
+	Id        int       `json:"id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
@@ -603,6 +603,7 @@ type AccountResponse struct {
 	Name      string    `json:"name"`
 	Balance   float64   `json:"balance"`
 	Currency  string    `json:"currency"`
+	OwnerId   int       `json:"owner_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

@@ -116,6 +116,7 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		Name:      "base",
 		Balance:   0,
 		Currency:  "RUB",
+		OwnerId:   authUser.Id,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -191,6 +192,7 @@ func (obj *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = obj.userApp.UpdateLastLogin(r.Context(), storedUser.Id)
 	user := web_helpers.User{
+		Id:        storedUser.Id,
 		Username:  storedUser.Username,
 		Email:     storedUser.Email,
 		CreatedAt: storedUser.CreatedAt,
