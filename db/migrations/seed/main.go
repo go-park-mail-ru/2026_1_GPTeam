@@ -52,14 +52,7 @@ func addServiceUser(conn *pgx.Conn, login string, password string, role string) 
 	query = fmt.Sprintf(`grant %s to %s;`, role, login)
 	_, err = conn.Exec(context.Background(), query)
 	if err != nil {
-		pgErr, ok := errors.AsType[*pgconn.PgError](err)
-		if ok {
-			if pgErr.Code != "42710" {
-				panic(err)
-			}
-		} else {
-			panic(err)
-		}
+		panic(err)
 	}
 	fmt.Printf("Added service user %s\n", login)
 }
