@@ -224,3 +224,15 @@ func ValidateTransactionAccountId(accountId int) error {
 	}
 	return nil
 }
+
+func checkSlicesEquals[T comparable](a, b []T) error {
+	if len(a) != len(b) {
+		return NoEqualsError
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return NoEqualsError
+		}
+	}
+	return nil
+}

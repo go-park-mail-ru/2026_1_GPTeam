@@ -2,10 +2,13 @@ package application
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	appmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
@@ -347,6 +350,283 @@ func TestTransaction_IsUserAuthorOfTransaction(t *testing.T) {
 			app := NewTransaction(repo, accRepo)
 			res := app.IsUserAuthorOfTransaction(testCase.user, testCase.transaction)
 			require.Equal(t, testCase.res, res)
+		})
+	}
+}
+
+func TestTransaction_BulkCreate(t *testing.T) {
+	testCases := []struct {
+		name         string
+		setupFunc    func(repo *repomocks.MockTransactionRepository)
+		transactions []models.TransactionModel
+		accounts     []models.AccountModel
+		err          error
+	}{
+		{
+			name: "success",
+			setupFunc: func(repo *repomocks.MockTransactionRepository) {
+				repo.EXPECT().BulkCreate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			},
+			transactions: []models.TransactionModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			err: nil,
+		},
+		{
+			name: "some error",
+			setupFunc: func(repo *repomocks.MockTransactionRepository) {
+				repo.EXPECT().BulkCreate(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.ConstraintError)
+			},
+			transactions: []models.TransactionModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+				{Id: 2},
+			},
+			err: repository.ConstraintError,
+		},
+		{
+			name: "empty",
+			setupFunc: func(repo *repomocks.MockTransactionRepository) {
+				repo.EXPECT().BulkCreate(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			},
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			repo := repomocks.NewMockTransactionRepository(ctrl)
+			accRepo := repomocks.NewMockAccountRepository(ctrl)
+			app := NewTransaction(repo, accRepo)
+			testCase.setupFunc(repo)
+			err := app.BulkCreate(context.Background(), testCase.transactions, testCase.accounts)
+			require.ErrorIs(t, err, testCase.err)
+		})
+	}
+}
+
+func TestGpteamReaderStrategy_ReadTransactions(t *testing.T) {
+	testCases := []struct {
+		name         string
+		setupFunc    func(repo *appmocks.MockAccountUseCase)
+		userId       int
+		csvData      string
+		transactions []models.TransactionModel
+		accounts     []models.AccountModel
+		err          error
+	}{
+		{
+			name: "success",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 1}, nil)
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 3}, nil)
+			},
+			userId: 1,
+			csvData: `title1,100,1,INCOME,Зарплата,2026-01-15T14:30:00Z,test
+title2,20,3,INCOME,Стипендия,2026-01-15T14:30:00Z,test`,
+			transactions: []models.TransactionModel{
+				{UserId: 1, AccountId: 1, Value: 100.0, Type: "INCOME", Category: "Зарплата", Title: "title1", Description: "test", TransactionDate: time.Date(2026, 1, 15, 14, 30, 0, 0, time.UTC)},
+				{UserId: 1, AccountId: 3, Value: 20.0, Type: "INCOME", Category: "Стипендия", Title: "title2", Description: "test", TransactionDate: time.Date(2026, 1, 15, 14, 30, 0, 0, time.UTC)},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+				{Id: 3},
+			},
+			err: nil,
+		},
+		{
+			name: "account error",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{}, repository.NothingInTableError)
+			},
+			userId:       1,
+			csvData:      `title1,100,1,INCOME,Зарплата,2026-01-15T14:30:00Z,test`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+		{
+			name:         "wrong account id",
+			setupFunc:    func(accApp *appmocks.MockAccountUseCase) {},
+			userId:       1,
+			csvData:      `title1,100,abc,INCOME,Зарплата,2026-01-15T14:30:00Z,test`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+		{
+			name:         "wrong data",
+			setupFunc:    func(accApp *appmocks.MockAccountUseCase) {},
+			userId:       1,
+			csvData:      `abc`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+		{
+			name: "wrong value",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 1}, nil)
+			},
+			userId:       1,
+			csvData:      `title1,text,1,INCOME,Зарплата,2026-01-15T14:30:00Z,test`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+		{
+			name: "wrong time",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 1}, nil)
+			},
+			userId:       1,
+			csvData:      `title1,100,1,INCOME,Зарплата,2026-15-01T14:30:00Z,test`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			accountApp := appmocks.NewMockAccountUseCase(ctrl)
+			testCase.setupFunc(accountApp)
+			reader := csv.NewReader(strings.NewReader(testCase.csvData))
+			reader.Comma = ','
+			reader.FieldsPerRecord = 7
+			strategy := NewGpteamReaderStrategy(reader, testCase.userId, accountApp)
+			transactions, accounts, err := strategy.ReadTransactions(context.Background())
+			require.Equal(t, testCase.transactions, transactions)
+			require.Equal(t, testCase.accounts, accounts)
+			require.ErrorIs(t, err, testCase.err)
+		})
+	}
+}
+
+func TestSberReaderStrategy_ReadTransactions(t *testing.T) {
+	testCases := []struct {
+		name         string
+		setupFunc    func(repo *appmocks.MockAccountUseCase)
+		userId       int
+		accountId    int
+		csvData      string
+		transactions []models.TransactionModel
+		accounts     []models.AccountModel
+		err          error
+	}{
+		{
+			name: "success",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 1}, nil)
+			},
+			userId:    1,
+			accountId: 1,
+			csvData: `15.01.2026 14:30,Зарплата,+100,0
+15.01.2026 14:30,Стипендия,+20,0`,
+			transactions: []models.TransactionModel{
+				{UserId: 1, AccountId: 1, Value: 100.0, Type: "INCOME", Category: "Зарплата", Title: "Зарплата", Description: "Зарплата", TransactionDate: time.Date(2026, 1, 15, 14, 30, 0, 0, time.UTC)},
+				{UserId: 1, AccountId: 1, Value: 20.0, Type: "INCOME", Category: "Стипендия", Title: "Стипендия", Description: "Стипендия", TransactionDate: time.Date(2026, 1, 15, 14, 30, 0, 0, time.UTC)},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+				{Id: 1},
+			},
+			err: nil,
+		},
+		{
+			name: "account error",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{}, repository.NothingInTableError)
+			},
+			userId:       1,
+			accountId:    1,
+			csvData:      `15.01.2026 14:30,Зарплата,+100,0`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          repository.NothingInTableError,
+		},
+		{
+			name: "wrong time",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 1}, nil)
+			},
+			userId:       1,
+			accountId:    1,
+			csvData:      `01.15.2026 14:30,Зарплата,+100,0`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+		{
+			name: "wrong value",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 1}, nil)
+			},
+			userId:       1,
+			accountId:    1,
+			csvData:      `15.01.2026 14:30,Зарплата,text,0`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+		{
+			name: "wrong data",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 1}, nil)
+			},
+			userId:       1,
+			accountId:    1,
+			csvData:      `text`,
+			transactions: []models.TransactionModel{},
+			accounts:     []models.AccountModel{},
+			err:          nil,
+		},
+		{
+			name: "success expense",
+			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{Id: 1}, nil)
+			},
+			userId:    1,
+			accountId: 1,
+			csvData:   `15.01.2026 14:30,Покупки,100,0`,
+			transactions: []models.TransactionModel{
+				{UserId: 1, AccountId: 1, Value: 100.0, Type: "EXPENSE", Category: "Покупки", Title: "Покупки", Description: "Покупки", TransactionDate: time.Date(2026, 1, 15, 14, 30, 0, 0, time.UTC)},
+			},
+			accounts: []models.AccountModel{
+				{Id: 1},
+			},
+			err: nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			accountApp := appmocks.NewMockAccountUseCase(ctrl)
+			testCase.setupFunc(accountApp)
+			reader := csv.NewReader(strings.NewReader(testCase.csvData))
+			reader.Comma = ','
+			reader.FieldsPerRecord = 4
+			strategy := NewSberReaderStrategy(reader, testCase.userId, testCase.accountId, accountApp)
+			transactions, accounts, err := strategy.ReadTransactions(context.Background())
+			require.Equal(t, testCase.transactions, transactions)
+			require.Equal(t, testCase.accounts, accounts)
+			require.ErrorIs(t, err, testCase.err)
 		})
 	}
 }

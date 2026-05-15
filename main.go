@@ -295,6 +295,7 @@ func main() {
 	mux.Handle("/api/transactions/{id}", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodDelete, http.MethodPut)(http.HandlerFunc(transactionHandler.Transaction)))
 	mux.Handle("/api/transactions/search", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(transactionHandler.Search)))
 	mux.Handle("/api/transactions/voice", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(voiceHandler.CreateVoiceTransaction)))
+	mux.Handle("/api/transactions/import", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(transactionHandler.Import)))
 	mux.Handle("/enums/get_currency_codes", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CurrencyCodes)))
 	mux.Handle("/enums/get_transaction_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.TransactionTypes)))
 	mux.Handle("/enums/get_category_types", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(enumsHandler.CategoryTypes)))
