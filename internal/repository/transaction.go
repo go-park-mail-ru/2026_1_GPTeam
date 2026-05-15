@@ -24,6 +24,7 @@ type TransactionRepository interface {
 	Delete(ctx context.Context, transactionId int, account models.AccountModel) (int, error)
 	Detail(ctx context.Context, transactionId int) (models.TransactionModel, error)
 	Search(ctx context.Context, userId int, filters TransactionFilters) ([]models.TransactionModel, error)
+	BulkCreate(ctx context.Context, transactions []models.TransactionModel, accounts []models.AccountModel) error
 }
 
 type TransactionFilters struct {
@@ -381,6 +382,16 @@ func (obj *TransactionPostgres) Search(ctx context.Context, userId int, filters 
 	}
 	log.Info("Query executed")
 	return transactions, nil
+}
+
+func (obj *TransactionPostgres) BulkCreate(ctx context.Context, transactions []models.TransactionModel, accounts []models.AccountModel) error {
+	for i := range transactions {
+		_, err := obj.Create(ctx, transactions[i], accounts[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func updateBalance(ctx context.Context, dbTransaction pgx.Tx, oldTransaction models.TransactionModel, transaction models.TransactionModel, oldAccount models.AccountModel, account models.AccountModel) (time.Duration, error) {
