@@ -94,7 +94,7 @@ services:
       - POSTGRES_PORT=5432
       - AUTH_GRPC_LISTEN=:50051
       - AUTH_METRICS_PORT=50081
-      - AUTH_MAX_DB_CONNS=40
+      - AUTH_MAX_DB_CONNS=47
     expose:
       - "50051"
       - "50081"
@@ -191,7 +191,7 @@ services:
       - FILESERVER_GRPC_ADDR=fileserver:50053
       - FILESERVER_PUBLIC_BASE=${FILESERVER_PUBLIC_BASE:-http://localhost:8083}
       - METRICS_PORT=8081
-      - APP_MAX_DB_CONNS=120
+      - APP_MAX_DB_CONNS=90
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz" ]
       interval: 10s
