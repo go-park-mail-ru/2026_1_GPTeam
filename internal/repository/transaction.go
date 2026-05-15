@@ -385,7 +385,7 @@ func (obj *TransactionPostgres) Search(ctx context.Context, userId int, filters 
 }
 
 func (obj *TransactionPostgres) BulkCreate(ctx context.Context, transactions []models.TransactionModel, accounts []models.AccountModel) error {
-	for i := range len(transactions) {
+	for i := range transactions {
 		_, err := obj.Create(ctx, transactions[i], accounts[i])
 		if err != nil {
 			return err

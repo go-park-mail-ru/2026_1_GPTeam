@@ -458,7 +458,7 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Warn("failed to change avatar (no file)",
 			zap.Error(err))
-		response := web_helpers.NewBadRequestErrorResponse("Нет файла аватара")
+		response := web_helpers.NewBadRequestErrorResponse("Нет файла")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -475,7 +475,7 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fileType := http.DetectContentType(buff)
-	if fileType != "text/csv" && fileType != "application/octet-stream" {
+	if fileType != "text/csv" && fileType != "application/octet-stream" && fileType != "text/plain" && fileType != "application/vnd.ms-excel" {
 		log.Warn("file type not supported",
 			zap.String("file type", fileType),
 			zap.Error(err))
@@ -497,6 +497,7 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 		log.Warn("failed to read first line", zap.Error(err))
 		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: "Невалидный файл"}})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
 	}
 	fileTypeContent := validators.ValidateImportFileColumns(firstLine)
 	if fileTypeContent == "" {
@@ -512,6 +513,11 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	account, err := obj.accountApp.GetById(r.Context(), authUser.Id, accountId)
+	if err != nil {
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", "Неверный id счёта"}})
+		web_helpers.WriteResponseJSON(w, response.Code, response)
+		return
+	}
 	var csvReaderStrategy application.CsvTransactionsReaderStrategy
 	switch fileTypeContent {
 	case "gpteam":

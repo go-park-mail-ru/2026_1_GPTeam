@@ -224,7 +224,7 @@ func (obj *SberReaderStrategy) ReadTransactions(ctx context.Context) ([]models.T
 			continue
 		}
 		value, err := strconv.ParseFloat(record[2], 64)
-		if err != nil {
+		if err != nil || len(record[2]) == 0 {
 			log.Warn("failed to convert value to int", zap.Error(err))
 			continue
 		}

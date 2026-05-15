@@ -57,12 +57,12 @@ func ValidateTransactionDraft(body web_helpers.TransactionRequest, transactionTy
 }
 
 func ValidateImportFileColumns(firstLine []string) string {
-	GpteamFile := []string{"Название", "Сумма", "Счёт", "Тип", "Категория", "Дата", "Описание"}
-	SberFile := []string{"Дата", "Категория", "Сумма", "Остаток"}
-	if err := checkSlicesEquals(firstLine, GpteamFile); err == nil {
+	gpteamFile := []string{"Название", "Сумма", "Счёт", "Тип", "Категория", "Дата", "Описание"}
+	sberFile := []string{"Дата", "Категория", "Сумма", "Остаток"}
+	if err := checkSlicesEquals(firstLine, gpteamFile); err == nil {
 		return "gpteam"
 	}
-	if err := checkSlicesEquals(firstLine, SberFile); err == nil {
+	if err := checkSlicesEquals(firstLine, sberFile); err == nil {
 		return "sber"
 	}
 	return ""
