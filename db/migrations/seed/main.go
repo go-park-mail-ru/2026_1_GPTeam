@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/joho/godotenv"
@@ -24,12 +25,12 @@ func addUser(conn *pgx.Conn, username string, plainPassword string, email string
 	if err != nil {
 		pgErr, ok := errors.AsType[*pgconn.PgError](err)
 		if ok {
-			if pgErr.Code != "23505" {
-				panic(err)
+			if pgErr.Code == "23505" {
+				fmt.Printf("User %s already exists\n", username)
+				return
 			}
-		} else {
-			panic(err)
 		}
+		panic(err)
 	}
 	fmt.Printf("Added user: %s\n", username)
 }
@@ -42,19 +43,49 @@ func addServiceUser(conn *pgx.Conn, login string, password string, role string) 
 	if err != nil {
 		pgErr, ok := errors.AsType[*pgconn.PgError](err)
 		if ok {
-			if pgErr.Code != "42710" {
-				panic(err)
+			if pgErr.Code == "42710" {
+				fmt.Printf("Service user %s already exists\n", login)
+				return
 			}
-		} else {
-			panic(err)
 		}
+		panic(err)
 	}
 	query = fmt.Sprintf(`grant %s to %s;`, role, login)
 	_, err = conn.Exec(context.Background(), query)
-	if err != nil {
-		panic(err)
-	}
+	panicOnError(err)
 	fmt.Printf("Added service user %s\n", login)
+}
+
+func isAccountTableClear(conn *pgx.Conn) bool {
+	query := `select count(*) from account;`
+	var count int
+	err := conn.QueryRow(context.Background(), query).Scan(&count)
+	panicOnError(err)
+	if count > 0 {
+		return false
+	}
+	query = `select count(*) from account_user;`
+	err = conn.QueryRow(context.Background(), query).Scan(&count)
+	panicOnError(err)
+	return count == 0
+}
+
+type AccountCreationData struct {
+	id       int
+	name     string
+	balance  float64
+	currency string
+}
+
+func addAccounts(conn *pgx.Conn, userId int, accounts []AccountCreationData) {
+	_, err := conn.CopyFrom(context.Background(), pgx.Identifier{"account"}, []string{"name", "balance", "currency"}, pgx.CopyFromSlice(len(accounts), func(i int) ([]any, error) {
+		return []interface{}{accounts[i].name, accounts[i].balance, accounts[i].currency}, nil
+	}))
+	panicOnError(err)
+	_, err = conn.CopyFrom(context.Background(), pgx.Identifier{"account_user"}, []string{"account_id", "user_id"}, pgx.CopyFromSlice(len(accounts), func(i int) ([]any, error) {
+		return []interface{}{accounts[i].id, userId}, nil
+	}))
+	panicOnError(err)
 }
 
 func main() {
@@ -85,9 +116,7 @@ func main() {
 	dbUrl := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", dbUser, dbPassword, host, port, name)
 
 	conn, err := pgx.Connect(context.Background(), dbUrl)
-	if err != nil {
-		panic(err)
-	}
+	panicOnError(err)
 	defer func() {
 		err = conn.Close(context.Background())
 		if err != nil {
@@ -141,4 +170,25 @@ func main() {
 		panic("AUTH_SERVICE_PASSWORD is not set")
 	}
 	addServiceUser(conn, authServiceLogin, authServicePassword, "auth_service_role")
+
+	if isAccountTableClear(conn) {
+		addAccounts(conn, 1, []AccountCreationData{
+			{1, gofakeit.CreditCard().Number, 28753, "RUB"},
+			{2, gofakeit.CreditCard().Number, 0, "USD"},
+			{3, gofakeit.CreditCard().Number, 2360, "RUB"},
+			{4, gofakeit.CreditCard().Number, 3, "EUR"},
+		})
+		addAccounts(conn, 2, []AccountCreationData{
+			{5, "base", 0, "RUB"},
+		})
+		fmt.Println("Accounts created")
+	} else {
+		fmt.Println("Account table already filled")
+	}
+}
+
+func panicOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
