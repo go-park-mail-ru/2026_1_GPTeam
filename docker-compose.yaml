@@ -110,7 +110,7 @@ services:
     environment:
       - FILESERVER_HTTP_LISTEN=:8082
       - FILESERVER_GRPC_LISTEN=:50053
-      - FILESERVER_STORAGE_PATH=/app/static
+      - FILESERVER_STORAGE_PATH=./static
       - FILESERVER_METRICS_PORT=50083
     volumes:
       - fileserver_static:/app/static
