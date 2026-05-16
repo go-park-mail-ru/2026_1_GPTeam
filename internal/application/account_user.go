@@ -8,16 +8,6 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 )
 
-var (
-	ErrInviteAlreadyExists = errors.New("invite already exists")
-	ErrInviteNotFound      = errors.New("invite not found")
-	ErrNotOwner            = errors.New("only owner can perform this action")
-	ErrCannotRemoveOwner   = errors.New("cannot remove owner from account")
-	ErrUserNotFound        = errors.New("user not found")
-	ErrSelfInvite          = errors.New("cannot invite yourself")
-	ErrAlreadyMember       = errors.New("user already member")
-)
-
 type AccountUserUseCase interface {
 	SearchUsers(ctx context.Context, accountId int, query string, limit int) ([]models.UserSearchResult, error)
 	CreateInvite(ctx context.Context, accountId int, ownerId int, targetUserId int) (models.AccountUserModel, error)
@@ -51,7 +41,6 @@ func (obj *AccountUserApp) SearchUsers(
 	if limit <= 0 {
 		limit = 5
 	}
-
 	if limit > 10 {
 		limit = 10
 	}
@@ -83,12 +72,10 @@ func (obj *AccountUserApp) CreateInvite(
 		return models.AccountUserModel{}, ErrSelfInvite
 	}
 
-	existing, err := obj.accountUserRepo.GetByAccountIdAndUserId(
-		ctx,
-		accountId,
-		targetUserId,
-	)
-
+	// Проверяем активную запись (deleted_at IS NULL).
+	// Кикнутые юзеры (deleted_at IS NOT NULL) GetByAccountIdAndUserId не найдёт →
+	// CreateInvite через UPSERT сбросит deleted_at и создаст новое приглашение.
+	existing, err := obj.accountUserRepo.GetByAccountIdAndUserId(ctx, accountId, targetUserId)
 	if err == nil {
 		switch existing.Status {
 		case string(models.InviteStatusPending):
@@ -98,7 +85,15 @@ func (obj *AccountUserApp) CreateInvite(
 		}
 	}
 
-	return obj.accountUserRepo.CreateInvite(ctx, accountId, targetUserId)
+	result, err := obj.accountUserRepo.CreateInvite(ctx, accountId, targetUserId)
+	if err != nil {
+		if errors.Is(err, repository.NothingInTableError) {
+			// UPSERT вернул 0 строк — юзер активен, конфликт не был сброшен.
+			return models.AccountUserModel{}, ErrInviteAlreadyExists
+		}
+		return models.AccountUserModel{}, err
+	}
+	return result, nil
 }
 
 func (obj *AccountUserApp) GetMembers(
@@ -121,12 +116,7 @@ func (obj *AccountUserApp) AcceptInvite(
 	userId int,
 ) (models.AccountUserModel, error) {
 
-	invite, err := obj.accountUserRepo.GetByAccountIdAndUserId(
-		ctx,
-		accountId,
-		userId,
-	)
-
+	invite, err := obj.accountUserRepo.GetByAccountIdAndUserId(ctx, accountId, userId)
 	if err != nil {
 		return models.AccountUserModel{}, ErrInviteNotFound
 	}
@@ -135,12 +125,7 @@ func (obj *AccountUserApp) AcceptInvite(
 		return models.AccountUserModel{}, errors.New("invite is not pending")
 	}
 
-	return obj.accountUserRepo.UpdateStatus(
-		ctx,
-		accountId,
-		userId,
-		string(models.InviteStatusAccepted),
-	)
+	return obj.accountUserRepo.UpdateStatus(ctx, accountId, userId, string(models.InviteStatusAccepted))
 }
 
 func (obj *AccountUserApp) RejectInvite(
@@ -149,12 +134,7 @@ func (obj *AccountUserApp) RejectInvite(
 	userId int,
 ) error {
 
-	invite, err := obj.accountUserRepo.GetByAccountIdAndUserId(
-		ctx,
-		accountId,
-		userId,
-	)
-
+	invite, err := obj.accountUserRepo.GetByAccountIdAndUserId(ctx, accountId, userId)
 	if err != nil {
 		return ErrInviteNotFound
 	}
@@ -173,11 +153,7 @@ func (obj *AccountUserApp) RemoveMember(
 	targetUserId int,
 ) error {
 
-	ownerIdFromDb, err := obj.accountUserRepo.GetOwnerByAccountId(
-		ctx,
-		accountId,
-	)
-
+	ownerIdFromDb, err := obj.accountUserRepo.GetOwnerByAccountId(ctx, accountId)
 	if err != nil {
 		return err
 	}
@@ -190,11 +166,11 @@ func (obj *AccountUserApp) RemoveMember(
 		return ErrCannotRemoveOwner
 	}
 
-	return obj.accountUserRepo.DeleteMember(
-		ctx,
-		accountId,
-		targetUserId,
-	)
+	err = obj.accountUserRepo.DeleteMember(ctx, accountId, targetUserId)
+	if errors.Is(err, repository.NothingInTableError) {
+		return ErrMemberNotFound
+	}
+	return err
 }
 
 func (obj *AccountUserApp) GetPendingInvites(
@@ -206,10 +182,18 @@ func (obj *AccountUserApp) GetPendingInvites(
 }
 
 func (obj *AccountUserApp) LeaveAccount(ctx context.Context, accountId int, userId int) error {
-	// Проверяем, что пользователь действительно в этом счёте
-	_, err := obj.accountUserRepo.GetByAccountIdAndUserId(ctx, accountId, userId)
+	ownerIdFromDb, err := obj.accountUserRepo.GetOwnerByAccountId(ctx, accountId)
 	if err != nil {
 		return err
 	}
+	if ownerIdFromDb == userId {
+		return ErrOwnerCannotLeave
+	}
+
+	_, err = obj.accountUserRepo.GetByAccountIdAndUserId(ctx, accountId, userId)
+	if err != nil {
+		return err
+	}
+
 	return obj.accountUserRepo.LeaveAccount(ctx, accountId, userId)
 }

@@ -276,6 +276,9 @@ func (obj *AccountUserHandler) RemoveMember(w http.ResponseWriter, r *http.Reque
 		case errors.Is(err, application.ErrCannotRemoveOwner):
 			response := web_helpers.NewBadRequestErrorResponse("Невозможно удалить владельца счёта")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
+		case errors.Is(err, application.ErrMemberNotFound):
+			response := web_helpers.NewNotFoundErrorResponse("Участник не найден")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
 		default:
 			log.Error("failed to remove member", zap.Error(err))
 			response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
@@ -311,7 +314,6 @@ func (obj *AccountUserHandler) GetPendingInvites(w http.ResponseWriter, r *http.
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
-// POST /api/accounts/{accountId}/leave
 func (obj *AccountUserHandler) LeaveAccount(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLoggerWithRequestId(r.Context())
 	log.Info("leave account request")

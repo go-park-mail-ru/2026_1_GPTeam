@@ -96,11 +96,20 @@ func (obj *AccountUserPostgres) SearchUsers(ctx context.Context, accountId int, 
 	return results, nil
 }
 
+// CreateInvite создаёт приглашение. Если пользователь был ранее кикнут (deleted_at IS NOT NULL),
+// строка сбрасывается и возвращается заново. Если пользователь активен — RETURNING вернёт 0 строк
+// → NothingInTableError, usecase смаппит это в ErrInviteAlreadyExists / ErrAlreadyMember.
 func (obj *AccountUserPostgres) CreateInvite(ctx context.Context, accountId int, userId int) (models.AccountUserModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
 	query := `
 		INSERT INTO account_user (account_id, user_id, status, created_at)
 		VALUES ($1, $2, $3, now())
+		ON CONFLICT (account_id, user_id) DO UPDATE
+			SET status        = 'pending',
+			    deleted_at    = NULL,
+			    deleted_reason = NULL,
+			    created_at    = now()
+			WHERE account_user.deleted_at IS NOT NULL
 		RETURNING id, account_id, user_id, status, created_at`
 	args := []any{accountId, userId, AccountUserStatusPending}
 
@@ -115,8 +124,7 @@ func (obj *AccountUserPostgres) CreateInvite(ctx context.Context, accountId int,
 	)
 	duration := time.Since(start)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	appMetrics := metrics.GetMetrics()
-	appMetrics.DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
+	metrics.GetMetrics().DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
 
 	if mappedErr := mapAccountUserPgError(ctx, err, "failed to create invite"); mappedErr != nil {
 		return models.AccountUserModel{}, mappedErr
@@ -145,8 +153,7 @@ func (obj *AccountUserPostgres) GetByAccountIdAndUserId(ctx context.Context, acc
 	)
 	duration := time.Since(start)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	appMetrics := metrics.GetMetrics()
-	appMetrics.DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
+	metrics.GetMetrics().DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
 
 	if mappedErr := mapAccountUserPgError(ctx, err, "failed to get account user"); mappedErr != nil {
 		return models.AccountUserModel{}, mappedErr
@@ -158,8 +165,6 @@ func (obj *AccountUserPostgres) GetByAccountIdAndUserId(ctx context.Context, acc
 
 func (obj *AccountUserPostgres) GetMembersByAccountId(ctx context.Context, accountId int) ([]models.MemberResponse, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	// Owner always shown via the account table; members via account_user.
-	// Single pass: owner row first, then accepted members excluding the owner.
 	query := `
 		SELECT
 			COALESCE(au.id, 0)                        AS id,
@@ -202,8 +207,7 @@ func (obj *AccountUserPostgres) GetMembersByAccountId(ctx context.Context, accou
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(start)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	appMetrics := metrics.GetMetrics()
-	appMetrics.DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
+	metrics.GetMetrics().DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
 
 	if err != nil {
 		log.Error("failed to get members by account id", zap.Error(err))
@@ -259,8 +263,7 @@ func (obj *AccountUserPostgres) UpdateStatus(ctx context.Context, accountId int,
 	)
 	duration := time.Since(start)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	appMetrics := metrics.GetMetrics()
-	appMetrics.DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
+	metrics.GetMetrics().DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
 
 	if mappedErr := mapAccountUserPgError(ctx, err, "failed to update account user status"); mappedErr != nil {
 		return models.AccountUserModel{}, mappedErr
@@ -282,8 +285,7 @@ func (obj *AccountUserPostgres) DeleteMember(ctx context.Context, accountId int,
 	result, err := obj.db.Exec(ctx, query, args...)
 	duration := time.Since(start)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	appMetrics := metrics.GetMetrics()
-	appMetrics.DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
+	metrics.GetMetrics().DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
 
 	if err != nil {
 		log.Error("failed to delete member", zap.Error(err))
@@ -310,8 +312,7 @@ func (obj *AccountUserPostgres) GetOwnerByAccountId(ctx context.Context, account
 	err := obj.db.QueryRow(ctx, query, args...).Scan(&ownerId)
 	duration := time.Since(start)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	appMetrics := metrics.GetMetrics()
-	appMetrics.DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
+	metrics.GetMetrics().DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
 
 	if mappedErr := mapAccountUserPgError(ctx, err, "failed to get owner by account id"); mappedErr != nil {
 		return 0, mappedErr
@@ -338,8 +339,7 @@ func (obj *AccountUserPostgres) GetPendingInvitesByUserId(ctx context.Context, u
 	rows, err := obj.db.Query(ctx, query, args...)
 	duration := time.Since(start)
 	log = logger.ModifyLoggerWithDBQuery(log, query, args, duration)
-	appMetrics := metrics.GetMetrics()
-	appMetrics.DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
+	metrics.GetMetrics().DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
 
 	if err != nil {
 		log.Error("failed to get pending invites by user id", zap.Error(err))
@@ -373,26 +373,26 @@ func (obj *AccountUserPostgres) GetPendingInvitesByUserId(ctx context.Context, u
 	return invites, nil
 }
 
+// LeaveAccount помечает участника как вышедшего. Проверка что юзер не овнер — на уровне usecase.
 func (obj *AccountUserPostgres) LeaveAccount(ctx context.Context, accountId int, userId int) error {
 	log := logger.GetLoggerWithRequestId(ctx)
-
-	var ownerId int
-	err := obj.db.QueryRow(ctx, `SELECT owner_id FROM account WHERE id = $1`, accountId).Scan(&ownerId)
-	if err != nil {
-		return mapAccountUserPgError(ctx, err, "failed to check owner")
-	}
-	if ownerId == userId {
-		return errors.New("owner cannot leave account, delete it instead")
-	}
-
 	query := `
 		UPDATE account_user
 		SET deleted_at = now(), deleted_reason = $3
 		WHERE account_id = $1 AND user_id = $2 AND deleted_at IS NULL`
 
-	_, err = obj.db.Exec(ctx, query, accountId, userId, AccountUserDeletedReasonLeft)
+	start := time.Now()
+	result, err := obj.db.Exec(ctx, query, accountId, userId, AccountUserDeletedReasonLeft)
+	duration := time.Since(start)
+	log = logger.ModifyLoggerWithDBQuery(log, query, []any{accountId, userId, AccountUserDeletedReasonLeft}, duration)
+	metrics.GetMetrics().DbQueryDuration.WithLabelValues(query, "account_user").Observe(float64(duration.Milliseconds()))
+
 	if err != nil {
-		return mapAccountUserPgError(ctx, err, "failed to leave account")
+		log.Error("failed to leave account", zap.Error(err))
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return NothingInTableError
 	}
 
 	log.Info("User left account", zap.Int("account_id", accountId), zap.Int("user_id", userId))
