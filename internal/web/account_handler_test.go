@@ -9,13 +9,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application"
 	appmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
+
+type contextKey string
+
+const userContextKey contextKey = "user"
 
 func ctxWithUser(user models.UserModel) context.Context {
 	return context.WithValue(context.Background(), "user", user)
@@ -70,7 +74,6 @@ func TestAccountHandler_GetAccount(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -108,7 +111,7 @@ func TestAccountHandler_CreateAccountCurrencyValidation(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/accounts",
-		bytes.NewBufferString(`{"name":"main","currency":"CNY","balance":10}`),
+		bytes.NewBufferString(`{"name":"main","currency":"INVALID_CURRENCY","balance":10}`),
 	).WithContext(ctxWithUser(models.UserModel{Id: 1}))
 
 	req.Header.Set("Content-Type", "application/json")
@@ -132,9 +135,10 @@ func TestAccountHandler_UpdateAccountCurrencyValidation(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPatch,
 		"/api/accounts/1",
-		bytes.NewBufferString(`{"currency":"CNY"}`),
+		bytes.NewBufferString(`{"currency":"INVALID_CURRENCY"}`),
 	).WithContext(ctxWithUser(models.UserModel{Id: 1}))
 
+	req.SetPathValue("accountId", "1")
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
@@ -142,4 +146,56 @@ func TestAccountHandler_UpdateAccountCurrencyValidation(t *testing.T) {
 	handler.UpdateAccount(w, req)
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAccountUserHandler_GetMembers(t *testing.T) {
+	t.Parallel()
+
+	testUser := models.UserModel{Id: 1, Username: "test"}
+
+	cases := []struct {
+		name         string
+		ctx          context.Context
+		accountId    string
+		setupMocks   func(app *appmocks.MockAccountUserUseCase)
+		expectedCode int
+	}{
+		{
+			name:         "bad account id",
+			ctx:          ctxWithUser(testUser),
+			accountId:    "abc",
+			setupMocks:   func(app *appmocks.MockAccountUserUseCase) {},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:      "success",
+			ctx:       ctxWithUser(testUser),
+			accountId: "1",
+			setupMocks: func(app *appmocks.MockAccountUserUseCase) {
+				app.EXPECT().GetMembers(gomock.Any(), 1, testUser.Id).Return([]models.MemberResponse{{Id: testUser.Id, UserId: testUser.Id, Username: testUser.Username}}, nil)
+			},
+			expectedCode: http.StatusOK,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			app := appmocks.NewMockAccountUserUseCase(ctrl)
+			c.setupMocks(app)
+
+			handler := NewAccountUserHandler(app)
+			req := httptest.NewRequest(http.MethodGet, "/accounts/"+c.accountId+"/members", nil).WithContext(c.ctx)
+			req.SetPathValue("accountId", c.accountId)
+
+			w := httptest.NewRecorder()
+			handler.GetMembers(w, req)
+
+			require.Equal(t, c.expectedCode, w.Code)
+		})
+	}
 }

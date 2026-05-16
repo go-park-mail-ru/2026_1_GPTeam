@@ -50,6 +50,7 @@ func (obj *Account) CreateForUser(ctx context.Context, userId int, account model
 		Name:      account.Name,
 		Balance:   account.Balance,
 		Currency:  account.Currency,
+		OwnerId:   userId,
 		CreatedAt: now,
 		UpdatedAt: now,
 	})

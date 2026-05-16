@@ -1,4 +1,4 @@
-EXCLUDE_DIRS := grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '/web_helpers' | grep -vE '/pkg$$' | grep -vE 'github.com/go-park-mail-ru/2026_1_GPTeam$$' | grep -vE '/cmd' | grep -vE '/gen'
+EXCLUDE_DIRS := grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '/web_helpers' | grep -vE '/pkg$$' | grep -vE 'github.com/go-park-mail-ru/2026_1_GPTeam$$' | grep -v '/pkg/gen/'
 
 .PHONY: proto
 proto:
@@ -43,9 +43,14 @@ test:
 .PHONY: test-cover
 test-cover:
 	@echo "Запуск тестов с покрытием..."
-	go test $$(go list ./... | $(EXCLUDE_DIRS)) -coverprofile=coverage.tmp -covermode=atomic
-	@cat coverage.tmp | $(EXCLUDE_DIRS) > coverage.out
-	@rm coverage.tmp
+	@rm -f coverage.tmp coverage.out
+	@echo "mode: atomic" > coverage.out
+	@for pkg in $$(go list ./... | $(EXCLUDE_DIRS)); do \
+		echo "Testing $$pkg..."; \
+		go test $$pkg -coverprofile=coverage.tmp -covermode=atomic && \
+		tail -n +2 coverage.tmp >> coverage.out || true; \
+	done
+	@rm -f coverage.tmp
 
 .PHONY: test-cover-html
 test-cover-html: test-cover

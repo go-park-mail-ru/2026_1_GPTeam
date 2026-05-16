@@ -177,6 +177,7 @@ func (obj *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userResponse := web_helpers.User{
+		Id:        authUser.Id,
 		Username:  secure.SanitizeXss(authUser.Username),
 		Email:     authUser.Email,
 		CreatedAt: authUser.CreatedAt,
@@ -237,6 +238,7 @@ func (obj *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userResponse := web_helpers.User{
+		Id:        updatedUser.Id,
 		Username:  updatedUser.Username,
 		Email:     updatedUser.Email,
 		CreatedAt: updatedUser.CreatedAt,

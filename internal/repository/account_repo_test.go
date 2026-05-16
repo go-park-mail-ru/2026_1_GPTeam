@@ -37,7 +37,7 @@ func TestAccountPostgres_Create(t *testing.T) {
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				rows := pgxmock.NewRows([]string{"id"}).AddRow(1)
 				mock.ExpectQuery(`insert into account`).
-					WithArgs("base", float64(0), "RUB", pgxmock.AnyArg()).
+					WithArgs("base", float64(0), "RUB", 0, pgxmock.AnyArg()).
 					WillReturnRows(rows)
 			},
 			expectedId:  1,
@@ -47,7 +47,7 @@ func TestAccountPostgres_Create(t *testing.T) {
 			name: "ошибка БД",
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`insert into account`).
-					WithArgs("base", float64(0), "RUB", pgxmock.AnyArg()).
+					WithArgs("base", float64(0), "RUB", 0, pgxmock.AnyArg()).
 					WillReturnError(errors.New("db error"))
 			},
 			expectedId:  -1,
@@ -89,7 +89,7 @@ func TestAccountPostgres_LinkAccountAndUser(t *testing.T) {
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				rows := pgxmock.NewRows([]string{"id"}).AddRow(1)
 				mock.ExpectQuery(`insert into account_user`).
-					WithArgs(1, 1).
+					WithArgs(1, 1, AccountUserStatusAccepted).
 					WillReturnRows(rows)
 			},
 			expectedErr: false,
@@ -98,7 +98,7 @@ func TestAccountPostgres_LinkAccountAndUser(t *testing.T) {
 			name: "ошибка БД",
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`insert into account_user`).
-					WithArgs(1, 1).
+					WithArgs(1, 1, AccountUserStatusAccepted).
 					WillReturnError(errors.New("db error"))
 			},
 			expectedErr: true,
@@ -140,7 +140,7 @@ func TestAccountPostgres_GetIdsByUserAndAccount(t *testing.T) {
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				rows := pgxmock.NewRows([]string{"id"}).AddRow(1).AddRow(2)
 				mock.ExpectQuery(`select id from account_user`).
-					WithArgs(1, 1).
+					WithArgs(1, 1, AccountUserStatusAccepted).
 					WillReturnRows(rows)
 			},
 			expectedLen: 2,
@@ -150,7 +150,7 @@ func TestAccountPostgres_GetIdsByUserAndAccount(t *testing.T) {
 			name: "ошибка БД",
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`select id from account_user`).
-					WithArgs(1, 1).
+					WithArgs(1, 1, AccountUserStatusAccepted).
 					WillReturnError(errors.New("db error"))
 			},
 			expectedLen: 0,
@@ -193,7 +193,7 @@ func TestAccountPostgres_GetAccountIdByUserId(t *testing.T) {
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				rows := pgxmock.NewRows([]string{"account_id"}).AddRow(42)
 				mock.ExpectQuery(`SELECT account_id FROM account_user`).
-					WithArgs(1).
+					WithArgs(1, AccountUserStatusAccepted).
 					WillReturnRows(rows)
 			},
 			expectedId:  42,
@@ -203,8 +203,8 @@ func TestAccountPostgres_GetAccountIdByUserId(t *testing.T) {
 			name: "не найден",
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`SELECT account_id FROM account_user`).
-					WithArgs(1).
-					WillReturnError(errors.New("no rows"))
+					WithArgs(1, AccountUserStatusAccepted).
+					WillReturnError(pgx.ErrNoRows)
 			},
 			expectedId:  0,
 			expectedErr: true,
@@ -254,16 +254,17 @@ func TestAccountPostgres_GetAllAccountsByUserIdWithBalance(t *testing.T) {
 					"name",
 					"balance",
 					"currency",
+					"owner_id",
 					"created_at",
 					"updated_at",
 					"income",
 					"expense",
 				}).
-					AddRow(1, "a", 100.0, "RUB", now, now, 19.5, 3.0).
-					AddRow(2, "b", 42.0, "RUB", now, now.Add(time.Hour), 27.0, 1.0)
+					AddRow(1, "a", 100.0, "RUB", 0, now, now, 19.5, 3.0).
+					AddRow(2, "b", 42.0, "RUB", 0, now, now.Add(time.Hour), 27.0, 1.0)
 
 				mock.ExpectQuery(query).
-					WithArgs(1).
+					WithArgs(1, AccountUserStatusAccepted).
 					WillReturnRows(rows)
 			},
 			userId: 1,
@@ -304,7 +305,7 @@ func TestAccountPostgres_GetAllAccountsByUserIdWithBalance(t *testing.T) {
 				})
 
 				mock.ExpectQuery(query).
-					WithArgs(1).
+					WithArgs(1, AccountUserStatusAccepted).
 					WillReturnRows(rows)
 			},
 			userId:   1,
@@ -351,12 +352,13 @@ func TestAccountPostgres_GetAllAccountsByUserId(t *testing.T) {
 					"name",
 					"balance",
 					"currency",
+					"owner_id",
 					"created_at",
 					"updated_at",
-				}).AddRow(1, "a", 100.0, "RUB", now, now)
+				}).AddRow(1, "a", 100.0, "RUB", 0, now, now)
 
 				mock.ExpectQuery(query).
-					WithArgs(1).
+					WithArgs(1, AccountUserStatusAccepted).
 					WillReturnRows(rows)
 			},
 			userId: 1,
@@ -380,12 +382,13 @@ func TestAccountPostgres_GetAllAccountsByUserId(t *testing.T) {
 					"name",
 					"balance",
 					"currency",
+					"owner_id",
 					"created_at",
 					"updated_at",
 				})
 
 				mock.ExpectQuery(query).
-					WithArgs(1).
+					WithArgs(1, AccountUserStatusAccepted).
 					WillReturnRows(rows)
 			},
 			userId:   1,
@@ -428,9 +431,10 @@ func TestAccountPostgres_GetByAccountId(t *testing.T) {
 					"name",
 					"balance",
 					"currency",
+					"owner_id",
 					"created_at",
 					"updated_at",
-				}).AddRow(1, "a", 100.0, "RUB", now, now)
+				}).AddRow(1, "a", 100.0, "RUB", 0, now, now)
 
 				mock.ExpectQuery(query).
 					WithArgs(1).

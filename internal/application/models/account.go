@@ -7,6 +7,7 @@ type AccountModel struct {
 	Name      string
 	Balance   float64
 	Currency  string
+	OwnerId   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -15,6 +16,7 @@ type AccountCreateModel struct {
 	Name     string
 	Balance  float64
 	Currency string
+	OwnerId  int
 }
 
 type AccountUpdateModel struct {

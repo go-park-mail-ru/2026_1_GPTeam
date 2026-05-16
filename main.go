@@ -165,6 +165,7 @@ func main() {
 	budgetPostgres := repository.NewBudgetPostgres(pool)
 	transactionPostgres := repository.NewTransactionPostgres(pool)
 	accountPostgres := repository.NewAccountPostgres(pool)
+	accountUserPostgres := repository.NewAccountUserPostgres(pool)
 	supportPostgres := repository.NewPostgresSupport(pool)
 	log.Info("repositories initialized")
 
@@ -200,6 +201,7 @@ func main() {
 	}
 	transactionApp := application.NewTransaction(transactionPostgres, accountPostgres)
 	accountApp := application.NewAccount(accountPostgres)
+	accountUserApp := application.NewAccountUserApp(accountUserPostgres, accountPostgres)
 	budgetApp := application.NewBudget(budgetPostgres, transactionApp, accountApp)
 	supportApp := application.NewSupport(supportPostgres)
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
@@ -212,6 +214,7 @@ func main() {
 	budgetHandler := web.NewBudgetHandler(budgetApp, enumsApp)
 	transactionHandler := web.NewTransactionHandler(transactionApp, enumsApp, accountApp)
 	accountHandler := web.NewAccountHandler(accountApp)
+	accountUserHandler := web.NewAccountUserHandler(accountUserApp)
 	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
 	supportHandler := web.NewSupportHandler(supportApp, userApp)
 	log.Info("handlers initialized")
@@ -267,7 +270,24 @@ func main() {
 	mux.Handle("/auth/login", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(authHandler.Login)))
 	mux.Handle("/api/account", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountHandler.GetAccount)))
 	mux.Handle("/api/accounts", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPost)(http.HandlerFunc(accountHandler.Accounts)))
-	mux.Handle("/api/accounts/", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodDelete)(http.HandlerFunc(accountHandler.Account)))
+	mux.Handle("GET /api/accounts/search", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountUserHandler.SearchUsers)))
+	mux.Handle("POST /api/accounts/{accountId}/invite", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(accountUserHandler.Invite)))
+	mux.Handle("GET /api/accounts/{accountId}/members", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountUserHandler.GetMembers)))
+	mux.Handle("DELETE /api/accounts/{accountId}/members/{userId}", middleware.MethodValidationMiddleware(http.MethodDelete)(http.HandlerFunc(accountUserHandler.RemoveMember)))
+	mux.Handle("PATCH /api/accounts/{accountId}/invite/accept", middleware.MethodValidationMiddleware(http.MethodPatch)(http.HandlerFunc(accountUserHandler.AcceptInvite)))
+	mux.Handle("PATCH /api/accounts/{accountId}/invite/reject", middleware.MethodValidationMiddleware(http.MethodPatch)(http.HandlerFunc(accountUserHandler.RejectInvite)))
+	mux.Handle("/api/invites/pending", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountUserHandler.GetPendingInvites)))
+	// Register leave account endpoint
+	mux.Handle("POST /api/accounts/{accountId}/leave", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(accountUserHandler.LeaveAccount)))
+	// Generic accounts handler. Also delegate POST /api/accounts/{id}/leave to accountUserHandler.LeaveAccount
+	mux.Handle("/api/accounts/", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodPost)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If this is a POST to a leave endpoint, forward to LeaveAccount handler
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/leave") {
+			accountUserHandler.LeaveAccount(w, r)
+			return
+		}
+		accountHandler.Account(w, r)
+	})))
 	mux.Handle("/api/profile", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPatch)(http.HandlerFunc(userHandler.ProfileHandler)))
 	mux.Handle("/api/profile/balance", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.Balance)))
 	mux.Handle("/api/profile/avatar", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(userHandler.UploadAvatar)))

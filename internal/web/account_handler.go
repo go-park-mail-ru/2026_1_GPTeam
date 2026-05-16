@@ -31,6 +31,7 @@ func accountToResponse(account models.AccountModel) web_helpers.AccountResponse 
 		Name:      account.Name,
 		Balance:   account.Balance,
 		Currency:  account.Currency,
+		OwnerId:   account.OwnerId,
 		CreatedAt: account.CreatedAt,
 		UpdatedAt: account.UpdatedAt,
 	}

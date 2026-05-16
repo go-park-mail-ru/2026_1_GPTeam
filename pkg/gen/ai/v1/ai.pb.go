@@ -346,11 +346,11 @@ func file_proto_ai_v1_ai_proto_rawDescGZIP() []byte {
 
 var file_proto_ai_v1_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_proto_ai_v1_ai_proto_goTypes = []any{
-	(*TranscribeRequest)(nil),         // 0: ai.v1.TranscribeRequest
-	(*TranscribeResponse)(nil),        // 1: ai.v1.TranscribeResponse
-	(*ParseTransactionRequest)(nil),    // 2: ai.v1.ParseTransactionRequest
-	(*ParseTransactionResponse)(nil),  // 3: ai.v1.ParseTransactionResponse
-	(*TransactionDraft)(nil),          // 4: ai.v1.ParseTransactionResponse.TransactionDraft
+	(*TranscribeRequest)(nil),        // 0: ai.v1.TranscribeRequest
+	(*TranscribeResponse)(nil),       // 1: ai.v1.TranscribeResponse
+	(*ParseTransactionRequest)(nil),  // 2: ai.v1.ParseTransactionRequest
+	(*ParseTransactionResponse)(nil), // 3: ai.v1.ParseTransactionResponse
+	(*TransactionDraft)(nil),         // 4: ai.v1.ParseTransactionResponse.TransactionDraft
 }
 var file_proto_ai_v1_ai_proto_depIdxs = []int32{
 	0, // 0: ai.v1.AiService.Transcribe:input_type -> ai.v1.TranscribeRequest

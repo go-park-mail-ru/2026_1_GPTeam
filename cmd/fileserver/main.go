@@ -50,7 +50,7 @@ func main() {
 
 	httpAddr := os.Getenv("FILESERVER_HTTP_LISTEN")
 	if httpAddr == "" {
-		httpAddr = ":8082"
+		httpAddr = ":8083"
 	}
 	grpcAddr := os.Getenv("FILESERVER_GRPC_LISTEN")
 	if grpcAddr == "" {

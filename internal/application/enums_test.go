@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
+	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 func TestEnums_GetCategoryTypes(t *testing.T) {
