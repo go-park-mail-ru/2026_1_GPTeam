@@ -11,7 +11,7 @@ import (
 	vegeta "github.com/tsenart/vegeta/v12/lib"
 )
 
-func main2() {
+func main() {
 	err := godotenv.Load("perf_test/.env")
 	if err != nil {
 		fmt.Println("Error loading .env file: ", err)
