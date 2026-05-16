@@ -17,7 +17,6 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/middleware"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	fsv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1"
@@ -260,8 +259,8 @@ func main() {
 			fmt.Println("redis pool close error", err)
 		}
 	}()
-	rateLimitBucket := repository.NewBucketRedis(redisPool)
-	rateLimiter, err := rate_limiter.NewRateLimiter(rateLimitBucket, os.Getenv("SERVER_IP"))
+	//rateLimitBucket := repository.NewBucketRedis(redisPool)
+	//rateLimiter, err := rate_limiter.NewRateLimiter(rateLimitBucket, os.Getenv("SERVER_IP"))
 	if err != nil {
 		return
 	}
@@ -310,7 +309,7 @@ func main() {
 	handler = middleware.CSRFMiddleware(handler, csrfService)
 	handler = middleware.AuthMiddleware(handler, authService, userApp)
 	handler = middleware.CORSMiddleware(handler)
-	handler = middleware.RateLimitMiddleware(handler, rateLimiter)
+	//handler = middleware.RateLimitMiddleware(handler, rateLimiter)
 	handler = middleware.AccessLogMiddleware(handler)
 	handler = middleware.PanicMiddleware(handler)
 
