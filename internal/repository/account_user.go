@@ -68,11 +68,13 @@ func (obj *AccountUserPostgres) SearchUsers(ctx context.Context, accountId int, 
         SELECT u.id, u.username
         FROM "user" u
         WHERE (u.username ILIKE '%' || $1 || '%' OR u.email ILIKE '%' || $1 || '%')
-        AND u.id != COALESCE((SELECT owner_id FROM account WHERE id = $3), 0)
-        AND NOT EXISTS (
-            SELECT 1 FROM account_user au
-            WHERE au.account_id = $3 AND au.user_id = u.id
-        )
+          AND u.id != COALESCE((SELECT owner_id FROM account WHERE id = $3), 0)
+          AND NOT EXISTS (
+              SELECT 1 FROM account_user au
+              WHERE au.account_id = $3
+                AND au.user_id = u.id
+                AND au.deleted_at IS NULL
+          )
         LIMIT $2`
 
 	args := []any{query, limit, accountId}
@@ -98,9 +100,9 @@ func (obj *AccountUserPostgres) CreateInvite(ctx context.Context, accountId int,
 	log := logger.GetLoggerWithRequestId(ctx)
 	query := `
 		INSERT INTO account_user (account_id, user_id, status, created_at)
-		VALUES ($1, $2, 'pending', now())
+		VALUES ($1, $2, $3, now())
 		RETURNING id, account_id, user_id, status, created_at`
-	args := []any{accountId, userId}
+	args := []any{accountId, userId, AccountUserStatusPending}
 
 	var accountUser models.AccountUserModel
 	start := time.Now()
@@ -129,7 +131,7 @@ func (obj *AccountUserPostgres) GetByAccountIdAndUserId(ctx context.Context, acc
 	query := `
 		SELECT id, account_id, user_id, status, created_at
 		FROM account_user
-		WHERE account_id = $1 AND user_id = $2`
+		WHERE account_id = $1 AND user_id = $2 AND deleted_at IS NULL`
 	args := []any{accountId, userId}
 
 	var accountUser models.AccountUserModel
@@ -156,19 +158,22 @@ func (obj *AccountUserPostgres) GetByAccountIdAndUserId(ctx context.Context, acc
 
 func (obj *AccountUserPostgres) GetMembersByAccountId(ctx context.Context, accountId int) ([]models.MemberResponse, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
+	// Owner always shown via the account table; members via account_user.
+	// Single pass: owner row first, then accepted members excluding the owner.
 	query := `
 		SELECT
-			COALESCE(au.id, 0) as id,
-			a.id as account_id,
-			u.id as user_id,
+			COALESCE(au.id, 0)                        AS id,
+			a.id                                       AS account_id,
+			u.id                                       AS user_id,
 			u.username,
 			u.email,
-			CASE WHEN a.owner_id = u.id THEN 'accepted' ELSE au.status END as status,
-			COALESCE(au.created_at, a.created_at) as created_at,
-			CASE WHEN a.owner_id = u.id THEN true ELSE false END as is_owner
+			$2::account_user_status                    AS status,
+			COALESCE(au.created_at, a.created_at)     AS created_at,
+			true                                       AS is_owner
 		FROM account a
 		JOIN "user" u ON u.id = a.owner_id
-		LEFT JOIN account_user au ON au.account_id = a.id AND au.user_id = a.owner_id
+		LEFT JOIN account_user au
+			ON au.account_id = a.id AND au.user_id = a.owner_id AND au.deleted_at IS NULL
 		WHERE a.id = $1
 
 		UNION ALL
@@ -176,20 +181,22 @@ func (obj *AccountUserPostgres) GetMembersByAccountId(ctx context.Context, accou
 		SELECT
 			au.id,
 			au.account_id,
-			au.user_id,
+			u.id,
 			u.username,
 			u.email,
 			au.status,
 			au.created_at,
-			false as is_owner
+			false
 		FROM account_user au
 		JOIN "user" u ON u.id = au.user_id
+		JOIN account a ON a.id = au.account_id
 		WHERE au.account_id = $1
-		AND au.user_id != (SELECT owner_id FROM account WHERE id = $1)
-		AND au.status = 'accepted'
+		  AND au.user_id != a.owner_id
+		  AND au.status = $2
+		  AND au.deleted_at IS NULL
 
 		ORDER BY is_owner DESC, created_at ASC`
-	args := []any{accountId}
+	args := []any{accountId, AccountUserStatusAccepted}
 
 	start := time.Now()
 	rows, err := obj.db.Query(ctx, query, args...)
@@ -237,9 +244,9 @@ func (obj *AccountUserPostgres) UpdateStatus(ctx context.Context, accountId int,
 	query := `
 		UPDATE account_user
 		SET status = $1
-		WHERE account_id = $2 AND user_id = $3
+		WHERE account_id = $2 AND user_id = $3 AND deleted_at IS NULL
 		RETURNING id, account_id, user_id, status, created_at`
-	args := []any{status, accountId, userId}
+	args := []any{AccountUserStatus(status), accountId, userId}
 
 	var accountUser models.AccountUserModel
 	start := time.Now()
@@ -266,9 +273,10 @@ func (obj *AccountUserPostgres) UpdateStatus(ctx context.Context, accountId int,
 func (obj *AccountUserPostgres) DeleteMember(ctx context.Context, accountId int, userId int) error {
 	log := logger.GetLoggerWithRequestId(ctx)
 	query := `
-		DELETE FROM account_user
-		WHERE account_id = $1 AND user_id = $2`
-	args := []any{accountId, userId}
+		UPDATE account_user
+		SET deleted_at = now(), deleted_reason = $3
+		WHERE account_id = $1 AND user_id = $2 AND deleted_at IS NULL`
+	args := []any{accountId, userId, AccountUserDeletedReasonKicked}
 
 	start := time.Now()
 	result, err := obj.db.Exec(ctx, query, args...)
@@ -281,7 +289,6 @@ func (obj *AccountUserPostgres) DeleteMember(ctx context.Context, accountId int,
 		log.Error("failed to delete member", zap.Error(err))
 		return err
 	}
-
 	if result.RowsAffected() == 0 {
 		return NothingInTableError
 	}
@@ -320,10 +327,12 @@ func (obj *AccountUserPostgres) GetPendingInvitesByUserId(ctx context.Context, u
 		SELECT au.id, au.account_id, au.user_id, au.status, au.created_at, COALESCE(a.name, '')
 		FROM account_user au
 		INNER JOIN account a ON a.id = au.account_id AND a.deleted_at IS NULL
-		WHERE au.user_id = $1 AND au.status = 'pending'
-		AND au.user_id != a.owner_id
+		WHERE au.user_id = $1
+		  AND au.status = $2
+		  AND au.user_id != a.owner_id
+		  AND au.deleted_at IS NULL
 		ORDER BY au.created_at DESC`
-	args := []any{userId}
+	args := []any{userId, AccountUserStatusPending}
 
 	start := time.Now()
 	rows, err := obj.db.Query(ctx, query, args...)
@@ -376,7 +385,12 @@ func (obj *AccountUserPostgres) LeaveAccount(ctx context.Context, accountId int,
 		return errors.New("owner cannot leave account, delete it instead")
 	}
 
-	_, err = obj.db.Exec(ctx, `DELETE FROM account_user WHERE account_id = $1 AND user_id = $2`, accountId, userId)
+	query := `
+		UPDATE account_user
+		SET deleted_at = now(), deleted_reason = $3
+		WHERE account_id = $1 AND user_id = $2 AND deleted_at IS NULL`
+
+	_, err = obj.db.Exec(ctx, query, accountId, userId, AccountUserDeletedReasonLeft)
 	if err != nil {
 		return mapAccountUserPgError(ctx, err, "failed to leave account")
 	}

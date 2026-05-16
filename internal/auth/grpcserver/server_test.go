@@ -7,8 +7,8 @@ import (
 
 	jwtmocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/jwt_auth/mocks"
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
+	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

@@ -15,7 +15,7 @@ import (
 
 	models "github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	web_helpers "github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockSupportUseCase is a mock of SupportUseCase interface.

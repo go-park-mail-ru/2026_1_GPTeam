@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	AiService_Transcribe_FullMethodName = "/ai.v1.AiService/Transcribe"
+	AiService_Transcribe_FullMethodName       = "/ai.v1.AiService/Transcribe"
 	AiService_ParseTransaction_FullMethodName = "/ai.v1.AiService/ParseTransaction"
 )
 

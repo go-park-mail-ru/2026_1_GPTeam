@@ -18,4 +18,5 @@ var (
 	ErrTranscriptionInvalidFile  = errors.New("invalid audio file format or parameters")
 	ErrTranscriptionUnauthorized = errors.New("transcription service authorization failed")
 	ErrTranscriptionEmptyResult  = errors.New("no speech detected in audio")
+	ErrOwnerCannotLeave          = errors.New("owner cannot leave account, delete it instead")
 )

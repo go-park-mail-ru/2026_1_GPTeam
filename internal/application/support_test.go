@@ -9,8 +9,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 func TestSupport_Create(t *testing.T) {

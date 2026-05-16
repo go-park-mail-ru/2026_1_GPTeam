@@ -52,9 +52,7 @@ func (obj *AccountUserHandler) SearchUsers(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	query := strings.TrimSpace(
-		secure.SanitizeXss(r.URL.Query().Get("query")),
-	)
+	query := strings.TrimSpace(secure.SanitizeXss(r.URL.Query().Get("query")))
 	if query == "" {
 		response := web_helpers.NewBadRequestErrorResponse("Запрос не может быть пустым")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -64,20 +62,12 @@ func (obj *AccountUserHandler) SearchUsers(w http.ResponseWriter, r *http.Reques
 	users, err := obj.accountUserApp.SearchUsers(r.Context(), accountId, query, 5)
 	if err != nil {
 		log.Error("failed to search users", zap.Error(err))
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	response := struct {
-		Code  int                       `json:"code"`
-		Users []models.UserSearchResult `json:"users"`
-	}{
-		Code:  http.StatusOK,
-		Users: users,
-	}
+	response := web_helpers.NewSearchUsersResponse(users)
 	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
@@ -100,161 +90,58 @@ func (obj *AccountUserHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body models.InviteRequest
-
 	if err := web_helpers.ReadRequestJSON(r, &body); err != nil {
 		response := web_helpers.NewBadRequestErrorResponse("Неверный формат запроса")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	query := strings.TrimSpace(
-		secure.SanitizeXss(body.Query),
-	)
-
+	query := strings.TrimSpace(secure.SanitizeXss(body.Query))
 	if query == "" {
-		response := web_helpers.NewBadRequestErrorResponse(
-			"Запрос не может быть пустым",
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
+		response := web_helpers.NewBadRequestErrorResponse("Запрос не может быть пустым")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	users, err := obj.accountUserApp.SearchUsers(
-		r.Context(),
-		accountId,
-		query,
-		1,
-	)
-
+	users, err := obj.accountUserApp.SearchUsers(r.Context(), accountId, query, 1)
 	if err != nil {
 		log.Error("failed to search user", zap.Error(err))
-
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	if len(users) == 0 {
-		response := web_helpers.NewNotFoundErrorResponse(
-			"Пользователь не найден",
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
+		response := web_helpers.NewNotFoundErrorResponse("Пользователь не найден")
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	targetUserId := users[0].Id
-
-	invite, err := obj.accountUserApp.CreateInvite(
-		r.Context(),
-		accountId,
-		authUser.Id,
-		targetUserId,
-	)
-
+	invite, err := obj.accountUserApp.CreateInvite(r.Context(), accountId, authUser.Id, users[0].Id)
 	if err != nil {
-
-		if errors.Is(err, application.ErrSelfInvite) {
-			response := web_helpers.NewBadRequestErrorResponse(
-				"Нельзя пригласить самого себя",
-			)
-
-			web_helpers.WriteResponseJSON(
-				w,
-				response.Code,
-				response,
-			)
-
-			return
-		}
-
-		if errors.Is(err, application.ErrInviteAlreadyExists) {
-			response := web_helpers.NewBadRequestErrorResponse(
-				"Приглашение уже отправлено",
-			)
-
-			web_helpers.WriteResponseJSON(
-				w,
-				response.Code,
-				response,
-			)
-
-			return
-		}
-
-		if errors.Is(err, application.ErrAlreadyMember) {
-			response := web_helpers.NewBadRequestErrorResponse(
-				"Пользователь уже является участником счёта",
-			)
-
-			web_helpers.WriteResponseJSON(
-				w,
-				response.Code,
-				response,
-			)
-
-			return
-		}
-
-		if errors.Is(err, application.ErrNotOwner) {
+		switch {
+		case errors.Is(err, application.ErrSelfInvite):
+			response := web_helpers.NewBadRequestErrorResponse("Нельзя пригласить самого себя")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+		case errors.Is(err, application.ErrInviteAlreadyExists):
+			response := web_helpers.NewBadRequestErrorResponse("Приглашение уже отправлено")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+		case errors.Is(err, application.ErrAlreadyMember):
+			response := web_helpers.NewBadRequestErrorResponse("Пользователь уже является участником счёта")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+		case errors.Is(err, application.ErrNotOwner):
 			response := web_helpers.NewForbiddenErrorResponse()
-
-			web_helpers.WriteResponseJSON(
-				w,
-				response.Code,
-				response,
-			)
-
-			return
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+		default:
+			log.Error("failed to create invite", zap.Error(err))
+			response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+			web_helpers.WriteResponseJSON(w, response.Code, response)
 		}
-
-		log.Error("failed to create invite", zap.Error(err))
-
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
 		return
 	}
 
-	response := struct {
-		Code   int                     `json:"code"`
-		Invite models.AccountUserModel `json:"invite"`
-	}{
-		Code:   http.StatusOK,
-		Invite: invite,
-	}
-
-	web_helpers.WriteResponseJSON(
-		w,
-		response.Code,
-		response,
-	)
+	response := web_helpers.NewInviteResponse(invite)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AccountUserHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
@@ -275,41 +162,16 @@ func (obj *AccountUserHandler) GetMembers(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	members, err := obj.accountUserApp.GetMembers(
-		r.Context(),
-		accountId,
-		authUser.Id,
-	)
-
+	members, err := obj.accountUserApp.GetMembers(r.Context(), accountId, authUser.Id)
 	if err != nil {
 		log.Error("failed to get members", zap.Error(err))
-
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	response := struct {
-		Code    int                     `json:"code"`
-		Members []models.MemberResponse `json:"members"`
-	}{
-		Code:    http.StatusOK,
-		Members: members,
-	}
-
-	web_helpers.WriteResponseJSON(
-		w,
-		response.Code,
-		response,
-	)
+	response := web_helpers.NewMembersResponse(members)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AccountUserHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
@@ -330,56 +192,21 @@ func (obj *AccountUserHandler) AcceptInvite(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	invite, err := obj.accountUserApp.AcceptInvite(
-		r.Context(),
-		accountId,
-		authUser.Id,
-	)
-
+	invite, err := obj.accountUserApp.AcceptInvite(r.Context(), accountId, authUser.Id)
 	if err != nil {
-
 		if errors.Is(err, application.ErrInviteNotFound) {
-			response := web_helpers.NewNotFoundErrorResponse(
-				"Приглашение не найдено",
-			)
-
-			web_helpers.WriteResponseJSON(
-				w,
-				response.Code,
-				response,
-			)
-
+			response := web_helpers.NewNotFoundErrorResponse("Приглашение не найдено")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-
 		log.Error("failed to accept invite", zap.Error(err))
-
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	response := struct {
-		Code   int                     `json:"code"`
-		Invite models.AccountUserModel `json:"invite"`
-	}{
-		Code:   http.StatusOK,
-		Invite: invite,
-	}
-
-	web_helpers.WriteResponseJSON(
-		w,
-		response.Code,
-		response,
-	)
+	response := web_helpers.NewInviteResponse(invite)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AccountUserHandler) RejectInvite(w http.ResponseWriter, r *http.Request) {
@@ -400,50 +227,20 @@ func (obj *AccountUserHandler) RejectInvite(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = obj.accountUserApp.RejectInvite(
-		r.Context(),
-		accountId,
-		authUser.Id,
-	)
-
-	if err != nil {
-
+	if err = obj.accountUserApp.RejectInvite(r.Context(), accountId, authUser.Id); err != nil {
 		if errors.Is(err, application.ErrInviteNotFound) {
-			response := web_helpers.NewNotFoundErrorResponse(
-				"Приглашение не найдено",
-			)
-
-			web_helpers.WriteResponseJSON(
-				w,
-				response.Code,
-				response,
-			)
-
+			response := web_helpers.NewNotFoundErrorResponse("Приглашение не найдено")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-
 		log.Error("failed to reject invite", zap.Error(err))
-
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
 	response := web_helpers.NewOkResponse()
-
-	web_helpers.WriteResponseJSON(
-		w,
-		response.Code,
-		response,
-	)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AccountUserHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
@@ -471,63 +268,24 @@ func (obj *AccountUserHandler) RemoveMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = obj.accountUserApp.RemoveMember(
-		r.Context(),
-		accountId,
-		authUser.Id,
-		userId,
-	)
-
-	if err != nil {
-
-		if errors.Is(err, application.ErrNotOwner) {
+	if err = obj.accountUserApp.RemoveMember(r.Context(), accountId, authUser.Id, userId); err != nil {
+		switch {
+		case errors.Is(err, application.ErrNotOwner):
 			response := web_helpers.NewForbiddenErrorResponse()
-
-			web_helpers.WriteResponseJSON(
-				w,
-				response.Code,
-				response,
-			)
-
-			return
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+		case errors.Is(err, application.ErrCannotRemoveOwner):
+			response := web_helpers.NewBadRequestErrorResponse("Невозможно удалить владельца счёта")
+			web_helpers.WriteResponseJSON(w, response.Code, response)
+		default:
+			log.Error("failed to remove member", zap.Error(err))
+			response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+			web_helpers.WriteResponseJSON(w, response.Code, response)
 		}
-
-		if errors.Is(err, application.ErrCannotRemoveOwner) {
-			response := web_helpers.NewBadRequestErrorResponse(
-				"Невозможно удалить владельца счёта",
-			)
-
-			web_helpers.WriteResponseJSON(
-				w,
-				response.Code,
-				response,
-			)
-
-			return
-		}
-
-		log.Error("failed to remove member", zap.Error(err))
-
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
 		return
 	}
 
 	response := web_helpers.NewOkResponse()
-
-	web_helpers.WriteResponseJSON(
-		w,
-		response.Code,
-		response,
-	)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 func (obj *AccountUserHandler) GetPendingInvites(w http.ResponseWriter, r *http.Request) {
@@ -541,40 +299,16 @@ func (obj *AccountUserHandler) GetPendingInvites(w http.ResponseWriter, r *http.
 		return
 	}
 
-	invites, err := obj.accountUserApp.GetPendingInvites(
-		r.Context(),
-		authUser.Id,
-	)
-
+	invites, err := obj.accountUserApp.GetPendingInvites(r.Context(), authUser.Id)
 	if err != nil {
 		log.Error("failed to get pending invites", zap.Error(err))
-
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
-
-		web_helpers.WriteResponseJSON(
-			w,
-			response.Code,
-			response,
-		)
-
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
+		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 
-	response := struct {
-		Code    int                        `json:"code"`
-		Invites []models.PendingInviteView `json:"invites"`
-	}{
-		Code:    http.StatusOK,
-		Invites: invites,
-	}
-
-	web_helpers.WriteResponseJSON(
-		w,
-		response.Code,
-		response,
-	)
+	response := web_helpers.NewPendingInvitesResponse(invites)
+	web_helpers.WriteResponseJSON(w, response.Code, response)
 }
 
 // POST /api/accounts/{accountId}/leave
@@ -596,17 +330,14 @@ func (obj *AccountUserHandler) LeaveAccount(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = obj.accountUserApp.LeaveAccount(r.Context(), accountId, authUser.Id)
-	if err != nil {
-		if err.Error() == "owner cannot leave account, delete it instead" {
+	if err = obj.accountUserApp.LeaveAccount(r.Context(), accountId, authUser.Id); err != nil {
+		if errors.Is(err, application.ErrOwnerCannotLeave) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
 		log.Error("failed to leave account", zap.Error(err))
-		response := web_helpers.NewServerErrorResponse(
-			context_helper.GetRequestIdFromContext(r.Context()),
-		)
+		response := web_helpers.NewServerErrorResponse(context_helper.GetRequestIdFromContext(r.Context()))
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}

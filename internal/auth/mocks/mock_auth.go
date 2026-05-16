@@ -9,7 +9,7 @@ import (
 	http "net/http"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockAuthenticationService is a mock of AuthenticationService interface.

@@ -2,6 +2,9 @@ ALTER TABLE account ADD COLUMN IF NOT EXISTS owner_id int;
 
 ALTER TABLE account_user ADD COLUMN IF NOT EXISTS status text;
 ALTER TABLE account_user ADD COLUMN IF NOT EXISTS created_at timestamp;
+ALTER TABLE account_user ADD COLUMN IF NOT EXISTS deleted_at timestamp;
+ALTER TABLE account_user ADD COLUMN IF NOT EXISTS deleted_reason text
+    CHECK (deleted_reason IN ('kicked', 'left'));
 
 UPDATE account a
 SET owner_id = (
@@ -18,31 +21,29 @@ SET status = 'accepted',
 WHERE status IS NULL;
 
 ALTER TABLE account ALTER COLUMN owner_id SET NOT NULL;
-ALTER TABLE account_user ALTER COLUMN status SET NOT NULL;
-ALTER TABLE account_user ALTER COLUMN status SET DEFAULT 'pending';
 ALTER TABLE account_user ALTER COLUMN created_at SET NOT NULL;
 ALTER TABLE account_user ALTER COLUMN created_at SET DEFAULT now();
 
-ALTER TABLE account ADD CONSTRAINT account_owner_fkey FOREIGN KEY (owner_id) REFERENCES "user"(id) ON DELETE CASCADE;
+ALTER TABLE account DROP CONSTRAINT IF EXISTS account_owner_fkey;
+ALTER TABLE account ADD CONSTRAINT account_owner_fkey
+    FOREIGN KEY (owner_id) REFERENCES "user"(id) ON DELETE CASCADE;
 
-CREATE INDEX IF NOT EXISTS idx_account_user_status ON account_user(status);
-CREATE INDEX IF NOT EXISTS idx_account_user_created_at ON account_user(created_at);
-CREATE INDEX IF NOT EXISTS idx_account_owner_id ON account(owner_id);
+CREATE TYPE account_user_status AS ENUM ('pending', 'accepted', 'declined');
+ALTER TABLE account_user
+    ALTER COLUMN status TYPE account_user_status USING status::account_user_status,
+    ALTER COLUMN status SET NOT NULL,
+    ALTER COLUMN status SET DEFAULT 'pending'::account_user_status;
 
 ---- create above / drop below ----
 
-DROP INDEX IF EXISTS idx_account_owner_id;
-DROP INDEX IF EXISTS idx_account_user_created_at;
-DROP INDEX IF EXISTS idx_account_user_status;
-
 ALTER TABLE account DROP CONSTRAINT IF EXISTS account_owner_fkey;
 
-ALTER TABLE account ALTER COLUMN owner_id DROP NOT NULL;
-ALTER TABLE account_user ALTER COLUMN status DROP NOT NULL;
 ALTER TABLE account_user ALTER COLUMN status DROP DEFAULT;
-ALTER TABLE account_user ALTER COLUMN created_at DROP NOT NULL;
-ALTER TABLE account_user ALTER COLUMN created_at DROP DEFAULT;
+ALTER TABLE account_user ALTER COLUMN status TYPE text USING status::text;
+DROP TYPE IF EXISTS account_user_status;
 
+ALTER TABLE account_user DROP COLUMN IF EXISTS deleted_reason;
+ALTER TABLE account_user DROP COLUMN IF EXISTS deleted_at;
 ALTER TABLE account_user DROP COLUMN IF EXISTS status;
 ALTER TABLE account_user DROP COLUMN IF EXISTS created_at;
 ALTER TABLE account DROP COLUMN IF EXISTS owner_id;
