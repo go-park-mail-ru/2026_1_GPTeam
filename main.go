@@ -202,6 +202,7 @@ func main() {
 	accountApp := application.NewAccount(accountPostgres)
 	budgetApp := application.NewBudget(budgetPostgres, transactionApp, accountApp)
 	supportApp := application.NewSupport(supportPostgres)
+	analysisApp := application.NewAnalysis(budgetApp, transactionApp, accountApp)
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
 	voiceApp := application.NewVoiceTransactionService(groqClient, enumsApp)
 	log.Info("use cases initialized")
@@ -214,7 +215,7 @@ func main() {
 	accountHandler := web.NewAccountHandler(accountApp)
 	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
 	supportHandler := web.NewSupportHandler(supportApp, userApp)
-	analysisHandler := web.NewAnalysisHandler(budgetApp, transactionApp, accountApp)
+	analysisHandler := web.NewAnalysisHandler(analysisApp)
 	log.Info("handlers initialized")
 
 	secure.XssSanitizerInit()

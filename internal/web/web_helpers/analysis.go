@@ -1,6 +1,9 @@
 package web_helpers
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 type AnalysisSummary struct {
 	TotalBudgetLimit float64 `json:"total_budget_limit"`
@@ -38,13 +41,15 @@ type AnalysisResponse struct {
 	SimpleResponse
 	Period      string                 `json:"period"`
 	PeriodLabel string                 `json:"period_label"`
+	PeriodStart time.Time              `json:"period_start"`
+	PeriodEnd   time.Time              `json:"period_end"`
 	Summary     AnalysisSummary        `json:"summary"`
 	Budgets     []AnalysisBudgetItem   `json:"budgets"`
 	Categories  []AnalysisCategoryItem `json:"categories"`
 	Timeline    []AnalysisTimelineItem `json:"timeline"`
 }
 
-func NewAnalysisResponse(period string, periodLabel string, summary AnalysisSummary, budgets []AnalysisBudgetItem, categories []AnalysisCategoryItem, timeline []AnalysisTimelineItem) AnalysisResponse {
+func NewAnalysisResponse(period string, periodLabel string, periodStart time.Time, periodEnd time.Time, summary AnalysisSummary, budgets []AnalysisBudgetItem, categories []AnalysisCategoryItem, timeline []AnalysisTimelineItem) AnalysisResponse {
 	return AnalysisResponse{
 		SimpleResponse: SimpleResponse{
 			Code:    http.StatusOK,
@@ -52,6 +57,8 @@ func NewAnalysisResponse(period string, periodLabel string, summary AnalysisSumm
 		},
 		Period:      period,
 		PeriodLabel: periodLabel,
+		PeriodStart: periodStart,
+		PeriodEnd:   periodEnd,
 		Summary:     summary,
 		Budgets:     budgets,
 		Categories:  categories,
