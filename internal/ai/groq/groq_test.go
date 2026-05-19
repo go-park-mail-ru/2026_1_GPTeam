@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,6 +91,8 @@ func TestGroqClient_Transcribe(t *testing.T) {
 		},
 	}
 
+	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -100,7 +104,7 @@ func TestGroqClient_Transcribe(t *testing.T) {
 			groqSTTURL = server.URL
 			defer func() { groqSTTURL = oldSTTURL }()
 
-			client := NewGroqClient("test-key", "")
+			client := NewGroqClient(groqKey, "")
 			client.httpClient = &http.Client{Timeout: 60 * time.Second}
 
 			ctx := context.Background()
@@ -218,6 +222,8 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 		},
 	}
 
+	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -229,7 +235,7 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 			groqChatURL = server.URL
 			defer func() { groqChatURL = oldChatURL }()
 
-			client := NewGroqClient("test-key", "")
+			client := NewGroqClient(groqKey, "")
 			client.httpClient = &http.Client{Timeout: 60 * time.Second}
 
 			ctx := context.Background()
