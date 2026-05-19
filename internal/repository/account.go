@@ -339,7 +339,7 @@ from account
 where account_user.user_id = $1
   and account.deleted_at is null and account_user.deleted_at is null and (account.owner_id = $1 or account_user.status = $2)
 order by account.id;`
-	args := []any{userId}
+	args := []any{userId, AccountUserStatusAccepted}
 
 	start := time.Now()
 	rows, err := obj.db.Query(ctx, query, args...)

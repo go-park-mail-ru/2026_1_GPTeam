@@ -6,8 +6,8 @@ create role auth_service_role;
 grant usage on schema public to app_service_role, auth_service_role;
 grant insert, delete, select on jwt to auth_service_role;
 grant select on pg_enum to app_service_role;
-grant insert, select, update on "user", budget, transaction, account, support to app_service_role;
-grant insert, select, delete on budget_category, account_user to app_service_role;
+grant insert, select, update on "user", budget, transaction, account, support, account_user to app_service_role;
+grant insert, select, delete on budget_category to app_service_role;
 
 ---- create above / drop below ----
 

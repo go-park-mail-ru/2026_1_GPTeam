@@ -291,11 +291,8 @@ func main() {
 	mux.Handle("PATCH /api/accounts/{accountId}/invite/accept", middleware.MethodValidationMiddleware(http.MethodPatch)(http.HandlerFunc(accountUserHandler.AcceptInvite)))
 	mux.Handle("PATCH /api/accounts/{accountId}/invite/reject", middleware.MethodValidationMiddleware(http.MethodPatch)(http.HandlerFunc(accountUserHandler.RejectInvite)))
 	mux.Handle("/api/invites/pending", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountUserHandler.GetPendingInvites)))
-	// Register leave account endpoint
 	mux.Handle("POST /api/accounts/{accountId}/leave", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(accountUserHandler.LeaveAccount)))
-	// Generic accounts handler. Also delegate POST /api/accounts/{id}/leave to accountUserHandler.LeaveAccount
 	mux.Handle("/api/accounts/", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodPost)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// If this is a POST to a leave endpoint, forward to LeaveAccount handler
 		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/leave") {
 			accountUserHandler.LeaveAccount(w, r)
 			return

@@ -78,8 +78,8 @@ type AccountCreationData struct {
 }
 
 func addAccounts(conn *pgx.Conn, userId int, accounts []AccountCreationData) {
-	_, err := conn.CopyFrom(context.Background(), pgx.Identifier{"account"}, []string{"name", "balance", "currency"}, pgx.CopyFromSlice(len(accounts), func(i int) ([]any, error) {
-		return []interface{}{accounts[i].name, accounts[i].balance, accounts[i].currency}, nil
+	_, err := conn.CopyFrom(context.Background(), pgx.Identifier{"account"}, []string{"name", "balance", "currency", "owner_id"}, pgx.CopyFromSlice(len(accounts), func(i int) ([]any, error) {
+		return []interface{}{accounts[i].name, accounts[i].balance, accounts[i].currency, userId}, nil
 	}))
 	panicOnError(err)
 	_, err = conn.CopyFrom(context.Background(), pgx.Identifier{"account_user"}, []string{"account_id", "user_id"}, pgx.CopyFromSlice(len(accounts), func(i int) ([]any, error) {
