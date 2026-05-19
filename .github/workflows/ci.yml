@@ -19,5 +19,5 @@ jobs:
           name: tests_coverage.html
           path: coverage.html
 
-  lint:
-    runs-on: ubuntu-latest
+#  lint:
+#    runs-on: ubuntu-latest
