@@ -8,8 +8,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	repomocks "github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository/mocks"
+	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 func TestAccountUseCase_CreateForUser(t *testing.T) {

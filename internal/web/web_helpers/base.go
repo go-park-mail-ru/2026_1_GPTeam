@@ -77,7 +77,7 @@ type AuthUser struct {
 }
 
 type User struct {
-	Id        int       `json:"id,omitempty"`
+	Id        int       `json:"id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
@@ -602,6 +602,7 @@ type AccountResponse struct {
 	Name      string    `json:"name"`
 	Balance   float64   `json:"balance"`
 	Currency  string    `json:"currency"`
+	OwnerId   int       `json:"owner_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -764,5 +765,55 @@ func NewMethodNotAllowedErrorResponse() MethodNotAllowedErrorResponse {
 	return MethodNotAllowedErrorResponse{
 		Code:    http.StatusMethodNotAllowed,
 		Message: "Метод не поддерживается",
+	}
+}
+
+// --- Account user ---
+
+type SearchUsersResponse struct {
+	SimpleResponse
+	Users []models.UserSearchResult `json:"users"`
+}
+
+func NewSearchUsersResponse(users []models.UserSearchResult) SearchUsersResponse {
+	return SearchUsersResponse{
+		SimpleResponse: SimpleResponse{Code: http.StatusOK, Message: "Ok"},
+		Users:          users,
+	}
+}
+
+type InviteResponse struct {
+	SimpleResponse
+	Invite models.AccountUserModel `json:"invite"`
+}
+
+func NewInviteResponse(invite models.AccountUserModel) InviteResponse {
+	return InviteResponse{
+		SimpleResponse: SimpleResponse{Code: http.StatusOK, Message: "Ok"},
+		Invite:         invite,
+	}
+}
+
+type MembersResponse struct {
+	SimpleResponse
+	Members []models.MemberResponse `json:"members"`
+}
+
+func NewMembersResponse(members []models.MemberResponse) MembersResponse {
+	return MembersResponse{
+		SimpleResponse: SimpleResponse{Code: http.StatusOK, Message: "Ok"},
+		Members:        members,
+	}
+}
+
+type PendingInvitesResponse struct {
+	SimpleResponse
+	Invites []models.PendingInviteView `json:"invites"`
+}
+
+func NewPendingInvitesResponse(invites []models.PendingInviteView) PendingInvitesResponse {
+	return PendingInvitesResponse{
+		SimpleResponse: SimpleResponse{Code: http.StatusOK, Message: "Ok"},
+		Invites:        invites,
 	}
 }

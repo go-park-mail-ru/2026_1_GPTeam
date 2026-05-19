@@ -196,4 +196,5 @@ coverage.html
 docker-compose.override.yaml
 docker-compose.backup.yaml
 .claude
+.tmp
 *.env

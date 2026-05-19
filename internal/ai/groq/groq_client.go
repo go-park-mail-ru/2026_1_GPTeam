@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
+var (
 	groqChatURL = "https://api.groq.com/openai/v1/chat/completions"
 	groqSTTURL  = "https://api.groq.com/openai/v1/audio/transcriptions"
 )
@@ -312,6 +312,7 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 }
 
 func stripMarkdownFences(s string) string {
+	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "```json")
 	s = strings.TrimPrefix(s, "```")
 	s = strings.TrimSuffix(s, "```")
