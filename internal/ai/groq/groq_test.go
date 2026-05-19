@@ -3,6 +3,7 @@ package groq
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,6 +17,7 @@ import (
 
 func TestGroqClient_Transcribe(t *testing.T) {
 	t.Parallel()
+	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
 
 	cases := []struct {
 		name           string
@@ -28,7 +30,7 @@ func TestGroqClient_Transcribe(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, http.MethodPost, r.Method)
 				assert.Contains(t, r.Header.Get("Content-Type"), "multipart/form-data")
-				assert.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
+				assert.Equal(t, fmt.Sprintf("Bearer %s", groqKey), r.Header.Get("Authorization"))
 
 				w.WriteHeader(http.StatusOK)
 				_ = json.NewEncoder(w).Encode(groqTranscriptResponse{Text: "Привет мир"})
@@ -90,8 +92,6 @@ func TestGroqClient_Transcribe(t *testing.T) {
 			expectedErr:    ErrInternalClient,
 		},
 	}
-
-	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
