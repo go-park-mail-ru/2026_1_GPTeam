@@ -14,12 +14,31 @@ jobs:
       - name: Run tests
         run: make test
       - name: Run coverage
+        if: always()
         run: make test-cover-html
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: tests_coverage.html
           path: coverage.html
 
-#  lint:
-#    runs-on: ubuntu-latest
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          args: --timeout=5m --verbose
+          only-new-issues: true
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
