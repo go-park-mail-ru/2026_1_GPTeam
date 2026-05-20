@@ -1,6 +1,6 @@
 # Backend 2026_01_GPTeam
 
-Coverage: 0%
+Coverage: 62.9%%
 
 Делаем финансовый планировщик
 
