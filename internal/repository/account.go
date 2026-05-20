@@ -49,18 +49,18 @@ func mapAccountPgError(ctx context.Context, err error, action string) error {
 	}
 	log := logger.GetLoggerWithRequestId(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error(action, zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
-			return AccountDuplicatedDataError
+			return ErrAccountDuplicatedData
 		case pgerrcode.CheckViolation:
-			return ConstraintError
+			return ErrConstraint
 		case pgerrcode.ForeignKeyViolation:
-			return AccountForeignKeyError
+			return ErrAccountForeignKey
 		default:
 			return pgErr
 		}
@@ -191,7 +191,7 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get account ids by user & account in db", zap.Error(err))
-		return []int{}, UnableToGetAccountUserIdsError
+		return []int{}, ErrUnableToGetAccountUserIds
 	}
 	defer rows.Close()
 	var ids []int
@@ -199,7 +199,7 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 		var id int
 		if err = rows.Scan(&id); err != nil {
 			log.Error("failed to scan id while getting account ids by user & account in db", zap.Error(err))
-			return []int{}, UnableToGetAccountUserIdsError
+			return []int{}, ErrUnableToGetAccountUserIds
 		}
 		ids = append(ids, id)
 	}
@@ -239,7 +239,6 @@ func (obj *AccountPostgres) GetAccountIdByUserId(ctx context.Context, userId int
 
 func (obj *AccountPostgres) GetById(ctx context.Context, userId int, accountId int) (models.AccountModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	// owner видит всегда, invited user — только после accepted
 	query := `
 		select a.id, a.name, a.balance, a.currency, a.owner_id, a.created_at, a.updated_at
 		from account a
@@ -274,7 +273,6 @@ func (obj *AccountPostgres) GetById(ctx context.Context, userId int, accountId i
 
 func (obj *AccountPostgres) GetByUserId(ctx context.Context, userId int) ([]models.AccountModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	// owner видит свои счета всегда, приглашённый — только после accepted
 	query := `
 		select a.id, a.name, a.balance, a.currency, a.owner_id, a.created_at, a.updated_at
 		from account a
@@ -302,7 +300,7 @@ func (obj *AccountPostgres) GetByUserId(ctx context.Context, userId int) ([]mode
 		var account models.AccountModel
 		if err = rows.Scan(&account.Id, &account.Name, &account.Balance, &account.Currency, &account.OwnerId, &account.CreatedAt, &account.UpdatedAt); err != nil {
 			log.Error("failed to scan account", zap.Error(err))
-			return nil, InvalidDataInTableError
+			return nil, ErrInvalidDataInTable
 		}
 		accounts = append(accounts, account)
 	}
@@ -320,30 +318,27 @@ func (obj *AccountPostgres) GetAllAccountsByUserId(ctx context.Context, userId i
 
 func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Context, userId int) ([]models.AccountModel, []float64, []float64, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
-	query := `
-		select
-			a.id,
-			a.name,
-			a.balance,
-			a.currency,
-			a.owner_id,
-			a.created_at,
-			a.updated_at,
-			coalesce(sum(t.value) filter (where t.type = 'INCOME'), 0) as income,
-			coalesce(sum(t.value) filter (where t.type = 'EXPENSE'), 0) as expense
-		from account a
-		join account_user au on au.account_id = a.id
-		left join transaction t
-			on t.account_id = a.id
-			and t.user_id = au.user_id
-			and t.deleted_at is null
-		where au.user_id = $1
-		  and a.deleted_at is null
-		  and au.deleted_at is null
-		  and (a.owner_id = $1 OR au.status = $2)
-		group by a.id, a.name, a.balance, a.currency, a.owner_id, a.created_at, a.updated_at
-		order by a.id`
-
+	query := `select account.id,
+       name,
+       balance,
+       currency,
+       owner_id,
+       account.created_at,
+       account.updated_at,
+       coalesce(income, 0)   as income,
+       coalesce(expenses, 0) as expenses
+from account
+         join account_user on account.id = account_user.account_id
+         left join (select account_id,
+                           sum(case when transaction.type = 'INCOME' then transaction.value else 0 end)  as income,
+                           sum(case when transaction.type = 'EXPENSE' then transaction.value else 0 end) as expenses
+                    from transaction
+                    where deleted_at is null
+                      and transaction_date >= date_trunc('month', now())
+                    group by account_id) transactions on account.id = transactions.account_id
+where account_user.user_id = $1
+  and account.deleted_at is null and account_user.deleted_at is null and (account.owner_id = $1 or account_user.status = $2)
+order by account.id;`
 	args := []any{userId, AccountUserStatusAccepted}
 
 	start := time.Now()
@@ -379,7 +374,7 @@ func (obj *AccountPostgres) GetAllAccountsByUserIdWithBalance(ctx context.Contex
 			&expense,
 		); err != nil {
 			log.Error("failed to scan account with balance", zap.Error(err))
-			return nil, nil, nil, InvalidDataInTableError
+			return nil, nil, nil, ErrInvalidDataInTable
 		}
 
 		accounts = append(accounts, account)
@@ -462,7 +457,11 @@ func (obj *AccountPostgres) Delete(ctx context.Context, userId int, accountId in
 		)
 
 		results := tx.SendBatch(ctx, batch)
-		defer results.Close()
+		defer func() {
+			if err := results.Close(); err != nil {
+				log.Error("failed to close batch results", zap.Error(err))
+			}
+		}()
 
 		if _, err := results.Exec(); err != nil {
 			log.Error("failed to soft delete account transactions", zap.Error(err))
@@ -476,7 +475,7 @@ func (obj *AccountPostgres) Delete(ctx context.Context, userId int, accountId in
 		}
 
 		if tag.RowsAffected() == 0 {
-			return NothingInTableError
+			return ErrNothingInTable
 		}
 
 		log.Info(

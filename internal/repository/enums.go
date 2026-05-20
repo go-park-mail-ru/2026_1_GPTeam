@@ -77,14 +77,14 @@ func getCurrenciesFromDB(ctx context.Context, db DB) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'currency_code'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {
-		return []string{}, UnableToReadCurrenciesError
+		return []string{}, ErrUnableToReadCurrencies
 	}
 	defer rows.Close()
 	var currencies []string
 	for rows.Next() {
 		var code string
 		if err = rows.Scan(&code); err != nil {
-			return []string{}, UnableToReadCurrenciesError
+			return []string{}, ErrUnableToReadCurrencies
 		}
 		currencies = append(currencies, code)
 	}
@@ -95,14 +95,14 @@ func getTransactionTypesFromDB(ctx context.Context, db DB) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'transaction_type'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {
-		return []string{}, UnableToReadTransactionTypesError
+		return []string{}, ErrUnableToReadTransactionTypes
 	}
 	defer rows.Close()
 	var transactionTypes []string
 	for rows.Next() {
 		var t string
 		if err = rows.Scan(&t); err != nil {
-			return []string{}, UnableToReadTransactionTypesError
+			return []string{}, ErrUnableToReadTransactionTypes
 		}
 		transactionTypes = append(transactionTypes, t)
 	}
@@ -113,14 +113,14 @@ func getCategoriesFromDB(ctx context.Context, db DB) ([]string, error) {
 	query := `select enumlabel from pg_enum where enumtypid = 'category_type'::regtype order by enumsortorder;`
 	rows, err := db.Query(ctx, query)
 	if err != nil {
-		return []string{}, UnableToReadCategoriesError
+		return []string{}, ErrUnableToReadCategories
 	}
 	defer rows.Close()
 	var categories []string
 	for rows.Next() {
 		var c string
 		if err = rows.Scan(&c); err != nil {
-			return []string{}, UnableToReadCategoriesError
+			return []string{}, ErrUnableToReadCategories
 		}
 		categories = append(categories, c)
 	}

@@ -67,9 +67,9 @@ func (obj *BudgetPostgres) Create(ctx context.Context, budget models.BudgetModel
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
-			return -1, DuplicatedDataError
+			return -1, ErrDuplicatedData
 		case pgerrcode.CheckViolation:
-			return -1, ConstraintError
+			return -1, ErrConstraint
 		default:
 			return -1, pgErr
 		}
@@ -99,7 +99,7 @@ func (obj *BudgetPostgres) GetById(ctx context.Context, id int) (models.BudgetMo
 		log.Error("failed to get budget (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.BudgetModel{}, NothingInTableError
+			return models.BudgetModel{}, ErrNothingInTable
 		}
 		return models.BudgetModel{}, err
 	}
@@ -135,7 +135,7 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 			log.Error("failed to scan id while getting budget ids by user",
 				zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
-				return []int{}, InvalidDataInTableError
+				return []int{}, ErrInvalidDataInTable
 			}
 			return ids, err
 		}
@@ -148,7 +148,7 @@ func (obj *BudgetPostgres) GetIdsByUserId(ctx context.Context, userId int) ([]in
 	}
 	if len(ids) == 0 {
 		log.Info("no budget ids found in db")
-		return []int{}, NothingInTableError
+		return []int{}, ErrNothingInTable
 	}
 	log.Info("Query executed")
 	return ids, nil
@@ -188,7 +188,7 @@ func (obj *BudgetPostgres) GetCategoryOfBudget(ctx context.Context, id int) ([]s
 		log.Error("failed to get category of budget (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []string{}, NothingInTableError
+			return []string{}, ErrNothingInTable
 		}
 		return []string{}, err
 	}
@@ -204,7 +204,7 @@ func (obj *BudgetPostgres) GetCategoryOfBudget(ctx context.Context, id int) ([]s
 	}
 	if len(categories) == 0 {
 		log.Info("no budget category found in db", zap.Int("budget_id", id))
-		return []string{}, NothingInTableError
+		return []string{}, ErrNothingInTable
 	}
 	log.Info("Query executed")
 	return categories, nil
@@ -254,9 +254,9 @@ func (obj *BudgetPostgres) Update(ctx context.Context, budget models.BudgetModel
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.CheckViolation:
-			return ConstraintError
+			return ErrConstraint
 		case pgerrcode.UniqueViolation:
-			return DuplicatedDataError
+			return ErrDuplicatedData
 		default:
 			return pgErr
 		}
@@ -267,7 +267,7 @@ func (obj *BudgetPostgres) Update(ctx context.Context, budget models.BudgetModel
 			zap.Int("user_id", budget.Author),
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return NothingInTableError
+			return ErrNothingInTable
 		}
 		return err
 	}
@@ -275,13 +275,13 @@ func (obj *BudgetPostgres) Update(ctx context.Context, budget models.BudgetModel
 		log.Warn("failed to update budget (no rows affected)",
 			zap.Int("budget_id", budget.Id),
 			zap.Int("user_id", budget.Author))
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 	if res.RowsAffected() != 1 {
 		log.Warn("failed to update budget (too many rows affected)",
 			zap.Int("budget_id", budget.Id),
 			zap.Int("user_id", budget.Author))
-		return IncorrectRowsAffectedError
+		return ErrIncorrectRowsAffected
 	}
 	log.Info("Query executed")
 	return nil

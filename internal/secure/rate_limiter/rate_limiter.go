@@ -36,7 +36,7 @@ func NewRateLimiter(bucket repository.BucketInterface, serverIp string) (*RateLi
 	log := logger.GetLogger()
 	if net.ParseIP(serverIp) == nil {
 		log.Fatal("invalid server ip address", zap.String("serverIp", serverIp))
-		return &RateLimiter{}, WrongServerIpAddress
+		return &RateLimiter{}, ErrWrongServerIpAddress
 	}
 	return &RateLimiter{
 		trustedIps: []string{
@@ -66,7 +66,7 @@ func (obj *RateLimiter) IsIpBlocked(ctx context.Context, ip string) bool {
 	}
 	bucketInfo, err := obj.bucket.Get(ctx, ip)
 	if err != nil {
-		if errors.Is(err, repository.NoIpInSavedError) {
+		if errors.Is(err, repository.ErrNoIpInSaved) {
 			newBucketInfo := models.BucketModel{
 				Count:          MaxCount,
 				LastRefillTime: time.Now(),
@@ -156,7 +156,7 @@ func (obj *RateLimiter) AllowN(ctx context.Context, ip string, n int) bool {
 	log := logger.GetLoggerWithRequestId(ctx)
 	bucketInfo, err := obj.bucket.Get(ctx, ip)
 	if err != nil {
-		if errors.Is(err, repository.NoIpInSavedError) {
+		if errors.Is(err, repository.ErrNoIpInSaved) {
 			newBucketInfo := models.BucketModel{
 				Count:          MaxCount,
 				LastRefillTime: time.Now(),
@@ -218,7 +218,7 @@ func GetRealIp(r *http.Request) (string, error) {
 	if err != nil {
 		log := logger.GetLoggerWithRequestId(r.Context())
 		log.Warn("unable to get ip", zap.Error(err))
-		return "", UnableToGetIp
+		return "", ErrUnableToGetIp
 	}
 	return realIp, nil
 }

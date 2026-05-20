@@ -81,12 +81,12 @@ func (obj *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 	}
 	budget, category, err := obj.budgetApp.GetById(r.Context(), budgetId, authUser)
 	if err != nil {
-		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
+		if errors.Is(err, application.ErrUserNotAuthorOfBudget) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Бюджет не найден")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -160,13 +160,13 @@ func (obj *BudgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := obj.budgetApp.Create(r.Context(), budget, categories)
 	if err != nil {
-		if errors.Is(err, repository.DuplicatedDataError) {
+		if errors.Is(err, repository.ErrDuplicatedData) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Такой бюджет уже существует"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.ConstraintError) {
+		if errors.Is(err, repository.ErrConstraint) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Введены некорректные данные"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -209,12 +209,12 @@ func (obj *BudgetHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = obj.budgetApp.Delete(r.Context(), budgetId, authUser); err != nil {
-		if errors.Is(err, application.UserNotAuthorOfBudgetError) {
+		if errors.Is(err, application.ErrUserNotAuthorOfBudget) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Бюджет не найден")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -283,18 +283,18 @@ func (obj *BudgetHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	err = obj.budgetApp.Update(r.Context(), budget)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("бюджет не найден")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.DuplicatedDataError) {
+		if errors.Is(err, repository.ErrDuplicatedData) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "такой бюджет уже есть"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.ConstraintError) {
+		if errors.Is(err, repository.ErrConstraint) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "введены невалидные данные"
 			web_helpers.WriteResponseJSON(w, response.Code, response)

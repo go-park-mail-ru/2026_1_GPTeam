@@ -99,13 +99,13 @@ func TestBudget_GetById(t *testing.T) {
 
 		_, _, err := useCase.GetById(context.Background(), 1, otherUser)
 		// Проверка твоей кастомной ошибки из юзкейса
-		require.ErrorIs(t, err, UserNotAuthorOfBudgetError)
+		require.ErrorIs(t, err, ErrUserNotAuthorOfBudget)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		repo.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.BudgetModel{}, repository.NothingInTableError)
+		repo.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.BudgetModel{}, repository.ErrNothingInTable)
 		_, _, err := useCase.GetById(context.Background(), 1, user)
-		require.ErrorIs(t, err, repository.NothingInTableError)
+		require.ErrorIs(t, err, repository.ErrNothingInTable)
 	})
 }
 
@@ -137,7 +137,7 @@ func TestBudget_Delete(t *testing.T) {
 		repo.EXPECT().GetById(gomock.Any(), 1).Return(budget, nil)
 
 		err := useCase.Delete(context.Background(), 1, otherUser)
-		require.ErrorIs(t, err, UserNotAuthorOfBudgetError)
+		require.ErrorIs(t, err, ErrUserNotAuthorOfBudget)
 	})
 }
 

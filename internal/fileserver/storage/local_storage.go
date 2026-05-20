@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 var ErrEmptyName = errors.New("storage: empty filename")
@@ -36,7 +38,12 @@ func (s *LocalStorage) Save(ctx context.Context, data io.Reader, extension strin
 	if err != nil {
 		return "", err
 	}
-	defer dst.Close()
+	defer func() {
+		if err = dst.Close(); err != nil {
+			log := logger.GetLoggerWithRequestId(ctx)
+			log.Error("Error when file close", zap.Error(err))
+		}
+	}()
 
 	if _, err := io.Copy(dst, data); err != nil {
 		_ = os.Remove(filepath.Join(s.dir, name))

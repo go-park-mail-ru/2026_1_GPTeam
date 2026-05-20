@@ -55,13 +55,13 @@ func (obj *SupportHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := obj.supportApp.Create(r.Context(), body, authUser.Id)
 	if err != nil {
-		if errors.Is(err, repository.DuplicatedDataError) {
+		if errors.Is(err, repository.ErrDuplicatedData) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Сообщение уже существует"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.ConstraintError) {
+		if errors.Is(err, repository.ErrConstraint) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Введены некорректные данные"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -127,7 +127,7 @@ func (obj *SupportHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 	support, err := obj.supportApp.GetById(r.Context(), supportId)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Не найдено")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -138,7 +138,7 @@ func (obj *SupportHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := obj.userApp.GetById(r.Context(), support.UserId)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Не найдено")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -211,7 +211,7 @@ func (obj *SupportHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	err = obj.supportApp.Update(r.Context(), supportId, body.Status)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Заявка не найдена")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return

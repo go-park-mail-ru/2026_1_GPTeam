@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -17,12 +18,8 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
 
-type contextKey string
-
-const userContextKey contextKey = "user"
-
 func ctxWithUser(user models.UserModel) context.Context {
-	return context.WithValue(context.Background(), "user", user)
+	return context.WithValue(context.Background(), context_helper.ContextKeyUser, user)
 }
 
 func TestAccountHandler_GetAccount(t *testing.T) {

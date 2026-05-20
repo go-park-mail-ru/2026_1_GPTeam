@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 )
 
 func WriteResponseJSON(w http.ResponseWriter, code int, response any) {
@@ -20,7 +21,7 @@ func WriteResponseJSON(w http.ResponseWriter, code int, response any) {
 }
 
 func GetAuthUser(r *http.Request) (models.UserModel, bool) {
-	user := r.Context().Value("user")
+	user := r.Context().Value(context_helper.ContextKeyUser)
 	if user == nil {
 		return models.UserModel{}, false
 	}

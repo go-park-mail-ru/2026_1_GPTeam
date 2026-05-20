@@ -15,6 +15,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +33,7 @@ func TestSupportHandler_Create(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase) {
 				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(1, nil)
 			},
-			ctx: context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx: context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			body: web_helpers.SupportRequest{
 				Category: "a",
 				Message:  "b",
@@ -52,9 +53,9 @@ func TestSupportHandler_Create(t *testing.T) {
 		{
 			name: "fail (constraint error)",
 			setup: func(supportApp *mocks.MockSupportUseCase) {
-				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, repository.ConstraintError)
+				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, repository.ErrConstraint)
 			},
-			ctx: context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx: context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			body: web_helpers.SupportRequest{
 				Category: "a",
 				Message:  "b",
@@ -64,9 +65,9 @@ func TestSupportHandler_Create(t *testing.T) {
 		{
 			name: "fail (duplicated error)",
 			setup: func(supportApp *mocks.MockSupportUseCase) {
-				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, repository.DuplicatedDataError)
+				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, repository.ErrDuplicatedData)
 			},
-			ctx: context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx: context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			body: web_helpers.SupportRequest{
 				Category: "a",
 				Message:  "b",
@@ -78,7 +79,7 @@ func TestSupportHandler_Create(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase) {
 				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, errors.New("some error"))
 			},
-			ctx: context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx: context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			body: web_helpers.SupportRequest{
 				Category: "a",
 				Message:  "b",
@@ -88,7 +89,7 @@ func TestSupportHandler_Create(t *testing.T) {
 		{
 			name:  "validation fail",
 			setup: func(supportApp *mocks.MockSupportUseCase) {},
-			ctx:   context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:   context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			body: web_helpers.SupportRequest{
 				Category: strings.Repeat("a", 300),
 				Message:  "b",
@@ -146,7 +147,7 @@ func TestSupportHandler_GetAll(t *testing.T) {
 					userApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(&models.UserModel{Id: allSupports[i].UserId}, nil)
 				}
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			code: http.StatusOK,
 		},
 		{
@@ -154,7 +155,7 @@ func TestSupportHandler_GetAll(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase, userApp *mocks.MockUserUseCase) {
 				supportApp.EXPECT().GetAll(gomock.Any()).Return([]models.SupportModel{}, errors.New("some error"))
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			code: http.StatusInternalServerError,
 		},
 		{
@@ -163,7 +164,7 @@ func TestSupportHandler_GetAll(t *testing.T) {
 				supportApp.EXPECT().GetAll(gomock.Any()).Return(allSupports, nil)
 				userApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			code: http.StatusInternalServerError,
 		},
 	}
@@ -199,30 +200,30 @@ func TestSupportHandler_Detail(t *testing.T) {
 				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{Id: 1}, nil)
 				userApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(&models.UserModel{Id: 1}, nil)
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:   "1",
 			code: http.StatusOK,
 		},
 		{
 			name:  "wrong id",
 			setup: func(supportApp *mocks.MockSupportUseCase, userApp *mocks.MockUserUseCase) {},
-			ctx:   context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:   context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:    "",
 			code:  http.StatusBadRequest,
 		},
 		{
 			name:  "id not int",
 			setup: func(supportApp *mocks.MockSupportUseCase, userApp *mocks.MockUserUseCase) {},
-			ctx:   context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:   context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:    "abc",
 			code:  http.StatusBadRequest,
 		},
 		{
 			name: "not found",
 			setup: func(supportApp *mocks.MockSupportUseCase, userApp *mocks.MockUserUseCase) {
-				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{}, repository.NothingInTableError)
+				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{}, repository.ErrNothingInTable)
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:   "1",
 			code: http.StatusNotFound,
 		},
@@ -231,7 +232,7 @@ func TestSupportHandler_Detail(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase, userApp *mocks.MockUserUseCase) {
 				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{}, errors.New("some error"))
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:   "1",
 			code: http.StatusInternalServerError,
 		},
@@ -239,9 +240,9 @@ func TestSupportHandler_Detail(t *testing.T) {
 			name: "not found user",
 			setup: func(supportApp *mocks.MockSupportUseCase, userApp *mocks.MockUserUseCase) {
 				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{Id: 1}, nil)
-				userApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(nil, repository.NothingInTableError)
+				userApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(nil, repository.ErrNothingInTable)
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:   "1",
 			code: http.StatusNotFound,
 		},
@@ -251,7 +252,7 @@ func TestSupportHandler_Detail(t *testing.T) {
 				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{Id: 1}, nil)
 				userApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:   "1",
 			code: http.StatusInternalServerError,
 		},
@@ -289,7 +290,7 @@ func TestSupportHandler_GetAllByUser(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase) {
 				supportApp.EXPECT().GetAllByUser(gomock.Any(), gomock.Any()).Return([]models.SupportModel{{Id: 1}, {Id: 2}}, nil)
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			code: http.StatusOK,
 			data: web_helpers.SupportsResponse{
 				SimpleResponse: web_helpers.SimpleResponse{
@@ -304,7 +305,7 @@ func TestSupportHandler_GetAllByUser(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase) {
 				supportApp.EXPECT().GetAllByUser(gomock.Any(), gomock.Any()).Return([]models.SupportModel{}, nil)
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			code: http.StatusOK,
 			data: web_helpers.SupportsResponse{
 				SimpleResponse: web_helpers.SimpleResponse{
@@ -325,7 +326,7 @@ func TestSupportHandler_GetAllByUser(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase) {
 				supportApp.EXPECT().GetAllByUser(gomock.Any(), gomock.Any()).Return([]models.SupportModel{}, errors.New("some error"))
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			code: http.StatusInternalServerError,
 		},
 	}
@@ -368,7 +369,7 @@ func TestSupportHandler_Update(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase) {
 				supportApp.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:   "1",
 			code: http.StatusOK,
 			body: web_helpers.UpdateSupportStatusRequest{Status: "a"},
@@ -376,7 +377,7 @@ func TestSupportHandler_Update(t *testing.T) {
 		{
 			name:  "id not int",
 			setup: func(supportApp *mocks.MockSupportUseCase) {},
-			ctx:   context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:   context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:    "abc",
 			code:  http.StatusBadRequest,
 			body:  web_helpers.UpdateSupportStatusRequest{Status: "a"},
@@ -384,9 +385,9 @@ func TestSupportHandler_Update(t *testing.T) {
 		{
 			name: "not found",
 			setup: func(supportApp *mocks.MockSupportUseCase) {
-				supportApp.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.NothingInTableError)
+				supportApp.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.ErrNothingInTable)
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:   "10",
 			code: http.StatusNotFound,
 			body: web_helpers.UpdateSupportStatusRequest{Status: "a"},
@@ -396,7 +397,7 @@ func TestSupportHandler_Update(t *testing.T) {
 			setup: func(supportApp *mocks.MockSupportUseCase) {
 				supportApp.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("some error"))
 			},
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{Id: 1}),
 			id:   "1",
 			code: http.StatusInternalServerError,
 			body: web_helpers.UpdateSupportStatusRequest{Status: "a"},

@@ -14,15 +14,15 @@ import (
 
 func validateUsername(username string) error {
 	if len(username) < 3 {
-		return UsernameShortError
+		return ErrUsernameShort
 	}
 	matched, err := regexp.MatchString("^[a-zA-Z0-9]+$", username)
 	if err != nil {
 		fmt.Println(err)
-		return ServerError
+		return ErrServerError
 	}
 	if !matched {
-		return UsernameWrongSymbolsError
+		return ErrUsernameWrongSymbols
 	}
 	return nil
 }
@@ -30,7 +30,7 @@ func validateUsername(username string) error {
 func validatePassword(passwordStr string) error {
 	password := []rune(passwordStr)
 	if len(password) < 8 {
-		return IncorrectPasswordError
+		return ErrIncorrectPassword
 	}
 	hasLower := false
 	hasUpper := false
@@ -48,38 +48,38 @@ func validatePassword(passwordStr string) error {
 		}
 	}
 	if !hasUpper {
-		return IncorrectPasswordError
+		return ErrIncorrectPassword
 	}
 	if !hasLower {
-		return IncorrectPasswordError
+		return ErrIncorrectPassword
 	}
 	if !hasDigit {
-		return IncorrectPasswordError
+		return ErrIncorrectPassword
 	}
 	if hasInvalid {
-		return IncorrectPasswordError
+		return ErrIncorrectPassword
 	}
 	return nil
 }
 
 func validateConfirmPassword(passwordStr string, confirmPasswordStr string) error {
 	if passwordStr != confirmPasswordStr {
-		return PasswordsNotSameError
+		return ErrPasswordsNotSame
 	}
 	return nil
 }
 
 func validateEmail(email string) error {
 	if len(email) == 0 || len(email) >= 255 {
-		return EmailError
+		return ErrEmailError
 	}
 	matched, err := regexp.MatchString("^[A-Za-zа-яёА-ЯЁ0-9._%+-]+@[A-Za-zа-яёА-ЯЁ0-9.-]+\\.[A-Za-zа-яёА-ЯЁ]{2,}$", email)
 	if err != nil {
 		fmt.Println(err)
-		return ServerError
+		return ErrServerError
 	}
 	if !matched {
-		return EmailError
+		return ErrEmailError
 	}
 	return nil
 }
@@ -88,47 +88,47 @@ func validateEmail(email string) error {
 
 func validateBudgetTitle(title string) error {
 	if len(title) == 0 {
-		return BudgetTitleEmpty
+		return ErrBudgetTitle
 	}
 	if len(title) > 255 {
-		return BudgetTitleTooLong
+		return ErrBudgetTitleTooLong
 	}
 	return nil
 }
 
 func validateBudgetDescription(description string) error {
 	if len(description) == 0 {
-		return BudgetDescriptionEmpty
+		return ErrBudgetDescriptionEmpty
 	}
 	return nil
 }
 
 func validateCurrency(currency string, allowedCurrencies []string) error {
 	if !slices.Contains(allowedCurrencies, currency) {
-		return CurrencyNotAllowedError
+		return ErrCurrencyNotAllowed
 	}
 	return nil
 }
 
 func validateTargetBudget(target float64) error {
 	if target < 0 {
-		return TargetIsNegativeError
+		return ErrTargetIsNegative
 	}
 	if target == 0 {
-		return TargetIsZeroError
+		return ErrTargetIsZero
 	}
 	if target > 1_000_000_000 {
-		return TargetIsBigError
+		return ErrTargetIsBig
 	}
 	return nil
 }
 
 func validateActualBudget(actual int) error {
 	if actual < 0 {
-		return ValueIsNegativeError
+		return ErrValueIsNegative
 	}
 	if actual > 1_000_000_000 {
-		return ValueIsBigError
+		return ErrValueIsBig
 	}
 	return nil
 }
@@ -137,7 +137,7 @@ func validateBudgetStartDate(startDate time.Time) error {
 	nowTime := time.Now()
 	nowDate := time.Date(nowTime.Year(), nowTime.Month(), nowTime.Day(), 0, 0, 0, 0, startDate.Location())
 	if startDate.Before(nowDate) {
-		return StartDateInPastError
+		return ErrStartDateInPast
 	}
 	return nil
 }
@@ -147,7 +147,7 @@ func validateBudgetEndDate(startDate time.Time, endDate time.Time) error {
 		return nil
 	}
 	if endDate.Before(startDate) {
-		return EndDateInPastError
+		return ErrEndDateInPast
 	}
 	return nil
 }
@@ -157,10 +157,10 @@ func validateBudgetEndDate(startDate time.Time, endDate time.Time) error {
 func validateTransactionTitle(title string) error {
 	title = strings.TrimSpace(title)
 	if utf8.RuneCountInString(title) == 0 {
-		return TransactionTitleEmptyError
+		return ErrTransactionTitleEmpty
 	}
 	if utf8.RuneCountInString(title) > 255 {
-		return TransactionTitleLongError
+		return ErrTransactionTitleLong
 	}
 	return nil
 }
@@ -168,17 +168,17 @@ func validateTransactionTitle(title string) error {
 func validateTransactionDescription(description string) error {
 	description = strings.TrimSpace(description)
 	if utf8.RuneCountInString(description) == 0 {
-		return TransactionDescriptionEmptyError
+		return ErrTransactionDescriptionEmpty
 	}
 	return nil
 }
 
 func validateTransactionValue(value float64) error {
 	if value <= 0 {
-		return ValueIsNegativeError
+		return ErrValueIsNegative
 	}
 	if value > 1_000_000_000 {
-		return ValueIsBigError
+		return ErrValueIsBig
 	}
 	return nil
 }
@@ -189,7 +189,7 @@ func validateTransactionType(transactionType string, allowedTypes []string) erro
 			return nil
 		}
 	}
-	return TransactionTypeNotAllowedError
+	return ErrTransactionTypeNotAllowed
 }
 
 func validateCategory(category string, allowedCategories []string) error {
@@ -198,22 +198,22 @@ func validateCategory(category string, allowedCategories []string) error {
 			return nil
 		}
 	}
-	return CategoryNotAllowedError
+	return ErrCategoryNotAllowed
 }
 
 func validateLength(text string, minLength int, maxLength int) error {
 	if len(text) < minLength {
-		return MinLengthError
+		return ErrMinLength
 	}
 	if len(text) > maxLength {
-		return MaxLengthError
+		return ErrMaxLength
 	}
 	return nil
 }
 
 func checkEqual[T comparable](a, b T) error {
 	if a != b {
-		return NoEqualsError
+		return ErrNoEquals
 	}
 	return nil
 }
@@ -227,11 +227,11 @@ func ValidateTransactionAccountId(accountId int) error {
 
 func checkSlicesEquals[T comparable](a, b []T) error {
 	if len(a) != len(b) {
-		return NoEqualsError
+		return ErrNoEquals
 	}
 	for i := range a {
 		if a[i] != b[i] {
-			return NoEqualsError
+			return ErrNoEquals
 		}
 	}
 	return nil

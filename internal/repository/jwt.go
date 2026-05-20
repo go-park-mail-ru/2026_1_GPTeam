@@ -52,9 +52,9 @@ func (obj *JwtPostgres) Create(ctx context.Context, token models.RefreshTokenMod
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
-			return DuplicatedDataError
+			return ErrDuplicatedData
 		case pgerrcode.CheckViolation:
-			return ConstraintError
+			return ErrConstraint
 		default:
 			return pgErr
 		}
@@ -81,7 +81,7 @@ func (obj *JwtPostgres) DeleteByUuid(ctx context.Context, uuid string) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Error("failed to delete refresh token (no such uuid)",
 			zap.Error(pgx.ErrNoRows))
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 	if err != nil {
 		log.Error("failed to delete refresh token (not db error)",
@@ -105,7 +105,7 @@ func (obj *JwtPostgres) DeleteByUserId(ctx context.Context, userID int) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Error("failed to delete refresh token (no such user)",
 			zap.Error(pgx.ErrNoRows))
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 	if err != nil {
 		log.Error("failed to delete refresh token by user (not db error)",
@@ -131,10 +131,10 @@ func (obj *JwtPostgres) Get(ctx context.Context, uuid string) (models.RefreshTok
 		log.Error("failed to get refresh token (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.RefreshTokenModel{}, NothingInTableError
+			return models.RefreshTokenModel{}, ErrNothingInTable
 		}
 		if errors.Is(err, pgx.ErrTooManyRows) {
-			return models.RefreshTokenModel{}, TooManyRowsError
+			return models.RefreshTokenModel{}, ErrTooManyRows
 		}
 		return models.RefreshTokenModel{}, err
 	}

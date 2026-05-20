@@ -68,7 +68,7 @@ func TestRateLimiter_IsIpBlocked(t *testing.T) {
 		bucket.EXPECT().GetPermanentBlocked(gomock.Any()).
 			Return(models.PermanentBlockedIps{}, errors.New("oops"))
 		bucket.EXPECT().Get(gomock.Any(), "9.9.9.9").
-			Return(models.BucketModel{}, repository.NoIpInSavedError)
+			Return(models.BucketModel{}, repository.ErrNoIpInSaved)
 		bucket.EXPECT().Save(gomock.Any(), "9.9.9.9", gomock.Any()).Return(nil)
 
 		require.False(t, rl.IsIpBlocked(ctx, "9.9.9.9"))
@@ -81,7 +81,7 @@ func TestRateLimiter_IsIpBlocked(t *testing.T) {
 		bucket.EXPECT().GetPermanentBlocked(gomock.Any()).
 			Return(models.PermanentBlockedIps{}, nil)
 		bucket.EXPECT().Get(gomock.Any(), "9.9.9.9").
-			Return(models.BucketModel{}, repository.NoIpInSavedError)
+			Return(models.BucketModel{}, repository.ErrNoIpInSaved)
 		bucket.EXPECT().Save(gomock.Any(), "9.9.9.9", gomock.Any()).Return(errors.New("save err"))
 
 		require.True(t, rl.IsIpBlocked(ctx, "9.9.9.9"))
@@ -256,7 +256,7 @@ func TestRateLimiter_AllowN(t *testing.T) {
 		defer done()
 
 		bucket.EXPECT().Get(gomock.Any(), "ip").
-			Return(models.BucketModel{}, repository.NoIpInSavedError)
+			Return(models.BucketModel{}, repository.ErrNoIpInSaved)
 		bucket.EXPECT().Save(gomock.Any(), "ip", gomock.Any()).Return(nil)
 
 		require.True(t, rl.AllowN(ctx, "ip", 1))
@@ -267,7 +267,7 @@ func TestRateLimiter_AllowN(t *testing.T) {
 		defer done()
 
 		bucket.EXPECT().Get(gomock.Any(), "ip").
-			Return(models.BucketModel{}, repository.NoIpInSavedError)
+			Return(models.BucketModel{}, repository.ErrNoIpInSaved)
 		bucket.EXPECT().Save(gomock.Any(), "ip", gomock.Any()).
 			Return(errors.New("err"))
 
@@ -381,7 +381,7 @@ func TestGetRealIp(t *testing.T) {
 		req.RemoteAddr = "no-port-here"
 
 		ip, err := GetRealIp(req)
-		require.ErrorIs(t, err, UnableToGetIp)
+		require.ErrorIs(t, err, ErrUnableToGetIp)
 		require.Empty(t, ip)
 	})
 }

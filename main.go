@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,14 +35,16 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file: ", err)
-		return
+	if _, err := os.Stat(".env"); err == nil {
+		err = godotenv.Load()
+		if err != nil {
+			fmt.Println("Error loading .env file:", err)
+			return
+		}
 	}
 	DEBUG := os.Getenv("DEBUG") == "true"
 
-	err = logger.InitLogger(DEBUG)
+	err := logger.InitLogger(DEBUG)
 	if err != nil {
 		fmt.Println("Error initializing logger: ", err)
 		return
@@ -131,18 +134,35 @@ func main() {
 		log.Fatal("auth gRPC dial", zap.String("addr", authGrpcAddr), zap.Error(err))
 		return
 	}
-	defer authConn.Close()
+	defer func() {
+		if err := authConn.Close(); err != nil {
+			log.Error("failed to close auth gRPC connection", zap.Error(err))
+		}
+	}()
 	authClient := authv1.NewAuthServiceClient(authConn)
 	authService := auth.NewGrpcAuthAdapter(authClient, jwtSecret, jwtVersion)
 
-	user := os.Getenv("POSTGRES_USER")
-	password := os.Getenv("POSTGRES_PASSWORD")
+	user := os.Getenv("APP_SERVICE_LOGIN")
+	password := os.Getenv("APP_SERVICE_PASSWORD")
 	host := os.Getenv("POSTGRES_HOST")
 	port := os.Getenv("POSTGRES_PORT")
 	name := os.Getenv("POSTGRES_DB")
 	dbUrl := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, name)
-
-	pool, err := pgxpool.New(context.Background(), dbUrl)
+	poolConfig, err := pgxpool.ParseConfig(dbUrl)
+	if err != nil {
+		log.Fatal("Error parsing config", zap.Error(err))
+		return
+	}
+	maxConns, err := strconv.Atoi(os.Getenv("APP_MAX_DB_CONNS"))
+	if err != nil {
+		log.Fatal("Error parsing max connections", zap.Error(err))
+		return
+	}
+	poolConfig.MaxConns = int32(maxConns)
+	poolConfig.MinConns = 10
+	poolConfig.MaxConnIdleTime = 10 * time.Minute
+	poolConfig.MaxConnLifetime = 1 * time.Hour
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		log.Fatal("Failed to create pool", zap.Error(err))
 		return
@@ -189,7 +209,11 @@ func main() {
 		log.Fatal("fileserver gRPC dial", zap.String("addr", fsGrpcAddr), zap.Error(err))
 		return
 	}
-	defer fsConn.Close()
+	defer func() {
+		if err := fsConn.Close(); err != nil {
+			log.Error("failed to close fileserver gRPC connection", zap.Error(err))
+		}
+	}()
 	fsClient := fsv1.NewFileServiceClient(fsConn)
 	var avatarUploader application.AvatarUploader = fileupload.NewGrpcUploader(fsClient)
 
@@ -277,11 +301,8 @@ func main() {
 	mux.Handle("PATCH /api/accounts/{accountId}/invite/accept", middleware.MethodValidationMiddleware(http.MethodPatch)(http.HandlerFunc(accountUserHandler.AcceptInvite)))
 	mux.Handle("PATCH /api/accounts/{accountId}/invite/reject", middleware.MethodValidationMiddleware(http.MethodPatch)(http.HandlerFunc(accountUserHandler.RejectInvite)))
 	mux.Handle("/api/invites/pending", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(accountUserHandler.GetPendingInvites)))
-	// Register leave account endpoint
 	mux.Handle("POST /api/accounts/{accountId}/leave", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(accountUserHandler.LeaveAccount)))
-	// Generic accounts handler. Also delegate POST /api/accounts/{id}/leave to accountUserHandler.LeaveAccount
 	mux.Handle("/api/accounts/", middleware.MethodValidationMiddleware(http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodPost)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// If this is a POST to a leave endpoint, forward to LeaveAccount handler
 		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/leave") {
 			accountUserHandler.LeaveAccount(w, r)
 			return

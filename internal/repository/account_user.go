@@ -43,18 +43,18 @@ func mapAccountUserPgError(ctx context.Context, err error, action string) error 
 	}
 	log := logger.GetLoggerWithRequestId(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error(action, zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
-			return AccountDuplicatedDataError
+			return ErrAccountDuplicatedData
 		case pgerrcode.CheckViolation:
-			return ConstraintError
+			return ErrConstraint
 		case pgerrcode.ForeignKeyViolation:
-			return AccountForeignKeyError
+			return ErrAccountForeignKey
 		default:
 			return pgErr
 		}
@@ -98,7 +98,7 @@ func (obj *AccountUserPostgres) SearchUsers(ctx context.Context, accountId int, 
 
 // CreateInvite создаёт приглашение. Если пользователь был ранее кикнут (deleted_at IS NOT NULL),
 // строка сбрасывается и возвращается заново. Если пользователь активен — RETURNING вернёт 0 строк
-// → NothingInTableError, usecase смаппит это в ErrInviteAlreadyExists / ErrAlreadyMember.
+// → ErrNothingInTable, usecase смаппит это в ErrInviteAlreadyExists / ErrAlreadyMember.
 func (obj *AccountUserPostgres) CreateInvite(ctx context.Context, accountId int, userId int) (models.AccountUserModel, error) {
 	log := logger.GetLoggerWithRequestId(ctx)
 	query := `
@@ -200,7 +200,7 @@ func (obj *AccountUserPostgres) GetMembersByAccountId(ctx context.Context, accou
 		  AND au.status = $2
 		  AND au.deleted_at IS NULL
 
-		ORDER BY is_owner DESC, created_at ASC`
+		ORDER BY is_owner DESC, created_at`
 	args := []any{accountId, AccountUserStatusAccepted}
 
 	start := time.Now()
@@ -229,7 +229,7 @@ func (obj *AccountUserPostgres) GetMembersByAccountId(ctx context.Context, accou
 			&member.IsOwner,
 		); err != nil {
 			log.Error("failed to scan member", zap.Error(err))
-			return nil, InvalidDataInTableError
+			return nil, ErrInvalidDataInTable
 		}
 		members = append(members, member)
 	}
@@ -292,7 +292,7 @@ func (obj *AccountUserPostgres) DeleteMember(ctx context.Context, accountId int,
 		return err
 	}
 	if result.RowsAffected() == 0 {
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 
 	log.Info("Query executed")
@@ -359,7 +359,7 @@ func (obj *AccountUserPostgres) GetPendingInvitesByUserId(ctx context.Context, u
 			&invite.AccountName,
 		); err != nil {
 			log.Error("failed to scan invite", zap.Error(err))
-			return nil, InvalidDataInTableError
+			return nil, ErrInvalidDataInTable
 		}
 		invites = append(invites, invite)
 	}
@@ -392,7 +392,7 @@ func (obj *AccountUserPostgres) LeaveAccount(ctx context.Context, accountId int,
 		return err
 	}
 	if result.RowsAffected() == 0 {
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 
 	log.Info("User left account", zap.Int("account_id", accountId), zap.Int("user_id", userId))

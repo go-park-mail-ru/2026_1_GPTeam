@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -36,7 +37,7 @@ func TestGetLoggerWithRequestId(t *testing.T) {
 		},
 		{
 			name: "Context with valid request_id",
-			ctx:  context.WithValue(context.Background(), "request_id", "12345"),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyRequestId, "12345"),
 			setupLogger: func() {
 				mu.Lock()
 				logger = zap.NewNop()
@@ -86,7 +87,9 @@ func TestModifyLoggerWithDBQuery(t *testing.T) {
 }
 
 func TestLoggerLifecycle(t *testing.T) {
-	defer os.Remove("backend.log")
+	defer func() {
+		_ = os.Remove("backend.log")
+	}()
 
 	err := InitLogger(false)
 	require.NoError(t, err)
@@ -102,7 +105,9 @@ func TestLoggerLifecycle(t *testing.T) {
 }
 
 func TestAccessLoggerLifecycle(t *testing.T) {
-	defer os.Remove("access.log")
+	defer func() {
+		_ = os.Remove("access.log")
+	}()
 
 	err := InitAccessLogger()
 	require.NoError(t, err)

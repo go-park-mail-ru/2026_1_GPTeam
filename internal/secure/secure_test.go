@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,7 +53,7 @@ func TestSanitizeXss(t *testing.T) {
 }
 
 func getTestContext() context.Context {
-	return context.WithValue(context.Background(), "request_id", "test-req-id")
+	return context.WithValue(context.Background(), context_helper.ContextKeyRequestId, "test-req-id")
 }
 
 func TestNewCsrf(t *testing.T) {
@@ -86,7 +87,7 @@ func TestCsrf_GenerateAndValidate(t *testing.T) {
 
 	t.Run("Валидация с неверным форматом (без точки)", func(t *testing.T) {
 		isValid, err := csrfService.ValidateCsrf(ctx, "invalid_format_token", token)
-		require.ErrorIs(t, err, InvalidCsrfError)
+		require.ErrorIs(t, err, ErrInvalidCsrf)
 		require.False(t, isValid)
 	})
 
@@ -95,7 +96,7 @@ func TestCsrf_GenerateAndValidate(t *testing.T) {
 		tamperedCsrf := "tamperedHMAC" + csrfValue[6:]
 
 		isValid, err := csrfService.ValidateCsrf(ctx, tamperedCsrf, token)
-		require.ErrorIs(t, err, InvalidCsrfSignatureError)
+		require.ErrorIs(t, err, ErrInvalidCsrfSignature)
 		require.False(t, isValid)
 	})
 
@@ -103,7 +104,7 @@ func TestCsrf_GenerateAndValidate(t *testing.T) {
 		csrfValue, _ := csrfService.generateCsrf(ctx, token)
 
 		isValid, err := csrfService.ValidateCsrf(ctx, csrfValue, "another-token")
-		require.ErrorIs(t, err, InvalidCsrfSignatureError)
+		require.ErrorIs(t, err, ErrInvalidCsrfSignature)
 		require.False(t, isValid)
 	})
 }
@@ -121,7 +122,7 @@ func TestCsrf_GetCsrfValueFromToken(t *testing.T) {
 
 	t.Run("Неверный формат", func(t *testing.T) {
 		val, err := csrfService.getCsrfValueFromToken(ctx, "invalid")
-		require.ErrorIs(t, err, InvalidCsrfError)
+		require.ErrorIs(t, err, ErrInvalidCsrf)
 		require.Empty(t, val)
 	})
 }

@@ -59,7 +59,11 @@ func (h *VoiceHandler) CreateVoiceTransaction(w http.ResponseWriter, r *http.Req
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Error("voice: failed to close file", zap.Error(err))
+		}
+	}()
 
 	audioData, err := io.ReadAll(io.LimitReader(file, maxAudioSize))
 	if err != nil {

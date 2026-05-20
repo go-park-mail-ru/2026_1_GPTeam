@@ -11,7 +11,7 @@ func ValidateAccessToken(tokenStr string, secret []byte, jwtVersion string) (boo
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			log.Error("unexpected signing method")
-			return nil, WrongSigningMethodError
+			return nil, ErrWrongSigningMethod
 		}
 		return secret, nil
 	})

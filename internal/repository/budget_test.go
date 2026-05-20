@@ -96,7 +96,7 @@ func TestBudgetPostgres_GetIdsByUserId(t *testing.T) {
 			WillReturnRows(pgxmock.NewRows([]string{"id"}))
 
 		_, err := repo.GetIdsByUserId(context.Background(), 1)
-		require.ErrorIs(t, err, NothingInTableError)
+		require.ErrorIs(t, err, ErrNothingInTable)
 	})
 }
 
@@ -140,7 +140,7 @@ func TestBudgetPostgres_GetCategoryOfBudget(t *testing.T) {
 			},
 			id:         0,
 			categories: []string{},
-			err:        NothingInTableError,
+			err:        ErrNothingInTable,
 		},
 	}
 

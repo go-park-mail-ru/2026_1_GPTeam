@@ -47,7 +47,7 @@ func TestJwtPostgres_Create(t *testing.T) {
 					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
 					WillReturnError(&pgconn.PgError{Code: pgerrcode.UniqueViolation})
 			},
-			wantErr: DuplicatedDataError,
+			wantErr: ErrDuplicatedData,
 		},
 		{
 			name: "check violation",
@@ -56,7 +56,7 @@ func TestJwtPostgres_Create(t *testing.T) {
 					WithArgs(token.Uuid, token.UserId, token.ExpiredAt).
 					WillReturnError(&pgconn.PgError{Code: pgerrcode.CheckViolation})
 			},
-			wantErr: ConstraintError,
+			wantErr: ErrConstraint,
 		},
 		{
 			name: "generic error",
@@ -112,7 +112,7 @@ func TestJwtPostgres_DeleteByUuid(t *testing.T) {
 					WithArgs("rt-1").
 					WillReturnError(pgx.ErrNoRows)
 			},
-			wantErr: NothingInTableError,
+			wantErr: ErrNothingInTable,
 		},
 	}
 
@@ -159,7 +159,7 @@ func TestJwtPostgres_DeleteByUserId(t *testing.T) {
 					WithArgs(7).
 					WillReturnError(pgx.ErrNoRows)
 			},
-			wantErr: NothingInTableError,
+			wantErr: ErrNothingInTable,
 		},
 	}
 
@@ -208,7 +208,7 @@ func TestJwtPostgres_Get(t *testing.T) {
 					WithArgs("rt-1").
 					WillReturnError(pgx.ErrNoRows)
 			},
-			wantErr: NothingInTableError,
+			wantErr: ErrNothingInTable,
 		},
 	}
 

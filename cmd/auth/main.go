@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/auth/grpcserver"
@@ -25,14 +26,16 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file:", err)
-		return
+	if _, err := os.Stat(".env"); err == nil {
+		err = godotenv.Load()
+		if err != nil {
+			fmt.Println("Error loading .env file:", err)
+			return
+		}
 	}
 
 	DEBUG := os.Getenv("DEBUG") == "true"
-	err = logger.InitLogger(DEBUG)
+	err := logger.InitLogger(DEBUG)
 	if err != nil {
 		fmt.Println("Error initializing logger:", err)
 		return
@@ -69,14 +72,27 @@ func main() {
 		}
 	}()
 
-	user := os.Getenv("POSTGRES_USER")
-	password := os.Getenv("POSTGRES_PASSWORD")
+	user := os.Getenv("AUTH_SERVICE_LOGIN")
+	password := os.Getenv("AUTH_SERVICE_PASSWORD")
 	host := os.Getenv("POSTGRES_HOST")
 	port := os.Getenv("POSTGRES_PORT")
 	name := os.Getenv("POSTGRES_DB")
 	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, name)
-
-	pool, err := pgxpool.New(context.Background(), dbURL)
+	poolConfig, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		log.Fatal("Error parsing config", zap.Error(err))
+		return
+	}
+	maxConns, err := strconv.Atoi(os.Getenv("AUTH_MAX_DB_CONNS"))
+	if err != nil {
+		log.Fatal("Error parsing max connections", zap.Error(err))
+		return
+	}
+	poolConfig.MaxConns = int32(maxConns)
+	poolConfig.MinConns = 10
+	poolConfig.MaxConnIdleTime = 10 * time.Minute
+	poolConfig.MaxConnLifetime = 1 * time.Hour
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		log.Fatal("Failed to create pool", zap.Error(err))
 		return

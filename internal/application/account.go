@@ -66,7 +66,7 @@ func (obj *Account) CreateForUser(ctx context.Context, userId int, account model
 func (obj *Account) GetAccountIdByUserId(ctx context.Context, userId int) (int, error) {
 	accountId, err := obj.repository.GetAccountIdByUserId(ctx, userId)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			return 0, ErrAccountNotFound
 		}
 		return 0, err
@@ -78,7 +78,7 @@ func (obj *Account) GetAccountIdByUserId(ctx context.Context, userId int) (int, 
 func (obj *Account) GetById(ctx context.Context, userId int, accountId int) (models.AccountModel, error) {
 	account, err := obj.repository.GetById(ctx, userId, accountId)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			return models.AccountModel{}, ErrAccountNotFound
 		}
 		return models.AccountModel{}, err
@@ -94,7 +94,7 @@ func (obj *Account) GetByUserId(ctx context.Context, userId int) ([]models.Accou
 func (obj *Account) Update(ctx context.Context, userId int, accountId int, accountUpdate models.AccountUpdateModel) (models.AccountModel, error) {
 	updatedAccount, err := obj.repository.Update(ctx, userId, accountId, accountUpdate)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			return models.AccountModel{}, ErrAccountNotFound
 		}
 		return models.AccountModel{}, err
@@ -106,7 +106,7 @@ func (obj *Account) Update(ctx context.Context, userId int, accountId int, accou
 func (obj *Account) Delete(ctx context.Context, userId int, accountId int) error {
 	err := obj.repository.Delete(ctx, userId, accountId)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			return ErrAccountNotFound
 		}
 		return err

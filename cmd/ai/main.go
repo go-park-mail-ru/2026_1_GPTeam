@@ -17,6 +17,7 @@ import (
 	aiv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/ai/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
+	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -26,6 +27,14 @@ import (
 )
 
 func main() {
+	if _, err := os.Stat(".env"); err == nil {
+		err = godotenv.Load()
+		if err != nil {
+			fmt.Println("Error loading .env file:", err)
+			return
+		}
+	}
+
 	err := logger.InitLogger(false)
 	if err != nil {
 		fmt.Println("Error initializing logger: ", err)

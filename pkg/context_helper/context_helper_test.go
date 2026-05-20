@@ -21,12 +21,12 @@ func TestGetRequestIdFromContext(t *testing.T) {
 		},
 		{
 			name:     "Invalid type in context",
-			ctx:      context.WithValue(context.Background(), "request_id", 12345),
+			ctx:      context.WithValue(context.Background(), context_helper.ContextKeyRequestId, 12345),
 			expected: "",
 		},
 		{
 			name:     "Valid request_id",
-			ctx:      context.WithValue(context.Background(), "request_id", "test-req-id"),
+			ctx:      context.WithValue(context.Background(), context_helper.ContextKeyRequestId, "test-req-id"),
 			expected: "test-req-id",
 		},
 	}

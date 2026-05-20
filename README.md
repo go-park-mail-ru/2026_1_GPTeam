@@ -1,5 +1,7 @@
 # Backend 2026_01_GPTeam
 
+Coverage: 62.9%
+
 Делаем финансовый планировщик
 
 [репозиторий фронт TBA](https://github.com/frontend-park-mail-ru/2026_1_GPTeam)

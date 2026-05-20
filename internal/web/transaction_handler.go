@@ -124,20 +124,20 @@ func (obj *TransactionHandler) create(w http.ResponseWriter, r *http.Request) {
 
 	id, err := obj.transactionApp.Create(r.Context(), transaction)
 	if err != nil {
-		if errors.Is(err, repository.DuplicatedDataError) {
+		if errors.Is(err, repository.ErrDuplicatedData) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Такая транзакция уже существует"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.ConstraintError) {
+		if errors.Is(err, repository.ErrConstraint) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 				web_helpers.NewFieldError("value", "Недостаточно средств на счёте"),
 			})
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.TransactionAccountForeignKeyError) {
+		if errors.Is(err, repository.ErrTransactionAccountForeignKey) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 				web_helpers.NewFieldError("account", "Счёта не существует"),
 			})
@@ -165,7 +165,7 @@ func (obj *TransactionHandler) getTransactions(w http.ResponseWriter, r *http.Re
 	}
 	ids, err := obj.transactionApp.GetTransactionIdsOfUser(r.Context(), authUser)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакции не найдены")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -220,7 +220,7 @@ func (obj *TransactionHandler) searchTransactions(w http.ResponseWriter, r *http
 
 	transactions, err := obj.transactionApp.Search(r.Context(), authUser.Id, filters)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewTransactionsSearchResponse([]web_helpers.TransactionWithCurrency{})
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -318,17 +318,17 @@ func (obj *TransactionHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	err = obj.transactionApp.Update(r.Context(), transaction)
 	if err != nil {
-		if errors.Is(err, repository.IncorrectRowsAffectedError) || errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrIncorrectRowsAffected) || errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, application.ForbiddenError) {
+		if errors.Is(err, application.ErrForbidden) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.ConstraintError) {
+		if errors.Is(err, repository.ErrConstraint) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 				web_helpers.NewFieldError("value", "Недостаточно средств на счёте"),
 			})
@@ -365,12 +365,12 @@ func (obj *TransactionHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := obj.transactionApp.Delete(r.Context(), transactionId, authUser.Id)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, application.ForbiddenError) {
+		if errors.Is(err, application.ErrForbidden) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -405,12 +405,12 @@ func (obj *TransactionHandler) detail(w http.ResponseWriter, r *http.Request) {
 	}
 	transaction, err := obj.transactionApp.Detail(r.Context(), transactionId, authUser.Id)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			response := web_helpers.NewNotFoundErrorResponse("Транзакция не найдена")
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, application.ForbiddenError) {
+		if errors.Is(err, application.ErrForbidden) {
 			response := web_helpers.NewForbiddenErrorResponse()
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
@@ -508,13 +508,13 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 	accountIdStr := r.FormValue("account_id")
 	accountId, err := strconv.Atoi(accountIdStr)
 	if err != nil {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", "Неверный id счёта"}})
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: "Неверный id счёта"}})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	account, err := obj.accountApp.GetById(r.Context(), authUser.Id, accountId)
 	if err != nil {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", "Неверный id счёта"}})
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: "Неверный id счёта"}})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -535,7 +535,7 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 	err = obj.transactionApp.BulkCreate(r.Context(), transactions, accounts)
 	if err != nil {
 		log.Warn("failed to create transactions", zap.Error(err))
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", err.Error()}})
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: err.Error()}})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}

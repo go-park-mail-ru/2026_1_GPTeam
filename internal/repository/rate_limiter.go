@@ -51,7 +51,7 @@ func (obj *BucketRedis) Get(ctx context.Context, ip string) (models.BucketModel,
 	data, err := redis.Bytes(redis.DoContext(conn, ctx, RedisMethodGet, ip))
 	if err != nil {
 		if errors.Is(err, redis.ErrNil) {
-			return models.BucketModel{}, NoIpInSavedError
+			return models.BucketModel{}, ErrNoIpInSaved
 		}
 		log.Error("redis error",
 			zap.String("ip", ip),
@@ -103,7 +103,7 @@ func (obj *BucketRedis) Save(ctx context.Context, ip string, bucket models.Bucke
 			zap.String("ip", ip),
 			zap.Any("bucket", bucket),
 			zap.String("result", result))
-		return ResultNotOkError
+		return ErrResultNotOk
 	}
 	return nil
 }
@@ -124,7 +124,7 @@ func (obj *BucketRedis) GetPermanentBlocked(ctx context.Context) (models.Permane
 	data, err := redis.Bytes(redis.DoContext(conn, ctx, RedisMethodGet, PermanentBlockedIpsKey))
 	if err != nil {
 		if errors.Is(err, redis.ErrNil) {
-			return models.PermanentBlockedIps{}, NoIpInSavedError
+			return models.PermanentBlockedIps{}, ErrNoIpInSaved
 		}
 		log.Error("redis error",
 			zap.Error(err))
@@ -171,7 +171,7 @@ func (obj *BucketRedis) SetPermanentBlocked(ctx context.Context, ips models.Perm
 		log.Error("error when saving bucket in redis",
 			zap.Any("ips", ips),
 			zap.String("result", result))
-		return ResultNotOkError
+		return ErrResultNotOk
 	}
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -28,10 +29,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func authUserCtx(user models.UserModel) context.Context {
-	return context.WithValue(context.Background(), "user", user)
-}
-
 func TestAuthHandler_Logout(t *testing.T) {
 	t.Parallel()
 
@@ -47,7 +44,7 @@ func TestAuthHandler_Logout(t *testing.T) {
 	handler := NewAuthHandler(authSvc, userApp, accountApp)
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 
-	ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+	ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -103,7 +100,7 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 			handler := NewAuthHandler(authSvc, userApp, accountApp)
 			req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
 
-			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 			req = req.WithContext(ctx)
 
 			w := httptest.NewRecorder()
@@ -175,7 +172,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 
-			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 			req = req.WithContext(ctx)
 
 			w := httptest.NewRecorder()
@@ -253,7 +250,7 @@ func TestAuthHandler_SignUp(t *testing.T) {
 				Email:           "new@example.com",
 			},
 			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, repository.DuplicatedDataError)
+				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, repository.ErrDuplicatedData)
 			},
 			expectedCode: http.StatusBadRequest,
 		},
@@ -295,7 +292,7 @@ func TestAuthHandler_SignUp(t *testing.T) {
 				Email:           "new@example.com",
 			},
 			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, application.HashPasswordError)
+				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, application.ErrHashPassword)
 			},
 			expectedCode: http.StatusBadRequest,
 		},
@@ -320,7 +317,7 @@ func TestAuthHandler_SignUp(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/auth/signup", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 
-			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 			req = req.WithContext(ctx)
 
 			w := httptest.NewRecorder()

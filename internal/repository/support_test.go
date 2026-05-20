@@ -53,9 +53,9 @@ func TestSupportPostgres_Create(t *testing.T) {
 		repository, mock := newSupportPostgres(t)
 		mock.ExpectQuery("insert into support").
 			WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg(), pgxmock.AnyArg()).
-			WillReturnError(ConstraintError)
+			WillReturnError(ErrConstraint)
 		id, err := repository.Create(context.Background(), wrongModel)
-		require.ErrorIs(t, err, ConstraintError)
+		require.ErrorIs(t, err, ErrConstraint)
 		require.Equal(t, -1, id)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
@@ -93,7 +93,7 @@ func TestSupportPostgres_GetById(t *testing.T) {
 			WithArgs(pgxmock.AnyArg()).
 			WillReturnError(pgx.ErrNoRows)
 		support, err := repository.GetById(context.Background(), 1)
-		require.ErrorIs(t, err, NothingInTableError)
+		require.ErrorIs(t, err, ErrNothingInTable)
 		require.Equal(t, models.SupportModel{}, support)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})

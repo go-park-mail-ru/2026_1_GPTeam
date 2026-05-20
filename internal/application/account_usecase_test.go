@@ -263,12 +263,12 @@ func TestAccountUseCase_GetAllAccountsByUserIdWithBalance(t *testing.T) {
 		{
 			name: "fail",
 			setupMocks: func(repo *repomocks.MockAccountRepository) {
-				repo.EXPECT().GetAllAccountsByUserIdWithBalance(gomock.Any(), gomock.Any()).Return([]models.AccountModel{}, []float64{}, []float64{}, repository.NothingInTableError)
+				repo.EXPECT().GetAllAccountsByUserIdWithBalance(gomock.Any(), gomock.Any()).Return([]models.AccountModel{}, []float64{}, []float64{}, repository.ErrNothingInTable)
 			},
 			accounts: []models.AccountModel{},
 			income:   []float64{},
 			expenses: []float64{},
-			err:      repository.NothingInTableError,
+			err:      repository.ErrNothingInTable,
 		},
 	}
 
@@ -325,10 +325,10 @@ func TestAccountUseCase_GetAllAccountsByUserId(t *testing.T) {
 		{
 			name: "fail",
 			setupMocks: func(repo *repomocks.MockAccountRepository) {
-				repo.EXPECT().GetAllAccountsByUserId(gomock.Any(), gomock.Any()).Return([]models.AccountModel{}, repository.NothingInTableError)
+				repo.EXPECT().GetAllAccountsByUserId(gomock.Any(), gomock.Any()).Return([]models.AccountModel{}, repository.ErrNothingInTable)
 			},
 			accounts: []models.AccountModel{},
-			err:      repository.NothingInTableError,
+			err:      repository.ErrNothingInTable,
 		},
 	}
 

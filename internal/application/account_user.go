@@ -87,7 +87,7 @@ func (obj *AccountUserApp) CreateInvite(
 
 	result, err := obj.accountUserRepo.CreateInvite(ctx, accountId, targetUserId)
 	if err != nil {
-		if errors.Is(err, repository.NothingInTableError) {
+		if errors.Is(err, repository.ErrNothingInTable) {
 			// UPSERT вернул 0 строк — юзер активен, конфликт не был сброшен.
 			return models.AccountUserModel{}, ErrInviteAlreadyExists
 		}
@@ -167,7 +167,7 @@ func (obj *AccountUserApp) RemoveMember(
 	}
 
 	err = obj.accountUserRepo.DeleteMember(ctx, accountId, targetUserId)
-	if errors.Is(err, repository.NothingInTableError) {
+	if errors.Is(err, repository.ErrNothingInTable) {
 		return ErrMemberNotFound
 	}
 	return err

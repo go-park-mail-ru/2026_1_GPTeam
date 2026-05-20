@@ -74,11 +74,11 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 				zap.Error(pgErr))
 			switch pgErr.Code {
 			case pgerrcode.UniqueViolation:
-				return TransactionDuplicatedDataError
+				return ErrTransactionDuplicatedData
 			case pgerrcode.CheckViolation:
-				return ConstraintError
+				return ErrConstraint
 			case pgerrcode.ForeignKeyViolation:
-				return TransactionAccountForeignKeyError
+				return ErrTransactionAccountForeignKey
 			default:
 				return pgErr
 			}
@@ -108,7 +108,7 @@ func (obj *TransactionPostgres) Create(ctx context.Context, transaction models.T
 		if err != nil {
 			return err
 		}
-		log.Info("Transaction committed", zap.String("duration", duration.String()))
+		log.Info("Transaction committed", zap.String("duration", totalDuration.String()))
 		return nil
 	})
 	return id, err
@@ -136,7 +136,7 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 		if err != nil {
 			log.Error("failed to scan id while getting transaction ids by user", zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
-				return []int{}, InvalidDataInTableError
+				return []int{}, ErrInvalidDataInTable
 			}
 			return ids, err
 		}
@@ -148,7 +148,7 @@ func (obj *TransactionPostgres) GetIdsByUserId(ctx context.Context, userId int) 
 	}
 	if len(ids) == 0 {
 		log.Warn("no transactions found by user", zap.Int("userId", userId))
-		return []int{}, NothingInTableError
+		return []int{}, ErrNothingInTable
 	}
 	log.Info("Query executed")
 	return ids, nil
@@ -185,11 +185,11 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 				zap.Error(pgErr))
 			switch pgErr.Code {
 			case pgerrcode.ForeignKeyViolation:
-				return TransactionAccountForeignKeyError
+				return ErrTransactionAccountForeignKey
 			case pgerrcode.CheckViolation:
-				return ConstraintError
+				return ErrConstraint
 			case pgerrcode.UniqueViolation:
-				return DuplicatedDataError
+				return ErrDuplicatedData
 			default:
 				return pgErr
 			}
@@ -200,7 +200,7 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 				zap.Int("user_id", transaction.UserId),
 				zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
-				return NothingInTableError
+				return ErrNothingInTable
 			}
 			return err
 		}
@@ -208,22 +208,23 @@ func (obj *TransactionPostgres) Update(ctx context.Context, transaction models.T
 			log.Warn("failed to update transaction (no rows affected)",
 				zap.Int("transaction_id", transaction.Id),
 				zap.Int("user_id", transaction.UserId))
-			return NothingInTableError
+			return ErrNothingInTable
 		}
 		if res.RowsAffected() != 1 {
 			log.Warn("failed to update transaction (too many rows affected)",
 				zap.Int("transaction_id", transaction.Id),
 				zap.Int("user_id", transaction.UserId))
-			return IncorrectRowsAffectedError
+			return ErrIncorrectRowsAffected
 		}
 		log.Info("Query executed")
 		if oldTransaction.Category != transaction.Category || oldTransaction.Value != transaction.Value || oldTransaction.Type != transaction.Type || oldTransaction.AccountId != transaction.AccountId {
 			duration, err = updateBalance(ctx, dbTransaction, oldTransaction, transaction, oldAccount, account)
+			totalDuration += duration
 			if err != nil {
 				return err
 			}
 		}
-		log.Info("Transaction committed", zap.String("duration", duration.String()))
+		log.Info("Transaction committed", zap.String("duration", totalDuration.String()))
 		return nil
 	})
 	return err
@@ -251,7 +252,7 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int, a
 			log.Error("failed to delete transaction (not db error)",
 				zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
-				return NothingInTableError
+				return ErrNothingInTable
 			}
 			return err
 		}
@@ -275,7 +276,7 @@ func (obj *TransactionPostgres) Delete(ctx context.Context, transactionId int, a
 		if err != nil {
 			return err
 		}
-		log.Info("Transaction committed", zap.String("duration", duration.String()))
+		log.Info("Transaction committed", zap.String("duration", totalDuration.String()))
 		return nil
 	})
 	return id, err
@@ -297,7 +298,7 @@ func (obj *TransactionPostgres) Detail(ctx context.Context, transactionId int) (
 	if err != nil {
 		log.Error("failed to get transaction (not db error)", zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.TransactionModel{}, NothingInTableError
+			return models.TransactionModel{}, ErrNothingInTable
 		}
 		return models.TransactionModel{}, err
 	}
@@ -340,7 +341,6 @@ func (obj *TransactionPostgres) Search(ctx context.Context, userId int, filters 
 		query += ` and (title ILIKE $` + fmt.Sprint(argIndex) + ` or description ILIKE $` + fmt.Sprint(argIndex) + `)`
 		searchPattern := "%" + *filters.SearchQuery + "%"
 		args = append(args, searchPattern)
-		argIndex++
 	}
 
 	query += ` order by transaction_date desc, created_at desc`
@@ -364,7 +364,7 @@ func (obj *TransactionPostgres) Search(ctx context.Context, userId int, filters 
 		if err != nil {
 			log.Error("failed to scan transaction while searching", zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
-				return []models.TransactionModel{}, InvalidDataInTableError
+				return []models.TransactionModel{}, ErrInvalidDataInTable
 			}
 			return transactions, err
 		}
@@ -378,7 +378,7 @@ func (obj *TransactionPostgres) Search(ctx context.Context, userId int, filters 
 
 	if len(transactions) == 0 {
 		log.Warn("no transactions found with filters", zap.Int("userId", userId))
-		return []models.TransactionModel{}, NothingInTableError
+		return []models.TransactionModel{}, ErrNothingInTable
 	}
 	log.Info("Query executed")
 	return transactions, nil
@@ -523,11 +523,11 @@ func increaseBalanceOfAccount(ctx context.Context, dbTransaction pgx.Tx, queryAr
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
-			return duration, TransactionAccountForeignKeyError
+			return duration, ErrTransactionAccountForeignKey
 		case pgerrcode.CheckViolation:
-			return duration, ConstraintError
+			return duration, ErrConstraint
 		case pgerrcode.UniqueViolation:
-			return duration, DuplicatedDataError
+			return duration, ErrDuplicatedData
 		default:
 			return duration, pgErr
 		}
@@ -569,11 +569,11 @@ func increaseActualOfBudget(ctx context.Context, dbTransaction pgx.Tx, queryArgs
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
-			return duration, TransactionAccountForeignKeyError
+			return duration, ErrTransactionAccountForeignKey
 		case pgerrcode.CheckViolation:
-			return duration, ConstraintError
+			return duration, ErrConstraint
 		case pgerrcode.UniqueViolation:
-			return duration, DuplicatedDataError
+			return duration, ErrDuplicatedData
 		default:
 			return duration, pgErr
 		}
@@ -609,11 +609,11 @@ func decreaseBalanceOfAccount(ctx context.Context, dbTransaction pgx.Tx, queryAr
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
-			return duration, TransactionAccountForeignKeyError
+			return duration, ErrTransactionAccountForeignKey
 		case pgerrcode.CheckViolation:
-			return duration, ConstraintError
+			return duration, ErrConstraint
 		case pgerrcode.UniqueViolation:
-			return duration, DuplicatedDataError
+			return duration, ErrDuplicatedData
 		default:
 			return duration, pgErr
 		}
@@ -650,11 +650,11 @@ func decreaseActualOfBudget(ctx context.Context, dbTransaction pgx.Tx, queryArgs
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
-			return duration, TransactionAccountForeignKeyError
+			return duration, ErrTransactionAccountForeignKey
 		case pgerrcode.CheckViolation:
-			return duration, ConstraintError
+			return duration, ErrConstraint
 		case pgerrcode.UniqueViolation:
-			return duration, DuplicatedDataError
+			return duration, ErrDuplicatedData
 		default:
 			return duration, pgErr
 		}
@@ -698,11 +698,11 @@ func changeBalanceOfAccountWithNewType(ctx context.Context, dbTransaction pgx.Tx
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
-			return duration, TransactionAccountForeignKeyError
+			return duration, ErrTransactionAccountForeignKey
 		case pgerrcode.CheckViolation:
-			return duration, ConstraintError
+			return duration, ErrConstraint
 		case pgerrcode.UniqueViolation:
-			return duration, DuplicatedDataError
+			return duration, ErrDuplicatedData
 		default:
 			return duration, pgErr
 		}
@@ -748,11 +748,11 @@ func changeActualOfBudgetWithNewType(ctx context.Context, dbTransaction pgx.Tx, 
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
-			return duration, TransactionAccountForeignKeyError
+			return duration, ErrTransactionAccountForeignKey
 		case pgerrcode.CheckViolation:
-			return duration, ConstraintError
+			return duration, ErrConstraint
 		case pgerrcode.UniqueViolation:
-			return duration, DuplicatedDataError
+			return duration, ErrDuplicatedData
 		default:
 			return duration, pgErr
 		}
