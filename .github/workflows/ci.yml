@@ -26,18 +26,14 @@ jobs:
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
           echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
-      - name: Update README with coverage
-        run: |
-          sed -i "s/Coverage: .*%/Coverage: ${{ env.COVERAGE }}/" README.md
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add README.md
-          git commit -m "Update coverage badge [skip ci]" || exit 0
-          git push
-      - name: Run Test
-        run: |
-          go test -v ./... -covermode=count -coverprofile=coverage.out
-          go tool cover -func=coverage.out -o=coverage.out
+#      - name: Update README with coverage
+#        run: |
+#          sed -i "s/Coverage: .*%/Coverage: ${{ env.COVERAGE }}/" README.md
+#          git config user.name github-actions
+#          git config user.email github-actions@github.com
+#          git add README.md
+#          git commit -m "Update coverage badge [skip ci]" || exit 0
+#          git push
       - name: Go Coverage Badge
         uses: tj-actions/coverage-badge-go@v3
         with:
