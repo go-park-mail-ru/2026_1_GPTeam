@@ -80,7 +80,7 @@ services:
       - gpteam-network
 
   auth:
-    build: .
+    image: timur1414/money-first_app:latest
     container_name: gpteam-auth
     command: [ "./auth-service" ]
     restart: always
@@ -108,7 +108,7 @@ services:
       - gpteam-network
 
   ai:
-    build: .
+    image: timur1414/money-first_app:latest
     container_name: gpteam-ai
     command: [ "./ai-service" ]
     restart: always
@@ -127,7 +127,7 @@ services:
       - gpteam-network
 
   fileserver:
-    build: .
+    image: timur1414/money-first_app:latest
     container_name: gpteam-fileserver
     command: [ "./fileserver" ]
     depends_on:
@@ -159,7 +159,7 @@ services:
       - gpteam-network
 
   app:
-    build: .
+    image: timur1414/money-first_app:latest
     container_name: gpteam-server
     restart: always
     depends_on:

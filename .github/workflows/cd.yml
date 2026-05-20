@@ -28,7 +28,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=short,prefix=main-
-      - name: Build and push Docker image
+      - name: Build and push docker image
         uses: docker/build-push-action@v5
         with:
           context: .
