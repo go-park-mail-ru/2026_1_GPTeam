@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -43,7 +44,7 @@ func TestAuthHandler_Logout(t *testing.T) {
 	handler := NewAuthHandler(authSvc, userApp, accountApp)
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 
-	ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+	ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -99,7 +100,7 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 			handler := NewAuthHandler(authSvc, userApp, accountApp)
 			req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
 
-			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 			req = req.WithContext(ctx)
 
 			w := httptest.NewRecorder()
@@ -171,7 +172,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 
-			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 			req = req.WithContext(ctx)
 
 			w := httptest.NewRecorder()
@@ -316,7 +317,7 @@ func TestAuthHandler_SignUp(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/auth/signup", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 
-			ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+			ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 			req = req.WithContext(ctx)
 
 			w := httptest.NewRecorder()
