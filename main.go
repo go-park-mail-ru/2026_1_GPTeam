@@ -35,14 +35,16 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file: ", err)
-		return
+	if _, err := os.Stat(".env"); err == nil {
+		err = godotenv.Load()
+		if err != nil {
+			fmt.Println("Error loading .env file:", err)
+			return
+		}
 	}
 	DEBUG := os.Getenv("DEBUG") == "true"
 
-	err = logger.InitLogger(DEBUG)
+	err := logger.InitLogger(DEBUG)
 	if err != nil {
 		fmt.Println("Error initializing logger: ", err)
 		return

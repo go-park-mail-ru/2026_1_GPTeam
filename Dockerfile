@@ -21,5 +21,4 @@ COPY --from=builder /out/auth-service ./auth-service
 COPY --from=builder /out/ai-service ./ai-service
 COPY --from=builder /out/fileserver ./fileserver
 RUN chmod +x app auth-service ai-service fileserver
-COPY .env .
 CMD ["./app"]

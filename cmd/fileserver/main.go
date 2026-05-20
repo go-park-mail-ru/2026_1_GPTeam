@@ -27,8 +27,12 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		fmt.Println("Error loading .env file:", err)
+	if _, err := os.Stat(".env"); err == nil {
+		err = godotenv.Load()
+		if err != nil {
+			fmt.Println("Error loading .env file:", err)
+			return
+		}
 	}
 
 	debug := os.Getenv("DEBUG") == "true"
