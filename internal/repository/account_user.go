@@ -200,7 +200,7 @@ func (obj *AccountUserPostgres) GetMembersByAccountId(ctx context.Context, accou
 		  AND au.status = $2
 		  AND au.deleted_at IS NULL
 
-		ORDER BY is_owner DESC, created_at ASC`
+		ORDER BY is_owner DESC, created_at`
 	args := []any{accountId, AccountUserStatusAccepted}
 
 	start := time.Now()
