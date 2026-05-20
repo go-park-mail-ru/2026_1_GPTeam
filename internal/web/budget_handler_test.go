@@ -115,7 +115,7 @@ func TestBudgetHandler_GetBudget(t *testing.T) {
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
-				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, []string{}, application.UserNotAuthorOfBudgetError)
+				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, []string{}, application.ErrUserNotAuthorOfBudget)
 			},
 			expectedCode: http.StatusForbidden,
 		},
@@ -124,7 +124,7 @@ func TestBudgetHandler_GetBudget(t *testing.T) {
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
-				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, []string{}, repository.NothingInTableError)
+				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, []string{}, repository.ErrNothingInTable)
 			},
 			expectedCode: http.StatusNotFound,
 		},
@@ -216,7 +216,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase, enumsApp *appmocks.MockEnumsUseCase) {
 				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"abc"})
-				budgetApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(0, repository.DuplicatedDataError)
+				budgetApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(0, repository.ErrDuplicatedData)
 			},
 			expectedCode: http.StatusBadRequest,
 		},
@@ -291,7 +291,7 @@ func TestBudgetHandler_Delete(t *testing.T) {
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
-				budgetApp.EXPECT().Delete(gomock.Any(), 1, testUser).Return(repository.NothingInTableError)
+				budgetApp.EXPECT().Delete(gomock.Any(), 1, testUser).Return(repository.ErrNothingInTable)
 			},
 			expectedCode: http.StatusNotFound,
 		},

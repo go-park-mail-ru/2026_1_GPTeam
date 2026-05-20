@@ -79,7 +79,7 @@ func (obj *Transaction) Delete(ctx context.Context, transactionId int, userId in
 		log.Warn("user is not author of transaction",
 			zap.Int("user_id", userId),
 			zap.Int("transaction_id", transactionId))
-		return 0, ForbiddenError
+		return 0, ErrForbidden
 	}
 	account, err := obj.accountRepo.GetByAccountId(ctx, transaction.AccountId)
 	if err != nil {
@@ -102,7 +102,7 @@ func (obj *Transaction) Detail(ctx context.Context, transactionId int, userId in
 		log.Warn("user is not author of transaction",
 			zap.Int("user_id", userId),
 			zap.Int("transaction_id", transactionId))
-		return models.TransactionModel{}, ForbiddenError
+		return models.TransactionModel{}, ErrForbidden
 	}
 	return transaction, nil
 }

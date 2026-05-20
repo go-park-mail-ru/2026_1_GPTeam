@@ -49,18 +49,18 @@ func mapAccountPgError(ctx context.Context, err error, action string) error {
 	}
 	log := logger.GetLoggerWithRequestId(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 	pgErr, ok := errors.AsType[*pgconn.PgError](err)
 	if ok {
 		log.Error(action, zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
-			return AccountDuplicatedDataError
+			return ErrAccountDuplicatedData
 		case pgerrcode.CheckViolation:
-			return ConstraintError
+			return ErrConstraint
 		case pgerrcode.ForeignKeyViolation:
-			return AccountForeignKeyError
+			return ErrAccountForeignKey
 		default:
 			return pgErr
 		}
@@ -191,7 +191,7 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 	appMetrics.DbQueryDuration.WithLabelValues(query, "account").Observe(float64(duration.Milliseconds()))
 	if err != nil {
 		log.Error("failed to get account ids by user & account in db", zap.Error(err))
-		return []int{}, UnableToGetAccountUserIdsError
+		return []int{}, ErrUnableToGetAccountUserIds
 	}
 	defer rows.Close()
 	var ids []int
@@ -199,7 +199,7 @@ func (obj *AccountPostgres) GetIdsByUserAndAccount(ctx context.Context, userId i
 		var id int
 		if err = rows.Scan(&id); err != nil {
 			log.Error("failed to scan id while getting account ids by user & account in db", zap.Error(err))
-			return []int{}, UnableToGetAccountUserIdsError
+			return []int{}, ErrUnableToGetAccountUserIds
 		}
 		ids = append(ids, id)
 	}
@@ -300,7 +300,7 @@ func (obj *AccountPostgres) GetByUserId(ctx context.Context, userId int) ([]mode
 		var account models.AccountModel
 		if err = rows.Scan(&account.Id, &account.Name, &account.Balance, &account.Currency, &account.OwnerId, &account.CreatedAt, &account.UpdatedAt); err != nil {
 			log.Error("failed to scan account", zap.Error(err))
-			return nil, InvalidDataInTableError
+			return nil, ErrInvalidDataInTable
 		}
 		accounts = append(accounts, account)
 	}
@@ -374,7 +374,7 @@ order by account.id;`
 			&expense,
 		); err != nil {
 			log.Error("failed to scan account with balance", zap.Error(err))
-			return nil, nil, nil, InvalidDataInTableError
+			return nil, nil, nil, ErrInvalidDataInTable
 		}
 
 		accounts = append(accounts, account)
@@ -457,7 +457,11 @@ func (obj *AccountPostgres) Delete(ctx context.Context, userId int, accountId in
 		)
 
 		results := tx.SendBatch(ctx, batch)
-		defer results.Close()
+		defer func() {
+			if err := results.Close(); err != nil {
+				log.Error("failed to close batch results", zap.Error(err))
+			}
+		}()
 
 		if _, err := results.Exec(); err != nil {
 			log.Error("failed to soft delete account transactions", zap.Error(err))
@@ -471,7 +475,7 @@ func (obj *AccountPostgres) Delete(ctx context.Context, userId int, accountId in
 		}
 
 		if tag.RowsAffected() == 0 {
-			return NothingInTableError
+			return ErrNothingInTable
 		}
 
 		log.Info(

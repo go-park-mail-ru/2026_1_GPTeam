@@ -203,8 +203,10 @@ func TestUserHandler_UploadAvatar(t *testing.T) {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 		part, _ := writer.CreateFormFile("avatar", "test.png")
-		part.Write([]byte("\x89PNG\x0D\x0A\x1A\x0A" + "fake content that makes file bigger than 512 bytes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                "))
-		writer.Close()
+		_, err := part.Write([]byte("\x89PNG\x0D\x0A\x1A\x0A" + "fake content that makes file bigger than 512 bytes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                "))
+		require.NoError(t, err)
+		err = writer.Close()
+		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, "/avatar", body).WithContext(context.WithValue(context.Background(), "user", testUserPtr))
 		req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -226,7 +228,8 @@ func TestUserHandler_UploadAvatar(t *testing.T) {
 
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
-		writer.Close()
+		err := writer.Close()
+		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, "/avatar", body).WithContext(context.WithValue(context.Background(), "user", testUserPtr))
 		req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -271,7 +274,7 @@ func TestUserHandler_IsStaff(t *testing.T) {
 			name: "error",
 			ctx:  context.WithValue(context.Background(), "user", models.UserModel{}),
 			setupMocks: func(userApp *appmocks.MockUserUseCase) {
-				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, repository.NothingInTableError)
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, repository.ErrNothingInTable)
 			},
 			expectedCode: http.StatusInternalServerError,
 			isStaff:      false,
@@ -296,7 +299,8 @@ func TestUserHandler_IsStaff(t *testing.T) {
 			handler := NewUserHandler(userApp, accountApp)
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)
-			writer.Close()
+			err := writer.Close()
+			require.NoError(t, err)
 			r := httptest.NewRequest(http.MethodGet, "/api/is_staff", nil).WithContext(testCase.ctx)
 			w := httptest.NewRecorder()
 			handler.IsStaff(w, r)
@@ -304,7 +308,7 @@ func TestUserHandler_IsStaff(t *testing.T) {
 			var response struct {
 				IsStaff bool `json:"is_staff"`
 			}
-			err := json.Unmarshal(w.Body.Bytes(), &response)
+			err = json.Unmarshal(w.Body.Bytes(), &response)
 			require.NoError(t, err)
 			require.Equal(t, testCase.isStaff, response.IsStaff)
 		})

@@ -87,20 +87,20 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	authUser, err := obj.userApp.Create(r.Context(), body)
 	if err != nil {
-		if errors.Is(err, application.HashPasswordError) {
+		if errors.Is(err, application.ErrHashPassword) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{
 				web_helpers.NewFieldError("password", "Придумайте другой пароль"),
 			})
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.DuplicatedDataError) {
+		if errors.Is(err, repository.ErrDuplicatedData) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Такой пользователь уже существует"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.ConstraintError) {
+		if errors.Is(err, repository.ErrConstraint) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Введены некорректные данные"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -122,13 +122,13 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 	}
 	accountId, err := obj.accountApp.Create(r.Context(), accountModel)
 	if err != nil {
-		if errors.Is(err, repository.AccountDuplicatedDataError) {
+		if errors.Is(err, repository.ErrAccountDuplicatedData) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Такой счёт уже существует"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.ConstraintError) {
+		if errors.Is(err, repository.ErrConstraint) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Введены некорректные данные"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
@@ -142,13 +142,13 @@ func (obj *AuthHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		zap.Int("user_id", authUser.Id),
 		zap.Int("account_id", accountId))
 	if err = obj.accountApp.LinkAccountAndUser(r.Context(), accountId, authUser.Id); err != nil {
-		if errors.Is(err, repository.ConstraintError) {
+		if errors.Is(err, repository.ErrConstraint) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Введены некорректные данные"
 			web_helpers.WriteResponseJSON(w, response.Code, response)
 			return
 		}
-		if errors.Is(err, repository.AccountForeignKeyError) {
+		if errors.Is(err, repository.ErrAccountForeignKey) {
 			response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{})
 			response.Message = "Счёта не существует"
 			web_helpers.WriteResponseJSON(w, response.Code, response)

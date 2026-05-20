@@ -94,7 +94,11 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Error("failed to close file", zap.Error(err))
+		}
+	}()
 
 	buff := make([]byte, 512)
 	if _, err = file.Read(buff); err != nil {

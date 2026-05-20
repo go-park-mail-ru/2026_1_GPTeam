@@ -50,7 +50,7 @@ func TestUserPostgres_Create(t *testing.T) {
 			expectedErr: true,
 		},
 		{
-			name: "UniqueViolation — DuplicatedDataError",
+			name: "UniqueViolation — ErrDuplicatedData",
 			user: models.UserModel{Username: "testuser", Password: "hash", Email: "test@example.com"},
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`insert into "user"`).
@@ -59,10 +59,10 @@ func TestUserPostgres_Create(t *testing.T) {
 			},
 			expectedId:    -1,
 			expectedErr:   true,
-			expectedErrIs: DuplicatedDataError,
+			expectedErrIs: ErrDuplicatedData,
 		},
 		{
-			name: "CheckViolation — ConstraintError",
+			name: "CheckViolation — ErrConstraint",
 			user: models.UserModel{Username: "testuser", Password: "hash", Email: "test@example.com"},
 			setupMock: func(mock pgxmock.PgxPoolIface) {
 				mock.ExpectQuery(`insert into "user"`).
@@ -71,7 +71,7 @@ func TestUserPostgres_Create(t *testing.T) {
 			},
 			expectedId:    -1,
 			expectedErr:   true,
-			expectedErrIs: ConstraintError,
+			expectedErrIs: ErrConstraint,
 		},
 	}
 
@@ -154,7 +154,7 @@ func TestUserPostgres_GetByID(t *testing.T) {
 			user, err := repo.GetByID(context.Background(), c.id)
 
 			if c.expectedErr {
-				require.ErrorIs(t, err, NothingInTableError)
+				require.ErrorIs(t, err, ErrNothingInTable)
 				require.Nil(t, user)
 			} else {
 				require.NoError(t, err)
@@ -218,7 +218,7 @@ func TestUserPostgres_GetByUsername(t *testing.T) {
 			user, err := repo.GetByUsername(context.Background(), c.username)
 
 			if c.expectedErr {
-				require.ErrorIs(t, err, NothingInTableError)
+				require.ErrorIs(t, err, ErrNothingInTable)
 				require.Nil(t, user)
 			} else {
 				require.NoError(t, err)
@@ -278,7 +278,7 @@ func TestUserPostgres_GetByEmail(t *testing.T) {
 			user, err := repo.GetByEmail(context.Background(), c.email)
 
 			if c.expectedErr {
-				require.ErrorIs(t, err, NothingInTableError)
+				require.ErrorIs(t, err, ErrNothingInTable)
 				require.Nil(t, user)
 			} else {
 				require.NoError(t, err)
@@ -372,7 +372,7 @@ func TestUserPostgres_Update(t *testing.T) {
 					WillReturnError(pgx.ErrNoRows)
 			},
 			expectedErr:   true,
-			expectedErrIs: NothingInTableError,
+			expectedErrIs: ErrNothingInTable,
 		},
 	}
 
@@ -435,7 +435,7 @@ func TestUserPostgres_UpdateAvatar(t *testing.T) {
 					WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 			},
 			expectedErr:   true,
-			expectedErrIs: NothingInTableError,
+			expectedErrIs: ErrNothingInTable,
 		},
 	}
 

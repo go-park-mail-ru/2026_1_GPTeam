@@ -54,9 +54,9 @@ func (obj *UserPostgres) Create(ctx context.Context, userInfo models.UserModel) 
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
-			return -1, DuplicatedDataError
+			return -1, ErrDuplicatedData
 		case pgerrcode.CheckViolation:
-			return -1, ConstraintError
+			return -1, ErrConstraint
 		default:
 			return -1, pgErr
 		}
@@ -90,7 +90,7 @@ func (obj *UserPostgres) GetByID(ctx context.Context, id int) (*models.UserModel
 		log.Error("failed to get user (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, NothingInTableError
+			return nil, ErrNothingInTable
 		}
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (obj *UserPostgres) GetByUsername(ctx context.Context, username string) (*m
 		log.Error("failed to get user by username (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, NothingInTableError
+			return nil, ErrNothingInTable
 		}
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (obj *UserPostgres) GetByEmail(ctx context.Context, email string) (*models.
 		log.Error("failed to get user by email (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, NothingInTableError
+			return nil, ErrNothingInTable
 		}
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (obj *UserPostgres) Update(ctx context.Context, profile models.UpdateUserPr
 		log.Error("failed to update user (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, NothingInTableError
+			return nil, ErrNothingInTable
 		}
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func (obj *UserPostgres) UpdateAvatar(ctx context.Context, id int, avatarUrl str
 	if result.RowsAffected() == 0 {
 		log.Warn("no rows affected",
 			zap.Int("user_id", id))
-		return NothingInTableError
+		return ErrNothingInTable
 	}
 	log.Info("Query executed")
 	return nil

@@ -461,7 +461,7 @@ func TestAccountPostgres_GetByAccountId(t *testing.T) {
 			},
 			id:      1,
 			account: models.AccountModel{},
-			err:     NothingInTableError,
+			err:     ErrNothingInTable,
 		},
 	}
 

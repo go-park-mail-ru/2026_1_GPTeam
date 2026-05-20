@@ -54,9 +54,9 @@ func (obj *SupportPostgres) Create(ctx context.Context, support models.SupportMo
 			zap.Error(pgErr))
 		switch pgErr.Code {
 		case pgerrcode.UniqueViolation:
-			return -1, DuplicatedDataError
+			return -1, ErrDuplicatedData
 		case pgerrcode.CheckViolation:
-			return -1, ConstraintError
+			return -1, ErrConstraint
 		default:
 			return -1, pgErr
 		}
@@ -88,7 +88,7 @@ func (obj *SupportPostgres) GetById(ctx context.Context, id int) (models.Support
 		log.Error("failed to get support (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.SupportModel{}, NothingInTableError
+			return models.SupportModel{}, ErrNothingInTable
 		}
 		return models.SupportModel{}, err
 	}
@@ -122,7 +122,7 @@ func (obj *SupportPostgres) GetAll(ctx context.Context) ([]models.SupportModel, 
 			log.Error("failed to scan support while getting all supports",
 				zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
-				return []models.SupportModel{}, InvalidDataInTableError
+				return []models.SupportModel{}, ErrInvalidDataInTable
 			}
 			return supports, err
 		}
@@ -165,7 +165,7 @@ func (obj *SupportPostgres) GetAllByUser(ctx context.Context, userId int) ([]mod
 			log.Error("failed to scan support while getting supports by user",
 				zap.Error(err))
 			if errors.Is(err, pgx.ErrNoRows) {
-				return []models.SupportModel{}, InvalidDataInTableError
+				return []models.SupportModel{}, ErrInvalidDataInTable
 			}
 			return supports, err
 		}
@@ -194,7 +194,7 @@ func (obj *SupportPostgres) UpdateStatus(ctx context.Context, id int, status str
 		log.Error("failed to update status of support (not db error)",
 			zap.Error(err))
 		if errors.Is(err, pgx.ErrNoRows) {
-			return NothingInTableError
+			return ErrNothingInTable
 		}
 		return err
 	}

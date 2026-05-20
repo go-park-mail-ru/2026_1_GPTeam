@@ -28,10 +28,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func authUserCtx(user models.UserModel) context.Context {
-	return context.WithValue(context.Background(), "user", user)
-}
-
 func TestAuthHandler_Logout(t *testing.T) {
 	t.Parallel()
 
@@ -253,7 +249,7 @@ func TestAuthHandler_SignUp(t *testing.T) {
 				Email:           "new@example.com",
 			},
 			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, repository.DuplicatedDataError)
+				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, repository.ErrDuplicatedData)
 			},
 			expectedCode: http.StatusBadRequest,
 		},
@@ -295,7 +291,7 @@ func TestAuthHandler_SignUp(t *testing.T) {
 				Email:           "new@example.com",
 			},
 			setupMocks: func(authSvc *authmocks.MockAuthenticationService, userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
-				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, application.HashPasswordError)
+				userApp.EXPECT().Create(gomock.Any(), gomock.Any()).Return(web_helpers.AuthUser{}, application.ErrHashPassword)
 			},
 			expectedCode: http.StatusBadRequest,
 		},

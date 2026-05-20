@@ -2,5 +2,5 @@ package rate_limiter
 
 import "fmt"
 
-var UnableToGetIp = fmt.Errorf("unable to get ip")
-var WrongServerIpAddress = fmt.Errorf("wrong server ip")
+var ErrUnableToGetIp = fmt.Errorf("unable to get ip")
+var ErrWrongServerIpAddress = fmt.Errorf("wrong server ip")

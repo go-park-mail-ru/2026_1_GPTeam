@@ -44,7 +44,7 @@ func (obj *User) Create(ctx context.Context, userRequest web_helpers.SignupBodyR
 	if err != nil {
 		log.Warn("failed to hash password",
 			zap.Error(err))
-		return web_helpers.AuthUser{}, HashPasswordError
+		return web_helpers.AuthUser{}, ErrHashPassword
 	}
 	hashedPassword := string(bytes)
 	userModel := models.UserModel{
@@ -149,7 +149,7 @@ func (obj *User) Update(ctx context.Context, profile models.UpdateUserProfile) (
 			log.Warn("failed to hash password",
 				zap.Int("user_id", profile.Id),
 				zap.Error(err))
-			return nil, HashPasswordError
+			return nil, ErrHashPassword
 		}
 		hashedPassword := string(bytes)
 		profile.Password = &hashedPassword

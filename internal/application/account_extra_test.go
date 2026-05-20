@@ -84,7 +84,7 @@ func TestAccountUseCase_GetById(t *testing.T) {
 		defer ctrl.Finish()
 		repo := repomocks.NewMockAccountRepository(ctrl)
 		repo.EXPECT().GetById(gomock.Any(), 1, 2).
-			Return(models.AccountModel{}, repository.NothingInTableError)
+			Return(models.AccountModel{}, repository.ErrNothingInTable)
 
 		uc := NewAccount(repo)
 		_, err := uc.GetById(context.Background(), 1, 2)
@@ -145,7 +145,7 @@ func TestAccountUseCase_Update(t *testing.T) {
 		defer ctrl.Finish()
 		repo := repomocks.NewMockAccountRepository(ctrl)
 		repo.EXPECT().Update(gomock.Any(), 1, 2, gomock.Any()).
-			Return(models.AccountModel{}, repository.NothingInTableError)
+			Return(models.AccountModel{}, repository.ErrNothingInTable)
 
 		uc := NewAccount(repo)
 		_, err := uc.Update(context.Background(), 1, 2, models.AccountUpdateModel{Name: &name})
@@ -184,7 +184,7 @@ func TestAccountUseCase_Delete(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		repo := repomocks.NewMockAccountRepository(ctrl)
-		repo.EXPECT().Delete(gomock.Any(), 1, 2).Return(repository.NothingInTableError)
+		repo.EXPECT().Delete(gomock.Any(), 1, 2).Return(repository.ErrNothingInTable)
 
 		uc := NewAccount(repo)
 		require.ErrorIs(t, uc.Delete(context.Background(), 1, 2), ErrAccountNotFound)

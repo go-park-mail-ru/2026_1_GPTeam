@@ -153,7 +153,11 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 		log.Error("transcription: request failed", zap.Error(err))
 		return "", fmt.Errorf("groq stt request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			log.Error("transcription: failed to close response body", zap.Error(err))
+		}
+	}()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
@@ -252,7 +256,11 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 		log.Error("parser: groq request failed", zap.Error(err))
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			log.Error("transcription: failed to close response body", zap.Error(err))
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

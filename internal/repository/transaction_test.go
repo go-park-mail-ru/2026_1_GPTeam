@@ -90,7 +90,7 @@ func TestTransactionPostgres_Create(t *testing.T) {
 				mock.ExpectRollback()
 			},
 			wantID:  -1,
-			wantErr: TransactionDuplicatedDataError,
+			wantErr: ErrTransactionDuplicatedData,
 		},
 		{
 			name: "check violation",
@@ -103,7 +103,7 @@ func TestTransactionPostgres_Create(t *testing.T) {
 				mock.ExpectRollback()
 			},
 			wantID:  -1,
-			wantErr: ConstraintError,
+			wantErr: ErrConstraint,
 		},
 		{
 			name: "foreign key violation",
@@ -116,7 +116,7 @@ func TestTransactionPostgres_Create(t *testing.T) {
 				mock.ExpectRollback()
 			},
 			wantID:  -1,
-			wantErr: TransactionAccountForeignKeyError,
+			wantErr: ErrTransactionAccountForeignKey,
 		},
 		{
 			name: "generic error",
@@ -182,7 +182,7 @@ func TestTransactionPostgres_GetIdsByUserId(t *testing.T) {
 					WithArgs(7).
 					WillReturnRows(pgxmock.NewRows([]string{"id"}))
 			},
-			wantErr: NothingInTableError,
+			wantErr: ErrNothingInTable,
 		},
 		{
 			name:   "query error",
@@ -378,7 +378,7 @@ func TestTransactionPostgres_Update(t *testing.T) {
 				mock.ExpectRollback()
 				mock.ExpectRollback()
 			},
-			wantErr: NothingInTableError,
+			wantErr: ErrNothingInTable,
 		},
 		{
 			name: "generic error",
@@ -458,7 +458,7 @@ func TestTransactionPostgres_Delete(t *testing.T) {
 				mock.ExpectRollback()
 				mock.ExpectRollback()
 			},
-			wantErr: NothingInTableError,
+			wantErr: ErrNothingInTable,
 		},
 		{
 			name: "generic error",
@@ -521,7 +521,7 @@ func TestTransactionPostgres_Detail(t *testing.T) {
 					WithArgs(42).
 					WillReturnError(pgx.ErrNoRows)
 			},
-			wantErr: NothingInTableError,
+			wantErr: ErrNothingInTable,
 		},
 	}
 
@@ -574,7 +574,7 @@ func TestTransactionPostgres_Search(t *testing.T) {
 					WithArgs(7).
 					WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "account_id", "value", "type", "category", "title", "description", "created_at", "transaction_date", "updated_at"}))
 			},
-			wantErr: NothingInTableError,
+			wantErr: ErrNothingInTable,
 		},
 	}
 
@@ -650,7 +650,7 @@ func TestTransactionPostgres_BulkCreate(t *testing.T) {
 				{Id: 1},
 				{Id: 2},
 			},
-			err: ConstraintError,
+			err: ErrConstraint,
 		},
 		{
 			name:         "empty",

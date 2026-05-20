@@ -15,9 +15,9 @@ func TestValidateUsername(t *testing.T) {
 		Username string
 		err      error
 	}{
-		{"Short length", "ab", UsernameShortError},
+		{"Short length", "ab", ErrUsernameShort},
 		{"Correct", "admin123", nil},
-		{"Incorrect symbols", "admi_n", UsernameWrongSymbolsError},
+		{"Incorrect symbols", "admi_n", ErrUsernameWrongSymbols},
 	}
 
 	for _, testCase := range testCases {
@@ -35,11 +35,11 @@ func TestValidatePassword(t *testing.T) {
 		Password string
 		err      error
 	}{
-		{"Short length", "ab", IncorrectPasswordError},
-		{"Has no upper", "admin123", IncorrectPasswordError},
-		{"Has no lower", "ADMIN123", IncorrectPasswordError},
-		{"Has no digit", "AdminAdmin", IncorrectPasswordError},
-		{"Has invalid symbols", "Admin123!", IncorrectPasswordError},
+		{"Short length", "ab", ErrIncorrectPassword},
+		{"Has no upper", "admin123", ErrIncorrectPassword},
+		{"Has no lower", "ADMIN123", ErrIncorrectPassword},
+		{"Has no digit", "AdminAdmin", ErrIncorrectPassword},
+		{"Has invalid symbols", "Admin123!", ErrIncorrectPassword},
 		{"Correct", "Admin123", nil},
 	}
 
@@ -60,7 +60,7 @@ func TestValidateConfirmPassword(t *testing.T) {
 		err             error
 	}{
 		{"Passwords match", "Admin123", "Admin123", nil},
-		{"Passwords do not match", "Admin123", "Admin456", PasswordsNotSameError},
+		{"Passwords do not match", "Admin123", "Admin456", ErrPasswordsNotSame},
 	}
 
 	for _, testCase := range testCases {
@@ -79,12 +79,12 @@ func TestValidateEmail(t *testing.T) {
 		Email string
 		err   error
 	}{
-		{"Empty email", "", EmailError},
-		{"Too long email", longEmail, EmailError},
-		{"Incorrect email without at", "abc", EmailError},
-		{"Incorrect email with at", "abc@", EmailError},
-		{"Incorrect email without dot", "abc@abc", EmailError},
-		{"Incorrect email with digit tld", "abc@abc.1", EmailError},
+		{"Empty email", "", ErrEmailError},
+		{"Too long email", longEmail, ErrEmailError},
+		{"Incorrect email without at", "abc", ErrEmailError},
+		{"Incorrect email with at", "abc@", ErrEmailError},
+		{"Incorrect email without dot", "abc@abc", ErrEmailError},
+		{"Incorrect email with digit tld", "abc@abc.1", ErrEmailError},
 		{"Correct email", "abc@example.com", nil},
 	}
 
@@ -103,8 +103,8 @@ func TestValidateBudgetTitle(t *testing.T) {
 		Title string
 		err   error
 	}{
-		{"Empty title", "", BudgetTitleEmpty},
-		{"Too long title", strings.Repeat("a", 256), BudgetTitleTooLong},
+		{"Empty title", "", ErrBudgetTitle},
+		{"Too long title", strings.Repeat("a", 256), ErrBudgetTitleTooLong},
 		{"Correct title", "My Budget", nil},
 	}
 
@@ -123,7 +123,7 @@ func TestValidateBudgetDescription(t *testing.T) {
 		Description string
 		err         error
 	}{
-		{"Empty description", "", BudgetDescriptionEmpty},
+		{"Empty description", "", ErrBudgetDescriptionEmpty},
 		{"Correct description", "For vacation", nil},
 	}
 
@@ -143,9 +143,9 @@ func TestValidateCurrency(t *testing.T) {
 		Currency string
 		err      error
 	}{
-		{"Incorrect lowercase", "abc", CurrencyNotAllowedError},
-		{"Incorrect uppercase not in list", "ABC", CurrencyNotAllowedError},
-		{"Incorrect GBP not allowed", "GBP", CurrencyNotAllowedError},
+		{"Incorrect lowercase", "abc", ErrCurrencyNotAllowed},
+		{"Incorrect uppercase not in list", "ABC", ErrCurrencyNotAllowed},
+		{"Incorrect GBP not allowed", "GBP", ErrCurrencyNotAllowed},
 		{"Correct RUB", "RUB", nil},
 		{"Correct USD", "USD", nil},
 		{"Correct EUR", "EUR", nil},
@@ -166,9 +166,9 @@ func TestValidateTargetBudget(t *testing.T) {
 		Target float64
 		err    error
 	}{
-		{"Negative", -1, TargetIsNegativeError},
-		{"Zero", 0, TargetIsZeroError},
-		{"Big", 1_000_000_001, TargetIsBigError},
+		{"Negative", -1, ErrTargetIsNegative},
+		{"Zero", 0, ErrTargetIsZero},
+		{"Big", 1_000_000_001, ErrTargetIsBig},
 		{"Correct", 1000, nil},
 	}
 
@@ -187,8 +187,8 @@ func TestValidateActualBudget(t *testing.T) {
 		Actual int
 		err    error
 	}{
-		{"Negative", -1, ValueIsNegativeError},
-		{"Big", 1_000_000_001, ValueIsBigError},
+		{"Negative", -1, ErrValueIsNegative},
+		{"Big", 1_000_000_001, ErrValueIsBig},
 		{"Zero is allowed", 0, nil},
 		{"Correct", 500, nil},
 	}
@@ -208,7 +208,7 @@ func TestValidateBudgetStartDate(t *testing.T) {
 		Start time.Time
 		err   error
 	}{
-		{"In past", time.Now().AddDate(0, 0, -1), StartDateInPastError},
+		{"In past", time.Now().AddDate(0, 0, -1), ErrStartDateInPast},
 		{"Correct future", time.Now().AddDate(0, 0, 1), nil},
 		{"Correct today", time.Now(), nil},
 	}
@@ -229,7 +229,7 @@ func TestValidateBudgetEndDate(t *testing.T) {
 		End   time.Time
 		err   error
 	}{
-		{"End before start", time.Now(), time.Now().AddDate(0, 0, -1), EndDateInPastError},
+		{"End before start", time.Now(), time.Now().AddDate(0, 0, -1), ErrEndDateInPast},
 		{"Correct (in future)", time.Now(), time.Now().AddDate(0, 0, 1), nil},
 		{"Correct (nil end time)", time.Now(), time.Time{}, nil},
 	}
@@ -292,8 +292,8 @@ func TestValidateTransactionTitle(t *testing.T) {
 		Title string
 		err   error
 	}{
-		{"Empty title", "   ", TransactionTitleEmptyError},
-		{"Too long title", strings.Repeat("а", 256), TransactionTitleLongError},
+		{"Empty title", "   ", ErrTransactionTitleEmpty},
+		{"Too long title", strings.Repeat("а", 256), ErrTransactionTitleLong},
 		{"Correct title", "Groceries", nil},
 	}
 
@@ -312,7 +312,7 @@ func TestValidateTransactionDescription(t *testing.T) {
 		Description string
 		err         error
 	}{
-		{"Empty description", "   ", TransactionDescriptionEmptyError},
+		{"Empty description", "   ", ErrTransactionDescriptionEmpty},
 		{"Correct description", "Weekly shopping", nil},
 	}
 
@@ -331,9 +331,9 @@ func TestValidateTransactionValue(t *testing.T) {
 		Value float64
 		err   error
 	}{
-		{"Negative", -10.5, ValueIsNegativeError},
-		{"Zero", 0, ValueIsNegativeError},
-		{"Too big", 1_000_000_001, ValueIsBigError},
+		{"Negative", -10.5, ErrValueIsNegative},
+		{"Zero", 0, ErrValueIsNegative},
+		{"Too big", 1_000_000_001, ErrValueIsBig},
 		{"Correct", 100.5, nil},
 	}
 
@@ -353,7 +353,7 @@ func TestValidateTransactionType(t *testing.T) {
 		Type string
 		err  error
 	}{
-		{"Invalid type", "transfer", TransactionTypeNotAllowedError},
+		{"Invalid type", "transfer", ErrTransactionTypeNotAllowed},
 		{"Valid type", "income", nil},
 	}
 
@@ -373,7 +373,7 @@ func TestValidateTransactionCategory(t *testing.T) {
 		Category string
 		err      error
 	}{
-		{"Invalid category", "entertainment", CategoryNotAllowedError},
+		{"Invalid category", "entertainment", ErrCategoryNotAllowed},
 		{"Valid category", "food", nil},
 	}
 
@@ -557,14 +557,14 @@ func TestValidateLength(t *testing.T) {
 			data:      "123",
 			minLength: 5,
 			maxLength: 10,
-			err:       MinLengthError,
+			err:       ErrMinLength,
 		},
 		{
 			name:      "too long",
 			data:      "123123123123123123",
 			minLength: 3,
 			maxLength: 10,
-			err:       MaxLengthError,
+			err:       ErrMaxLength,
 		},
 	}
 
@@ -594,7 +594,7 @@ func TestCheckEqual(t *testing.T) {
 			name:   "not equal int",
 			first:  10,
 			second: 1,
-			err:    NoEqualsError,
+			err:    ErrNoEquals,
 		},
 		{
 			name:   "equal string",
@@ -606,7 +606,7 @@ func TestCheckEqual(t *testing.T) {
 			name:   "not equal string",
 			first:  "test",
 			second: "123",
-			err:    NoEqualsError,
+			err:    ErrNoEquals,
 		},
 		{
 			name:   "equal float",
@@ -618,7 +618,7 @@ func TestCheckEqual(t *testing.T) {
 			name:   "not equal float",
 			first:  1.0,
 			second: 1.1,
-			err:    NoEqualsError,
+			err:    ErrNoEquals,
 		},
 	}
 

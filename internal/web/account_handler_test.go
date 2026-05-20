@@ -17,10 +17,6 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 )
 
-type contextKey string
-
-const userContextKey contextKey = "user"
-
 func ctxWithUser(user models.UserModel) context.Context {
 	return context.WithValue(context.Background(), "user", user)
 }

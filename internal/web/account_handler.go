@@ -288,7 +288,7 @@ func (obj *AccountHandler) writeAccountError(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if errors.Is(err, application.AllFieldsEmptyError) {
+	if errors.Is(err, application.ErrAllFieldsEmpty) {
 		response := web_helpers.NewBadRequestErrorResponse("Передайте хотя бы одно поле для обновления")
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return

@@ -767,7 +767,7 @@ func TestOnlyStaffMiddleware(t *testing.T) {
 		{
 			name: "fail",
 			setup: func(userApp *appmocks.MockUserUseCase) {
-				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, repository.NothingInTableError)
+				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, repository.ErrNothingInTable)
 			},
 			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: true}),
 			method: http.MethodGet,

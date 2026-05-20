@@ -539,11 +539,11 @@ func TestUser_IsStaff(t *testing.T) {
 		{
 			name: "fail",
 			setupMocks: func(repo *repomocks.MockUserRepository) {
-				repo.EXPECT().GetByID(gomock.Any(), gomock.Any()).Return(nil, repository.NothingInTableError)
+				repo.EXPECT().GetByID(gomock.Any(), gomock.Any()).Return(nil, repository.ErrNothingInTable)
 			},
 			userId:  3,
 			isStaff: false,
-			err:     repository.NothingInTableError,
+			err:     repository.ErrNothingInTable,
 		},
 	}
 

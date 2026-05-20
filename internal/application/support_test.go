@@ -38,7 +38,7 @@ func TestSupport_Create(t *testing.T) {
 		{
 			name: "fail",
 			setupMocks: func(repo *repomocks.MockSupportRepository) {
-				repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(-1, repository.ConstraintError)
+				repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(-1, repository.ErrConstraint)
 			},
 			data: web_helpers.SupportRequest{
 				Category: strings.Repeat("a", 300),
@@ -46,7 +46,7 @@ func TestSupport_Create(t *testing.T) {
 			},
 			userId: 1,
 			res:    -1,
-			err:    repository.ConstraintError,
+			err:    repository.ErrConstraint,
 		},
 	}
 
@@ -85,11 +85,11 @@ func TestSupport_GetById(t *testing.T) {
 		{
 			name: "fail",
 			setupMocks: func(repo *repomocks.MockSupportRepository) {
-				repo.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{}, repository.ConstraintError)
+				repo.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{}, repository.ErrConstraint)
 			},
 			id:  -1,
 			res: models.SupportModel{},
-			err: repository.ConstraintError,
+			err: repository.ErrConstraint,
 		},
 	}
 
@@ -129,10 +129,10 @@ func TestSupport_GetAll(t *testing.T) {
 		{
 			name: "empty",
 			setupMocks: func(repo *repomocks.MockSupportRepository) {
-				repo.EXPECT().GetAll(gomock.Any()).Return([]models.SupportModel{}, repository.InvalidDataInTableError)
+				repo.EXPECT().GetAll(gomock.Any()).Return([]models.SupportModel{}, repository.ErrInvalidDataInTable)
 			},
 			res: []models.SupportModel{},
-			err: repository.InvalidDataInTableError,
+			err: repository.ErrInvalidDataInTable,
 		},
 	}
 
@@ -215,10 +215,10 @@ func TestSupport_Update(t *testing.T) {
 		{
 			name: "fail",
 			setupMocks: func(repo *repomocks.MockSupportRepository) {
-				repo.EXPECT().UpdateStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.NothingInTableError)
+				repo.EXPECT().UpdateStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.ErrNothingInTable)
 			},
 			id:  1,
-			err: repository.NothingInTableError,
+			err: repository.ErrNothingInTable,
 		},
 	}
 

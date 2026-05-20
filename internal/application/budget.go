@@ -76,7 +76,7 @@ func (obj *Budget) GetById(ctx context.Context, id int, user models.UserModel) (
 		log.Warn("user is not author of budget",
 			zap.Int("user_id", user.Id),
 			zap.Int("budget_id", id))
-		return models.BudgetModel{}, []string{}, UserNotAuthorOfBudgetError
+		return models.BudgetModel{}, []string{}, ErrUserNotAuthorOfBudget
 	}
 	category, err := obj.repository.GetCategoryOfBudget(ctx, budget.Id)
 	return budget, category, err
@@ -108,7 +108,7 @@ func calculateActual(ctx context.Context, budget models.BudgetModel, categories 
 		}
 		transactions, err := transactionApp.Search(ctx, budget.Author, filter)
 		if err != nil {
-			if !errors.Is(err, repository.NothingInTableError) {
+			if !errors.Is(err, repository.ErrNothingInTable) {
 				return 0, err
 			}
 		}

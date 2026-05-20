@@ -134,7 +134,11 @@ func main() {
 		log.Fatal("auth gRPC dial", zap.String("addr", authGrpcAddr), zap.Error(err))
 		return
 	}
-	defer authConn.Close()
+	defer func() {
+		if err := authConn.Close(); err != nil {
+			log.Error("failed to close auth gRPC connection", zap.Error(err))
+		}
+	}()
 	authClient := authv1.NewAuthServiceClient(authConn)
 	authService := auth.NewGrpcAuthAdapter(authClient, jwtSecret, jwtVersion)
 
@@ -205,7 +209,11 @@ func main() {
 		log.Fatal("fileserver gRPC dial", zap.String("addr", fsGrpcAddr), zap.Error(err))
 		return
 	}
-	defer fsConn.Close()
+	defer func() {
+		if err := fsConn.Close(); err != nil {
+			log.Error("failed to close fileserver gRPC connection", zap.Error(err))
+		}
+	}()
 	fsClient := fsv1.NewFileServiceClient(fsConn)
 	var avatarUploader application.AvatarUploader = fileupload.NewGrpcUploader(fsClient)
 

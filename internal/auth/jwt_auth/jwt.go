@@ -36,11 +36,11 @@ func NewJwt(repository repository.JwtRepository, secret string, version string) 
 	log := logger.GetLogger()
 	if len(secret) < 8 {
 		log.Error("secret too short")
-		return nil, JwtSecretError
+		return nil, ErrJwtSecret
 	}
 	if version == "" {
 		log.Error("version does not set")
-		return nil, JwtVersionError
+		return nil, ErrJwtVersion
 	}
 	return &Jwt{
 		repository: repository,
@@ -54,7 +54,7 @@ func (obj *Jwt) parseToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			log.Error("unexpected signing method")
-			return nil, WrongSigningMethodError
+			return nil, ErrWrongSigningMethod
 		}
 		return obj.GetJWTSecret(), nil
 	})

@@ -52,7 +52,7 @@ func TestSupportHandler_Create(t *testing.T) {
 		{
 			name: "fail (constraint error)",
 			setup: func(supportApp *mocks.MockSupportUseCase) {
-				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, repository.ConstraintError)
+				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, repository.ErrConstraint)
 			},
 			ctx: context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
 			body: web_helpers.SupportRequest{
@@ -64,7 +64,7 @@ func TestSupportHandler_Create(t *testing.T) {
 		{
 			name: "fail (duplicated error)",
 			setup: func(supportApp *mocks.MockSupportUseCase) {
-				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, repository.DuplicatedDataError)
+				supportApp.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(-1, repository.ErrDuplicatedData)
 			},
 			ctx: context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
 			body: web_helpers.SupportRequest{
@@ -220,7 +220,7 @@ func TestSupportHandler_Detail(t *testing.T) {
 		{
 			name: "not found",
 			setup: func(supportApp *mocks.MockSupportUseCase, userApp *mocks.MockUserUseCase) {
-				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{}, repository.NothingInTableError)
+				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{}, repository.ErrNothingInTable)
 			},
 			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
 			id:   "1",
@@ -239,7 +239,7 @@ func TestSupportHandler_Detail(t *testing.T) {
 			name: "not found user",
 			setup: func(supportApp *mocks.MockSupportUseCase, userApp *mocks.MockUserUseCase) {
 				supportApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(models.SupportModel{Id: 1}, nil)
-				userApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(nil, repository.NothingInTableError)
+				userApp.EXPECT().GetById(gomock.Any(), gomock.Any()).Return(nil, repository.ErrNothingInTable)
 			},
 			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
 			id:   "1",
@@ -384,7 +384,7 @@ func TestSupportHandler_Update(t *testing.T) {
 		{
 			name: "not found",
 			setup: func(supportApp *mocks.MockSupportUseCase) {
-				supportApp.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.NothingInTableError)
+				supportApp.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.ErrNothingInTable)
 			},
 			ctx:  context.WithValue(context.Background(), "user", models.UserModel{Id: 1}),
 			id:   "10",

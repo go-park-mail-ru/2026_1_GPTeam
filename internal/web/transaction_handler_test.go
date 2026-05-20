@@ -47,7 +47,7 @@ func TestTransactionHandler_GetTransactions(t *testing.T) {
 			name: "not found",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase) {
-				trxApp.EXPECT().GetTransactionIdsOfUser(gomock.Any(), testUser).Return(nil, repository.NothingInTableError)
+				trxApp.EXPECT().GetTransactionIdsOfUser(gomock.Any(), testUser).Return(nil, repository.ErrNothingInTable)
 			},
 			expectedCode: http.StatusNotFound,
 		},
@@ -187,7 +187,7 @@ func TestTransactionHandler_Detail(t *testing.T) {
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, accApp *appmocks.MockAccountUseCase) {
-				trxApp.EXPECT().Detail(gomock.Any(), 1, testUser.Id).Return(models.TransactionModel{}, application.ForbiddenError)
+				trxApp.EXPECT().Detail(gomock.Any(), 1, testUser.Id).Return(models.TransactionModel{}, application.ErrForbidden)
 			},
 			expectedCode: http.StatusForbidden,
 		},
@@ -322,7 +322,7 @@ func TestTransactionHandler_Delete(t *testing.T) {
 			id:   "1",
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase) {
-				trxApp.EXPECT().Delete(gomock.Any(), 1, testUser.Id).Return(0, repository.NothingInTableError)
+				trxApp.EXPECT().Delete(gomock.Any(), 1, testUser.Id).Return(0, repository.ErrNothingInTable)
 			},
 			expectedCode: http.StatusNotFound,
 		},

@@ -48,9 +48,9 @@ func TestTransactionUseCase_Create(t *testing.T) {
 			name: "repository error",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
 				accRepo.EXPECT().GetByAccountId(gomock.Any(), tx.AccountId).Return(account, nil)
-				repo.EXPECT().Create(gomock.Any(), tx, account).Return(0, repository.DuplicatedDataError)
+				repo.EXPECT().Create(gomock.Any(), tx, account).Return(0, repository.ErrDuplicatedData)
 			},
-			wantErr: repository.DuplicatedDataError,
+			wantErr: repository.ErrDuplicatedData,
 		},
 	}
 
@@ -96,9 +96,9 @@ func TestTransactionUseCase_GetTransactionIdsOfUser(t *testing.T) {
 		{
 			name: "repository error",
 			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().GetIdsByUserId(gomock.Any(), 7).Return(nil, repository.NothingInTableError)
+				repo.EXPECT().GetIdsByUserId(gomock.Any(), 7).Return(nil, repository.ErrNothingInTable)
 			},
-			wantErr: repository.NothingInTableError,
+			wantErr: repository.ErrNothingInTable,
 		},
 	}
 
@@ -159,9 +159,9 @@ func TestTransactionUseCase_Update(t *testing.T) {
 				repo.EXPECT().Detail(gomock.Any(), gomock.Any()).Return(oldTransaction, nil)
 				accRepo.EXPECT().GetByAccountId(gomock.Any(), oldTransaction.AccountId).Return(oldAccount, nil)
 				accRepo.EXPECT().GetByAccountId(gomock.Any(), tx.AccountId).Return(account, nil)
-				repo.EXPECT().Update(gomock.Any(), tx, oldTransaction, account, oldAccount).Return(repository.ConstraintError)
+				repo.EXPECT().Update(gomock.Any(), tx, oldTransaction, account, oldAccount).Return(repository.ErrConstraint)
 			},
-			wantErr: repository.ConstraintError,
+			wantErr: repository.ErrConstraint,
 		},
 	}
 
@@ -216,16 +216,16 @@ func TestTransactionUseCase_Delete(t *testing.T) {
 		{
 			name: "detail error",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
-				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{}, repository.NothingInTableError)
+				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{}, repository.ErrNothingInTable)
 			},
-			wantErr: repository.NothingInTableError,
+			wantErr: repository.ErrNothingInTable,
 		},
 		{
 			name: "forbidden",
 			setupFunc: func(repo *repomocks.MockTransactionRepository, accRepo *repomocks.MockAccountRepository) {
 				repo.EXPECT().Detail(gomock.Any(), 5).Return(models.TransactionModel{Id: 5, UserId: 8}, nil)
 			},
-			wantErr: ForbiddenError,
+			wantErr: ErrForbidden,
 		},
 		{
 			name: "delete error",
@@ -280,16 +280,16 @@ func TestTransactionUseCase_Detail(t *testing.T) {
 		{
 			name: "detail error",
 			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().Detail(gomock.Any(), 9).Return(models.TransactionModel{}, repository.NothingInTableError)
+				repo.EXPECT().Detail(gomock.Any(), 9).Return(models.TransactionModel{}, repository.ErrNothingInTable)
 			},
-			wantErr: repository.NothingInTableError,
+			wantErr: repository.ErrNothingInTable,
 		},
 		{
 			name: "forbidden",
 			setupFunc: func(repo *repomocks.MockTransactionRepository) {
 				repo.EXPECT().Detail(gomock.Any(), 9).Return(models.TransactionModel{Id: 9, UserId: 99}, nil)
 			},
-			wantErr: ForbiddenError,
+			wantErr: ErrForbidden,
 		},
 	}
 
@@ -380,7 +380,7 @@ func TestTransaction_BulkCreate(t *testing.T) {
 		{
 			name: "some error",
 			setupFunc: func(repo *repomocks.MockTransactionRepository) {
-				repo.EXPECT().BulkCreate(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.ConstraintError)
+				repo.EXPECT().BulkCreate(gomock.Any(), gomock.Any(), gomock.Any()).Return(repository.ErrConstraint)
 			},
 			transactions: []models.TransactionModel{
 				{Id: 1},
@@ -390,7 +390,7 @@ func TestTransaction_BulkCreate(t *testing.T) {
 				{Id: 1},
 				{Id: 2},
 			},
-			err: repository.ConstraintError,
+			err: repository.ErrConstraint,
 		},
 		{
 			name: "empty",
@@ -449,7 +449,7 @@ title2,20,3,INCOME,Стипендия,2026-01-15T14:30:00Z,test`,
 		{
 			name: "account error",
 			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
-				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{}, repository.NothingInTableError)
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{}, repository.ErrNothingInTable)
 			},
 			userId:       1,
 			csvData:      `title1,100,1,INCOME,Зарплата,2026-01-15T14:30:00Z,test`,
@@ -550,14 +550,14 @@ func TestSberReaderStrategy_ReadTransactions(t *testing.T) {
 		{
 			name: "account error",
 			setupFunc: func(accApp *appmocks.MockAccountUseCase) {
-				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{}, repository.NothingInTableError)
+				accApp.EXPECT().GetById(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.AccountModel{}, repository.ErrNothingInTable)
 			},
 			userId:       1,
 			accountId:    1,
 			csvData:      `15.01.2026 14:30,Зарплата,+100,0`,
 			transactions: []models.TransactionModel{},
 			accounts:     []models.AccountModel{},
-			err:          repository.NothingInTableError,
+			err:          repository.ErrNothingInTable,
 		},
 		{
 			name: "wrong time",

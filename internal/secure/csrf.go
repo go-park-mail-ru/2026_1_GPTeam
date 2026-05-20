@@ -38,7 +38,7 @@ func NewCsrf(secretKey string) (*Csrf, error) {
 	log := logger.GetLogger()
 	if secretKey == "" {
 		log.Fatal("CSRF secret key is required")
-		return &Csrf{}, CsrfSecretError
+		return &Csrf{}, ErrCsrfSecret
 	}
 	return &Csrf{
 		secret:          []byte(secretKey),
@@ -76,7 +76,7 @@ func (obj *Csrf) ValidateCsrf(ctx context.Context, csrf string, token string) (b
 	parts := strings.Split(csrf, ".")
 	if len(parts) != 2 {
 		log.Warn("Get invalid CSRF token")
-		return false, InvalidCsrfError
+		return false, ErrInvalidCsrf
 	}
 	hmacValue := parts[0]
 	randomValue := parts[1]
@@ -86,7 +86,7 @@ func (obj *Csrf) ValidateCsrf(ctx context.Context, csrf string, token string) (b
 	expectedHmac := hex.EncodeToString(hmacObj.Sum(nil))
 	if !hmac.Equal([]byte(hmacValue), []byte(expectedHmac)) {
 		log.Warn("Get wrong CSRF token")
-		return false, InvalidCsrfSignatureError
+		return false, ErrInvalidCsrfSignature
 	}
 	return true, nil
 }
@@ -96,7 +96,7 @@ func (obj *Csrf) getCsrfValueFromToken(ctx context.Context, csrf string) (string
 	if len(parts) != 2 {
 		log := logger.GetLoggerWithRequestId(ctx)
 		log.Warn("Get invalid CSRF value")
-		return "", InvalidCsrfError
+		return "", ErrInvalidCsrf
 	}
 	return parts[1], nil
 }

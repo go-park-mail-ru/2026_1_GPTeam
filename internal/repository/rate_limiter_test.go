@@ -61,7 +61,7 @@ func TestBucketRedis_Get(t *testing.T) {
 		mock.Command("GET", ip).ExpectError(redis.ErrNil)
 
 		_, err = repository.Get(context.Background(), ip)
-		require.ErrorIs(t, err, NoIpInSavedError)
+		require.ErrorIs(t, err, ErrNoIpInSaved)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
@@ -113,7 +113,7 @@ func TestBucketRedis_GetPermanentBlocked(t *testing.T) {
 		repository, mock := newRateLimiterRedis(t)
 		mock.Command("GET", PermanentBlockedIpsKey).ExpectError(redis.ErrNil)
 		permanentBlocked, err := repository.GetPermanentBlocked(context.Background())
-		require.ErrorIs(t, err, NoIpInSavedError)
+		require.ErrorIs(t, err, ErrNoIpInSaved)
 		require.Equal(t, permanentBlocked, models.PermanentBlockedIps{})
 		require.NoError(t, mock.ExpectationsWereMet())
 	})

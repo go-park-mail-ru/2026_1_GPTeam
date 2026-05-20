@@ -86,7 +86,9 @@ func TestModifyLoggerWithDBQuery(t *testing.T) {
 }
 
 func TestLoggerLifecycle(t *testing.T) {
-	defer os.Remove("backend.log")
+	defer func() {
+		_ = os.Remove("backend.log")
+	}()
 
 	err := InitLogger(false)
 	require.NoError(t, err)
@@ -102,7 +104,9 @@ func TestLoggerLifecycle(t *testing.T) {
 }
 
 func TestAccessLoggerLifecycle(t *testing.T) {
-	defer os.Remove("access.log")
+	defer func() {
+		_ = os.Remove("access.log")
+	}()
 
 	err := InitAccessLogger()
 	require.NoError(t, err)
