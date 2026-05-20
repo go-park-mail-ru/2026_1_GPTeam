@@ -15,8 +15,6 @@ jobs:
         run: make test
       - name: Run coverage
         if: always()
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: make test-cover-html
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
@@ -24,6 +22,18 @@ jobs:
         with:
           name: tests_coverage_html_file
           path: coverage.html
+      - name: Extract coverage percent
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+      - name: Update README with coverage
+        run: |
+          sed -i "s/ Coverage: .*% / Coverage: ${{ env.COVERAGE }} /" README.md
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add README.md
+          git commit -m "Update coverage badge [skip ci]" || exit 0
+          git push
 
   lint:
     runs-on: ubuntu-latest
