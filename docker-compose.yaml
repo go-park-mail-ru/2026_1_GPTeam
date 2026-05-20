@@ -285,7 +285,7 @@ services:
     restart: unless-stopped
 
   watchtower:
-    image: containrrr/watchtower:latest
+    image: ghcr.io/nickfedor/watchtower:latest
     container_name: watchtower
     restart: always
     volumes:
@@ -293,6 +293,7 @@ services:
       - ~/.docker/config.json:/config.json:ro
     environment:
       - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=60
     networks:
       - gpteam-network
 
