@@ -114,7 +114,11 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-
+	defer func() {
+		if err := writer.Close(); err != nil {
+			log.Error("transcription: failed to close writer", zap.Error(err))
+		}
+	}()
 	if err := writer.WriteField("model", "whisper-large-v3-turbo"); err != nil {
 		log.Error("transcription: failed to write model field", zap.Error(err))
 		return "", fmt.Errorf("write model field: %w", err)

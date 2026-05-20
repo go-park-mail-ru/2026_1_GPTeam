@@ -15,6 +15,7 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
 	"github.com/google/uuid"
@@ -91,7 +92,7 @@ func AuthMiddleware(next http.Handler, authService auth.AuthenticationService, u
 			zap.String("path", path),
 			zap.Int("user_id", userId))
 
-		ctx := context.WithValue(r.Context(), "user", authUser)
+		ctx := context.WithValue(r.Context(), context_helper.ContextKeyUser, authUser)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -135,7 +136,7 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log := logger.GetAccessLogger()
 		requestId := uuid.New().String()
-		ctx := context.WithValue(r.Context(), "request_id", requestId)
+		ctx := context.WithValue(r.Context(), context_helper.ContextKeyRequestId, requestId)
 		log.Info("Request",
 			zap.String("path", r.URL.Path),
 			zap.String("method", r.Method),
