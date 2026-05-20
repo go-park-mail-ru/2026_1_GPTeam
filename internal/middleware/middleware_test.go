@@ -508,7 +508,7 @@ func TestAccessLogMiddleware(t *testing.T) {
 
 	var gotReqId string
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if reqId, ok := r.Context().Value("request_id").(string); ok {
+		if reqId, ok := r.Context().Value(context_helper.ContextKeyRequestId).(string); ok {
 			gotReqId = reqId
 		}
 		w.WriteHeader(http.StatusCreated)
