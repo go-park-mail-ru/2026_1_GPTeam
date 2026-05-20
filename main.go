@@ -19,7 +19,6 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/secure/rate_limiter"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web"
-	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 	authv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/auth/v1"
 	fsv1 "github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/fileserver/v1"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
@@ -325,11 +324,6 @@ func main() {
 	mux.Handle("/support/create_appeal", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(supportHandler.Create)))
 	mux.Handle("/support/update/{id}", middleware.MethodValidationMiddleware(http.MethodPut)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.Update), userApp)))
 	mux.Handle("/api/is_staff", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.IsStaff)))
-	mux.HandleFunc("/api/test", func(w http.ResponseWriter, r *http.Request) {
-		response := web_helpers.NewOkResponse()
-		response.Message = "it work"
-		web_helpers.WriteResponseJSON(w, response.Code, response)
-	})
 
 	handler := middleware.CSPMiddleware(mux)
 	handler = middleware.CSRFMiddleware(handler, csrfService)

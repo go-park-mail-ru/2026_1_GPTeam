@@ -2,7 +2,6 @@ on:
   push:
     branches:
       - "main"
-      - "feature/fin-116"
 
 jobs:
   deploy:
