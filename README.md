@@ -1,5 +1,5 @@
 # Backend 2026_01_GPTeam
-![Coverage](https://img.shields.io/badge/Coverage-2-red)
+![Coverage](https://img.shields.io/badge/Coverage-44.9%25-red)
 
 Coverage: 62.9%
 
