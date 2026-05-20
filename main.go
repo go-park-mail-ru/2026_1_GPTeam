@@ -325,9 +325,9 @@ func main() {
 	mux.Handle("/support/create_appeal", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(supportHandler.Create)))
 	mux.Handle("/support/update/{id}", middleware.MethodValidationMiddleware(http.MethodPut)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.Update), userApp)))
 	mux.Handle("/api/is_staff", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.IsStaff)))
-	mux.HandleFunc("api/test_func", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("api/test", func(w http.ResponseWriter, r *http.Request) {
 		response := web_helpers.NewOkResponse()
-		response.Message = "work"
+		response.Message = "it work"
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 	})
 
