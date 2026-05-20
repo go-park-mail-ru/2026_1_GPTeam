@@ -3,11 +3,8 @@ package groq
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,8 +13,6 @@ import (
 )
 
 func TestGroqClient_Transcribe(t *testing.T) {
-	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
-
 	cases := []struct {
 		name           string
 		handler        http.HandlerFunc
@@ -29,7 +24,7 @@ func TestGroqClient_Transcribe(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, http.MethodPost, r.Method)
 				assert.Contains(t, r.Header.Get("Content-Type"), "multipart/form-data")
-				assert.Equal(t, fmt.Sprintf("Bearer %s", groqKey), r.Header.Get("Authorization"))
+				assert.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
 
 				w.WriteHeader(http.StatusOK)
 				_ = json.NewEncoder(w).Encode(groqTranscriptResponse{Text: "Привет мир"})
@@ -101,7 +96,7 @@ func TestGroqClient_Transcribe(t *testing.T) {
 			groqSTTURL = server.URL
 			defer func() { groqSTTURL = oldSTTURL }()
 
-			client := NewGroqClient(groqKey, "")
+			client := NewGroqClient("test-key", "")
 			client.httpClient = &http.Client{Timeout: 60 * time.Second}
 
 			ctx := context.Background()
@@ -119,7 +114,6 @@ func TestGroqClient_Transcribe(t *testing.T) {
 }
 
 func TestGroqClient_ParseTransaction(t *testing.T) {
-
 	cases := []struct {
 		name          string
 		transcript    string
@@ -218,8 +212,6 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 		},
 	}
 
-	groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
-
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			server := httptest.NewServer(c.handler)
@@ -229,7 +221,7 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 			groqChatURL = server.URL
 			defer func() { groqChatURL = oldChatURL }()
 
-			client := NewGroqClient(groqKey, "")
+			client := NewGroqClient("test-key", "")
 			client.httpClient = &http.Client{Timeout: 60 * time.Second}
 
 			ctx := context.Background()
