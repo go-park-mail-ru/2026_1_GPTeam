@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -22,7 +23,7 @@ func TestEnumsHandler_CurrencyCodes(t *testing.T) {
 
 	handler := NewEnumsHandler(enumsApp)
 	req := httptest.NewRequest(http.MethodGet, "/enums/currencies", nil)
-	req = req.WithContext(context.WithValue(req.Context(), "request_id", "test"))
+	req = req.WithContext(context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test"))
 
 	w := httptest.NewRecorder()
 	handler.CurrencyCodes(w, req)
@@ -41,7 +42,7 @@ func TestEnumsHandler_TransactionTypes(t *testing.T) {
 
 	handler := NewEnumsHandler(enumsApp)
 	req := httptest.NewRequest(http.MethodGet, "/enums/transaction-types", nil)
-	req = req.WithContext(context.WithValue(req.Context(), "request_id", "test"))
+	req = req.WithContext(context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test"))
 
 	w := httptest.NewRecorder()
 	handler.TransactionTypes(w, req)
@@ -60,7 +61,7 @@ func TestEnumsHandler_CategoryTypes(t *testing.T) {
 
 	handler := NewEnumsHandler(enumsApp)
 	req := httptest.NewRequest(http.MethodGet, "/enums/categories", nil)
-	req = req.WithContext(context.WithValue(req.Context(), "request_id", "test"))
+	req = req.WithContext(context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test"))
 
 	w := httptest.NewRecorder()
 	handler.CategoryTypes(w, req)
