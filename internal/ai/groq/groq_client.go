@@ -261,7 +261,11 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 		log.Error("parser: groq request failed", zap.Error(err))
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			log.Error("parser: failed to close response body", zap.Error(err))
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

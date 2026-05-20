@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -245,7 +246,7 @@ func TestPanicMiddleware_WithRequestId(t *testing.T) {
 
 	handler := PanicMiddleware(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	ctx := context.WithValue(req.Context(), "request_id", "test-req-id")
+	ctx := context.WithValue(req.Context(), context_helper.ContextKeyRequestId, "test-req-id")
 	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
@@ -378,7 +379,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 			var gotCtxUser any
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				gotCtxUser = r.Context().Value("user")
+				gotCtxUser = r.Context().Value(context_helper.ContextKeyUser)
 				w.WriteHeader(http.StatusOK)
 			})
 
@@ -721,7 +722,7 @@ func TestOnlyStaffMiddleware(t *testing.T) {
 			setup: func(userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(true, nil)
 			},
-			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: true}),
+			ctx:    context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{IsStaff: true}),
 			method: http.MethodGet,
 			path:   "/staff",
 			code:   http.StatusOK,
@@ -731,7 +732,7 @@ func TestOnlyStaffMiddleware(t *testing.T) {
 			setup: func(userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(true, nil)
 			},
-			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: true}),
+			ctx:    context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{IsStaff: true}),
 			method: http.MethodPost,
 			path:   "/staff",
 			code:   http.StatusOK,
@@ -741,7 +742,7 @@ func TestOnlyStaffMiddleware(t *testing.T) {
 			setup: func(userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, nil)
 			},
-			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: false}),
+			ctx:    context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{IsStaff: false}),
 			method: http.MethodGet,
 			path:   "/staff",
 			code:   http.StatusNotFound,
@@ -759,7 +760,7 @@ func TestOnlyStaffMiddleware(t *testing.T) {
 			setup: func(userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, nil)
 			},
-			ctx:    context.WithValue(context.Background(), "user", models.UserModel{}),
+			ctx:    context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{}),
 			method: http.MethodGet,
 			path:   "/staff",
 			code:   http.StatusNotFound,
@@ -769,7 +770,7 @@ func TestOnlyStaffMiddleware(t *testing.T) {
 			setup: func(userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, repository.ErrNothingInTable)
 			},
-			ctx:    context.WithValue(context.Background(), "user", models.UserModel{IsStaff: true}),
+			ctx:    context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{IsStaff: true}),
 			method: http.MethodGet,
 			path:   "/staff",
 			code:   http.StatusInternalServerError,

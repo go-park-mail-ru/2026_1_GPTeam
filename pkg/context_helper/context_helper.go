@@ -6,6 +6,7 @@ type contextKey string
 
 const (
 	ContextKeyRequestId contextKey = "request_id"
+	ContextKeyUser      contextKey = "user"
 )
 
 func GetRequestIdFromContext(ctx context.Context) string {
