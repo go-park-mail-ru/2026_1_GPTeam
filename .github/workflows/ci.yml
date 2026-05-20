@@ -34,8 +34,12 @@ jobs:
           git add README.md
           git commit -m "Update coverage badge [skip ci]" || exit 0
           git push
+      - name: Run Test
+        run: |
+          go test -v ./... -covermode=count -coverprofile=coverage.out
+          go tool cover -func=coverage.out -o=coverage.out
       - name: Go Coverage Badge
-        uses: tj-actions/coverage-badge-go@v2
+        uses: tj-actions/coverage-badge-go@v3
         with:
           filename: coverage.out
           green: 80
