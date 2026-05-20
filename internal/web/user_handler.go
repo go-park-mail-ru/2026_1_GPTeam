@@ -127,7 +127,7 @@ func (obj *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userContext := r.Context().Value("user")
+	userContext := r.Context().Value(context_helper.ContextKeyUser)
 	authUser, ok := userContext.(*models.UserModel)
 	if !ok {
 		log.Warn("user unauthorized")
