@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -37,7 +38,7 @@ func TestTransactionHandler_GetTransactions(t *testing.T) {
 		},
 		{
 			name: "success",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase) {
 				trxApp.EXPECT().GetTransactionIdsOfUser(gomock.Any(), testUser).Return([]int{1, 2}, nil)
 			},
@@ -45,7 +46,7 @@ func TestTransactionHandler_GetTransactions(t *testing.T) {
 		},
 		{
 			name: "not found",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase) {
 				trxApp.EXPECT().GetTransactionIdsOfUser(gomock.Any(), testUser).Return(nil, repository.ErrNothingInTable)
 			},
@@ -106,7 +107,7 @@ func TestTransactionHandler_Create(t *testing.T) {
 		{
 			name: "validation error",
 			body: web_helpers.TransactionRequest{Title: ""},
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
 				// Убрали GetCurrencyCodes
 				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
@@ -117,7 +118,7 @@ func TestTransactionHandler_Create(t *testing.T) {
 		{
 			name: "not author of account",
 			body: validBody,
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
 				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"salary"})
@@ -128,7 +129,7 @@ func TestTransactionHandler_Create(t *testing.T) {
 		{
 			name: "success",
 			body: validBody,
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
 				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"salary"})
@@ -178,14 +179,14 @@ func TestTransactionHandler_Detail(t *testing.T) {
 		{
 			name:         "invalid id",
 			id:           "abc",
-			ctx:          context.WithValue(context.Background(), "user", testUser),
+			ctx:          context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks:   func(trxApp *appmocks.MockTransactionUseCase, accApp *appmocks.MockAccountUseCase) {},
 			expectedCode: http.StatusBadRequest,
 		},
 		{
 			name: "forbidden",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, accApp *appmocks.MockAccountUseCase) {
 				trxApp.EXPECT().Detail(gomock.Any(), 1, testUser.Id).Return(models.TransactionModel{}, application.ErrForbidden)
 			},
@@ -194,7 +195,7 @@ func TestTransactionHandler_Detail(t *testing.T) {
 		{
 			name: "success",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, accApp *appmocks.MockAccountUseCase) {
 				trxApp.EXPECT().Detail(gomock.Any(), 1, testUser.Id).Return(models.TransactionModel{Id: 1, AccountId: 0}, nil)
 				accApp.EXPECT().GetCurrencyByAccountId(gomock.Any(), 0).Return("RUB", nil)
@@ -252,7 +253,7 @@ func TestTransactionHandler_Update(t *testing.T) {
 			name: "invalid id",
 			id:   "abc",
 			body: validBody,
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
 			},
 			expectedCode: http.StatusBadRequest,
@@ -261,7 +262,7 @@ func TestTransactionHandler_Update(t *testing.T) {
 			name: "success",
 			id:   "1",
 			body: validBody,
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
 				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"salary"})
@@ -313,14 +314,14 @@ func TestTransactionHandler_Delete(t *testing.T) {
 		{
 			name:         "invalid id",
 			id:           "abc",
-			ctx:          context.WithValue(context.Background(), "user", testUser),
+			ctx:          context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks:   func(trxApp *appmocks.MockTransactionUseCase) {},
 			expectedCode: http.StatusBadRequest,
 		},
 		{
 			name: "not found",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase) {
 				trxApp.EXPECT().Delete(gomock.Any(), 1, testUser.Id).Return(0, repository.ErrNothingInTable)
 			},
@@ -329,7 +330,7 @@ func TestTransactionHandler_Delete(t *testing.T) {
 		{
 			name: "success",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase) {
 				trxApp.EXPECT().Delete(gomock.Any(), 1, testUser.Id).Return(1, nil)
 			},

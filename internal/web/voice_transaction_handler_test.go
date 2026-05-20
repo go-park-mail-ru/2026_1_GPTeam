@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -40,7 +41,7 @@ func TestVoiceHandler_CreateVoiceTransaction(t *testing.T) {
 		},
 		{
 			name: "отсутствует файл",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupReq: func(w *multipart.Writer) {
 				_ = w.WriteField("other", "field")
 			},
@@ -49,7 +50,7 @@ func TestVoiceHandler_CreateVoiceTransaction(t *testing.T) {
 		},
 		{
 			name: "успешная генерация черновика",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupReq: func(w *multipart.Writer) {
 				part, _ := w.CreateFormFile("audio", "test.wav")
 				_, _ = part.Write([]byte("fake audio content"))
@@ -73,7 +74,7 @@ func TestVoiceHandler_CreateVoiceTransaction(t *testing.T) {
 		},
 		{
 			name: "в речи не найдена транзакция",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupReq: func(w *multipart.Writer) {
 				part, _ := w.CreateFormFile("audio", "test.wav")
 				_, _ = part.Write([]byte("fake audio content"))
@@ -86,7 +87,7 @@ func TestVoiceHandler_CreateVoiceTransaction(t *testing.T) {
 		},
 		{
 			name: "ошибка сервиса",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupReq: func(w *multipart.Writer) {
 				part, _ := w.CreateFormFile("audio", "test.wav")
 				_, _ = part.Write([]byte("fake audio content"))

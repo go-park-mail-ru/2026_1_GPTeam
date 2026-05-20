@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -40,7 +41,7 @@ func TestUserHandler_Profile(t *testing.T) {
 		},
 		{
 			name:         "success",
-			ctx:          context.WithValue(context.Background(), "user", testUserVal),
+			ctx:          context.WithValue(context.Background(), context_helper.ContextKeyUser, testUserVal),
 			expectedCode: http.StatusOK,
 		},
 	}
@@ -87,14 +88,14 @@ func TestUserHandler_UpdateProfile(t *testing.T) {
 		{
 			name:         "validation error",
 			body:         web_helpers.UpdateUserProfileRequest{},
-			ctx:          context.WithValue(context.Background(), "user", testUserVal),
+			ctx:          context.WithValue(context.Background(), context_helper.ContextKeyUser, testUserVal),
 			setupMocks:   func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {},
 			expectedCode: http.StatusBadRequest,
 		},
 		{
 			name: "success",
 			body: web_helpers.UpdateUserProfileRequest{Username: ptr("newname")},
-			ctx:  context.WithValue(context.Background(), "user", testUserVal),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUserVal),
 			setupMocks: func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
 				userApp.EXPECT().Update(gomock.Any(), gomock.Any()).Return(&models.UserModel{Id: testUserVal.Id, Username: "newname", Email: testUserVal.Email}, nil)
 			},
@@ -144,7 +145,7 @@ func TestUserHandler_Balance(t *testing.T) {
 		},
 		{
 			name: "error",
-			ctx:  context.WithValue(context.Background(), "user", testUserVal),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUserVal),
 			setupMocks: func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
 				accountApp.EXPECT().GetAllAccountsByUserIdWithBalance(gomock.Any(), testUserVal.Id).Return(nil, nil, nil, errors.New("db error"))
 			},
@@ -152,7 +153,7 @@ func TestUserHandler_Balance(t *testing.T) {
 		},
 		{
 			name: "success",
-			ctx:  context.WithValue(context.Background(), "user", testUserVal),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUserVal),
 			setupMocks: func(userApp *appmocks.MockUserUseCase, accountApp *appmocks.MockAccountUseCase) {
 				accounts := []models.AccountModel{{Currency: "RUB", Balance: 100}}
 				incomes := []float64{50}
@@ -208,7 +209,7 @@ func TestUserHandler_UploadAvatar(t *testing.T) {
 		err = writer.Close()
 		require.NoError(t, err)
 
-		req := httptest.NewRequest(http.MethodPost, "/avatar", body).WithContext(context.WithValue(context.Background(), "user", testUserPtr))
+		req := httptest.NewRequest(http.MethodPost, "/avatar", body).WithContext(context.WithValue(context.Background(), context_helper.ContextKeyUser, testUserPtr))
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		w := httptest.NewRecorder()
@@ -231,7 +232,7 @@ func TestUserHandler_UploadAvatar(t *testing.T) {
 		err := writer.Close()
 		require.NoError(t, err)
 
-		req := httptest.NewRequest(http.MethodPost, "/avatar", body).WithContext(context.WithValue(context.Background(), "user", testUserPtr))
+		req := httptest.NewRequest(http.MethodPost, "/avatar", body).WithContext(context.WithValue(context.Background(), context_helper.ContextKeyUser, testUserPtr))
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		w := httptest.NewRecorder()
@@ -254,7 +255,7 @@ func TestUserHandler_IsStaff(t *testing.T) {
 	}{
 		{
 			name: "staff",
-			ctx:  context.WithValue(context.Background(), "user", staffUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, staffUser),
 			setupMocks: func(userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(true, nil)
 			},
@@ -263,7 +264,7 @@ func TestUserHandler_IsStaff(t *testing.T) {
 		},
 		{
 			name: "not staff",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, nil)
 			},
@@ -272,7 +273,7 @@ func TestUserHandler_IsStaff(t *testing.T) {
 		},
 		{
 			name: "error",
-			ctx:  context.WithValue(context.Background(), "user", models.UserModel{}),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, models.UserModel{}),
 			setupMocks: func(userApp *appmocks.MockUserUseCase) {
 				userApp.EXPECT().IsStaff(gomock.Any(), gomock.Any()).Return(false, repository.ErrNothingInTable)
 			},

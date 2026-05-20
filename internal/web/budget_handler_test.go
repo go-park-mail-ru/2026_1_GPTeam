@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/context_helper"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -39,7 +40,7 @@ func TestBudgetHandler_GetBudgets(t *testing.T) {
 		},
 		{
 			name: "success",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
 				budgetApp.EXPECT().GetBudgetsOfUser(gomock.Any(), testUser).Return([]int{1, 2, 3}, nil)
 			},
@@ -47,7 +48,7 @@ func TestBudgetHandler_GetBudgets(t *testing.T) {
 		},
 		{
 			name: "internal error",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
 				budgetApp.EXPECT().GetBudgetsOfUser(gomock.Any(), testUser).Return(nil, errors.New("db error"))
 			},
@@ -99,21 +100,21 @@ func TestBudgetHandler_GetBudget(t *testing.T) {
 		{
 			name:         "empty id",
 			id:           "",
-			ctx:          context.WithValue(context.Background(), "user", testUser),
+			ctx:          context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks:   func(budgetApp *appmocks.MockBudgetUseCase) {},
 			expectedCode: http.StatusNotFound,
 		},
 		{
 			name:         "invalid id",
 			id:           "abc",
-			ctx:          context.WithValue(context.Background(), "user", testUser),
+			ctx:          context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks:   func(budgetApp *appmocks.MockBudgetUseCase) {},
 			expectedCode: http.StatusNotFound,
 		},
 		{
 			name: "not author",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
 				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, []string{}, application.ErrUserNotAuthorOfBudget)
 			},
@@ -122,7 +123,7 @@ func TestBudgetHandler_GetBudget(t *testing.T) {
 		{
 			name: "not found",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
 				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(models.BudgetModel{}, []string{}, repository.ErrNothingInTable)
 			},
@@ -131,7 +132,7 @@ func TestBudgetHandler_GetBudget(t *testing.T) {
 		{
 			name: "success",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
 				budgetApp.EXPECT().GetById(gomock.Any(), 1, testUser).Return(testBudget, []string{"abc"}, nil)
 			},
@@ -194,7 +195,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 		{
 			name: "invalid body",
 			body: "invalid json",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase, enumsApp *appmocks.MockEnumsUseCase) {
 			},
 			expectedCode: http.StatusBadRequest,
@@ -202,7 +203,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 		{
 			name: "validation error",
 			body: web_helpers.BudgetRequest{Title: ""},
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase, enumsApp *appmocks.MockEnumsUseCase) {
 				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"abc"})
@@ -212,7 +213,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 		{
 			name: "duplicate data",
 			body: validBody,
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase, enumsApp *appmocks.MockEnumsUseCase) {
 				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"abc"})
@@ -223,7 +224,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 		{
 			name: "success",
 			body: validBody,
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase, enumsApp *appmocks.MockEnumsUseCase) {
 				enumsApp.EXPECT().GetCurrencyCodes().Return([]string{"RUB"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"abc"})
@@ -282,14 +283,14 @@ func TestBudgetHandler_Delete(t *testing.T) {
 		{
 			name:         "invalid id",
 			id:           "abc",
-			ctx:          context.WithValue(context.Background(), "user", testUser),
+			ctx:          context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks:   func(budgetApp *appmocks.MockBudgetUseCase) {},
 			expectedCode: http.StatusNotFound,
 		},
 		{
 			name: "not found",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
 				budgetApp.EXPECT().Delete(gomock.Any(), 1, testUser).Return(repository.ErrNothingInTable)
 			},
@@ -298,7 +299,7 @@ func TestBudgetHandler_Delete(t *testing.T) {
 		{
 			name: "success",
 			id:   "1",
-			ctx:  context.WithValue(context.Background(), "user", testUser),
+			ctx:  context.WithValue(context.Background(), context_helper.ContextKeyUser, testUser),
 			setupMocks: func(budgetApp *appmocks.MockBudgetUseCase) {
 				budgetApp.EXPECT().Delete(gomock.Any(), 1, testUser).Return(nil)
 			},
