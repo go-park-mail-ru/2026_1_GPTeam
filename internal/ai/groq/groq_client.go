@@ -3,7 +3,7 @@ package groq
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -167,7 +167,7 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 
 	if resp.StatusCode != http.StatusOK {
 		var groqErr groqErrorResponse
-		if jsonErr := json.Unmarshal(respBody, &groqErr); jsonErr != nil {
+		if jsonErr := easyjson.Unmarshal(respBody, &groqErr); jsonErr != nil {
 			log.Error("transcription: groq api error (non-json body)",
 				zap.Int("status", resp.StatusCode),
 				zap.ByteString("body", respBody))
@@ -193,7 +193,7 @@ func (c *GroqClient) Transcribe(ctx context.Context, audioData []byte, filename 
 	}
 
 	var result groqTranscriptResponse
-	if err = json.Unmarshal(respBody, &result); err != nil {
+	if err = easyjson.Unmarshal(respBody, &result); err != nil {
 		log.Error("transcription: failed to unmarshal response",
 			zap.Error(err),
 			zap.ByteString("body", respBody))
@@ -237,7 +237,7 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 		TopP:        1,
 	}
 
-	bodyBytes, err := json.Marshal(payload)
+	bodyBytes, err := easyjson.Marshal(payload)
 	if err != nil {
 		log.Error("parser: failed to marshal payload", zap.Error(err))
 		return nil, err
@@ -274,7 +274,7 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 	}
 
 	var chatResp groqChatResponse
-	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+	if err := easyjson.Unmarshal(respBody, &chatResp); err != nil {
 		log.Error("parser: failed to unmarshal response body", zap.Error(err))
 		return nil, err
 	}
@@ -290,7 +290,7 @@ func (c *GroqClient) ParseTransaction(ctx context.Context, transcript string, ty
 	}
 
 	var parsed parsedDraft
-	if err = json.Unmarshal([]byte(rawJSON), &parsed); err != nil {
+	if err = easyjson.Unmarshal([]byte(rawJSON), &parsed); err != nil {
 		log.Error("parser: failed to parse LLM json", zap.String("raw", rawJSON), zap.Error(err))
 		return nil, err
 	}

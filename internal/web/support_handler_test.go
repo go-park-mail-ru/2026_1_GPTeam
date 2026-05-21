@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"errors"
 	"fmt"
 	"net/http"
@@ -106,7 +107,7 @@ func TestSupportHandler_Create(t *testing.T) {
 			userApp := mocks.NewMockUserUseCase(ctrl)
 			testCase.setup(supportApp)
 			handler := NewSupportHandler(supportApp, userApp)
-			body, _ := json.Marshal(testCase.body)
+			body, _ := easyjson.Marshal(testCase.body)
 			r := httptest.NewRequest(http.MethodPost, "/support/create_appeal", bytes.NewReader(body)).WithContext(testCase.ctx)
 			w := httptest.NewRecorder()
 			handler.Create(w, r)
@@ -413,7 +414,7 @@ func TestSupportHandler_Update(t *testing.T) {
 			testCase.setup(supportApp)
 			handler := NewSupportHandler(supportApp, userApp)
 			url := fmt.Sprintf("/support/update/%s", testCase.id)
-			data, _ := json.Marshal(testCase.body)
+			data, _ := easyjson.Marshal(testCase.body)
 			r := httptest.NewRequest(http.MethodPut, url, bytes.NewReader(data)).WithContext(testCase.ctx)
 			r.SetPathValue("id", testCase.id)
 			w := httptest.NewRecorder()

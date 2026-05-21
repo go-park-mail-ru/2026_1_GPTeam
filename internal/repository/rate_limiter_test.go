@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"testing"
 	"time"
 
@@ -37,7 +37,7 @@ func TestBucketRedis_Get(t *testing.T) {
 		BlockedUntil:   time.Time{},
 		LastSeen:       time.Now(),
 	}
-	jsonData, err := json.Marshal(testBucket)
+	jsonData, err := easyjson.Marshal(testBucket)
 	require.NoError(t, err)
 	existingBucket := string(jsonData)
 
@@ -74,7 +74,7 @@ func TestBucketRedis_Save(t *testing.T) {
 		BlockedUntil:   time.Time{},
 		LastSeen:       time.Now(),
 	}
-	serializedBucket, err := json.Marshal(testBucket)
+	serializedBucket, err := easyjson.Marshal(testBucket)
 	require.NoError(t, err)
 
 	t.Run("ok", func(t *testing.T) {
@@ -94,7 +94,7 @@ func TestBucketRedis_GetPermanentBlocked(t *testing.T) {
 			"125.20.150.2",
 		},
 	}
-	jsonData, err := json.Marshal(test)
+	jsonData, err := easyjson.Marshal(test)
 	require.NoError(t, err)
 	existing := string(jsonData)
 
@@ -126,7 +126,7 @@ func TestBucketRedis_SetPermanentBlocked(t *testing.T) {
 			"125.20.150.2",
 		},
 	}
-	serialized, err := json.Marshal(test)
+	serialized, err := easyjson.Marshal(test)
 	require.NoError(t, err)
 
 	t.Run("ok", func(t *testing.T) {

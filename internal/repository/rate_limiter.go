@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"errors"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
@@ -59,7 +59,7 @@ func (obj *BucketRedis) Get(ctx context.Context, ip string) (models.BucketModel,
 		return models.BucketModel{}, err
 	}
 	bucketInfo := &models.BucketModel{}
-	err = json.Unmarshal(data, bucketInfo)
+	err = easyjson.Unmarshal(data, bucketInfo)
 	if err != nil {
 		log.Error("unable to unmarshal bucket from redis",
 			zap.String("ip", ip),
@@ -71,7 +71,7 @@ func (obj *BucketRedis) Get(ctx context.Context, ip string) (models.BucketModel,
 
 func (obj *BucketRedis) Save(ctx context.Context, ip string, bucket models.BucketModel) error {
 	log := logger.GetLogger()
-	serializedBucket, err := json.Marshal(bucket)
+	serializedBucket, err := easyjson.Marshal(bucket)
 	if err != nil {
 		log.Error("unable to serialize bucket",
 			zap.String("ip", ip),
@@ -131,7 +131,7 @@ func (obj *BucketRedis) GetPermanentBlocked(ctx context.Context) (models.Permane
 		return models.PermanentBlockedIps{}, err
 	}
 	blockedIps := &models.PermanentBlockedIps{}
-	err = json.Unmarshal(data, blockedIps)
+	err = easyjson.Unmarshal(data, blockedIps)
 	if err != nil {
 		log.Error("unable to unmarshal bucket from redis",
 			zap.Error(err))
@@ -142,7 +142,7 @@ func (obj *BucketRedis) GetPermanentBlocked(ctx context.Context) (models.Permane
 
 func (obj *BucketRedis) SetPermanentBlocked(ctx context.Context, ips models.PermanentBlockedIps) error {
 	log := logger.GetLogger()
-	serialized, err := json.Marshal(ips)
+	serialized, err := easyjson.Marshal(ips)
 	if err != nil {
 		log.Error("unable to serialize",
 			zap.Any("ips", ips),

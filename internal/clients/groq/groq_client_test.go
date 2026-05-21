@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"io"
 	"net/http"
 	"strings"
@@ -157,7 +158,7 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 						},
 					},
 				}
-				respBody, _ := json.Marshal(response)
+				respBody, _ := easyjson.Marshal(response)
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewReader(respBody)),
@@ -185,7 +186,7 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 						},
 					},
 				}
-				respBody, _ := json.Marshal(response)
+				respBody, _ := easyjson.Marshal(response)
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewReader(respBody)),
@@ -213,7 +214,7 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 						},
 					},
 				}
-				respBody, _ := json.Marshal(response)
+				respBody, _ := easyjson.Marshal(response)
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewReader(respBody)),
@@ -241,7 +242,7 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 						},
 					},
 				}
-				respBody, _ := json.Marshal(response)
+				respBody, _ := easyjson.Marshal(response)
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewReader(respBody)),

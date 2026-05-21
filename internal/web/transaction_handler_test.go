@@ -3,7 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -153,7 +153,7 @@ func TestTransactionHandler_Create(t *testing.T) {
 
 			handler := NewTransactionHandler(trxApp, enumsApp, accApp)
 
-			bodyBytes, _ := json.Marshal(c.body)
+			bodyBytes, _ := easyjson.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(bodyBytes)).WithContext(c.ctx)
 			w := httptest.NewRecorder()
 			handler.Transactions(w, req)
@@ -286,7 +286,7 @@ func TestTransactionHandler_Update(t *testing.T) {
 
 			handler := NewTransactionHandler(trxApp, enumsApp, accApp)
 
-			bodyBytes, _ := json.Marshal(c.body)
+			bodyBytes, _ := easyjson.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPut, "/transactions/", bytes.NewReader(bodyBytes)).WithContext(c.ctx)
 			req.SetPathValue("id", c.id)
 

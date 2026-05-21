@@ -3,7 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -246,7 +246,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 
 			handler := NewBudgetHandler(budgetApp, enumsApp)
 
-			bodyBytes, _ := json.Marshal(c.body)
+			bodyBytes, _ := easyjson.Marshal(c.body)
 			if str, ok := c.body.(string); ok {
 				bodyBytes = []byte(str)
 			}

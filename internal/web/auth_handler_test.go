@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -171,7 +172,7 @@ func TestAuthHandler_Login(t *testing.T) {
 
 			handler := NewAuthHandler(authSvc, userApp, accountApp)
 
-			bodyBytes, _ := json.Marshal(c.body)
+			bodyBytes, _ := easyjson.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 
@@ -316,7 +317,7 @@ func TestAuthHandler_SignUp(t *testing.T) {
 
 			handler := NewAuthHandler(authSvc, userApp, accountApp)
 
-			bodyBytes, _ := json.Marshal(c.body)
+			bodyBytes, _ := easyjson.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPost, "/auth/signup", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 

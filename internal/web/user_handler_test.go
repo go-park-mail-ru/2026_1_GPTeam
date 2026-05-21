@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	easyjson "github.com/mailru/easyjson"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -114,7 +115,7 @@ func TestUserHandler_UpdateProfile(t *testing.T) {
 			c.setupMocks(userApp, accountApp)
 			handler := NewUserHandler(userApp, accountApp)
 
-			bodyBytes, _ := json.Marshal(c.body)
+			bodyBytes, _ := easyjson.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPatch, "/profile", bytes.NewReader(bodyBytes)).WithContext(c.ctx)
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
