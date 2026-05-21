@@ -204,6 +204,7 @@ func main() {
 	accountUserApp := application.NewAccountUserApp(accountUserPostgres, accountPostgres)
 	budgetApp := application.NewBudget(budgetPostgres, transactionApp, accountApp)
 	supportApp := application.NewSupport(supportPostgres)
+	analysisApp := application.NewAnalysis(budgetApp, transactionApp, accountApp)
 	groqClient := groq.NewGroqClient(groqKey, proxyURLStr)
 	voiceApp := application.NewVoiceTransactionService(groqClient, enumsApp)
 	log.Info("use cases initialized")
@@ -217,6 +218,7 @@ func main() {
 	accountUserHandler := web.NewAccountUserHandler(accountUserApp)
 	voiceHandler := web.NewVoiceHandler(voiceApp, enumsApp)
 	supportHandler := web.NewSupportHandler(supportApp, userApp)
+	analysisHandler := web.NewAnalysisHandler(analysisApp)
 	log.Info("handlers initialized")
 
 	secure.XssSanitizerInit()
@@ -311,6 +313,7 @@ func main() {
 	mux.Handle("/support/create_appeal", middleware.MethodValidationMiddleware(http.MethodPost)(http.HandlerFunc(supportHandler.Create)))
 	mux.Handle("/support/update/{id}", middleware.MethodValidationMiddleware(http.MethodPut)(middleware.OnlyStaffMiddleware(http.HandlerFunc(supportHandler.Update), userApp)))
 	mux.Handle("/api/is_staff", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(userHandler.IsStaff)))
+	mux.Handle("/api/analysis", middleware.MethodValidationMiddleware(http.MethodGet)(http.HandlerFunc(analysisHandler.Get)))
 
 	handler := middleware.CSPMiddleware(mux)
 	handler = middleware.CSRFMiddleware(handler, csrfService)
