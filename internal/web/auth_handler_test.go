@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	easyjson "github.com/mailru/easyjson"
-
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -32,18 +30,6 @@ func TestMain(m *testing.M) {
 
 func authUserCtx(user models.UserModel) context.Context {
 	return context.WithValue(context.Background(), "user", user)
-}
-
-// helper функция для marshal с поддержкой easyjson
-func marshalBody(body any) ([]byte, error) {
-	switch v := body.(type) {
-	case web_helpers.LoginBodyRequest:
-		return easyjson.Marshal(v)
-	case web_helpers.SignupBodyRequest:
-		return easyjson.Marshal(v)
-	default:
-		return json.Marshal(body)
-	}
 }
 
 func TestAuthHandler_Logout(t *testing.T) {

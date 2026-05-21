@@ -1,4 +1,16 @@
-EXCLUDE_DIRS := grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '/web_helpers' | grep -vE '/pkg$$' | grep -vE 'github.com/go-park-mail-ru/2026_1_GPTeam$$' | grep -v '/pkg/gen/'
+EXCLUDE_DIRS := grep -v '/mocks' | grep -v '/db' | grep -v '/models' | grep -v '/web_helpers' | grep -vE '/pkg$$' | grep -vE 'github.com/go-park-mail-ru/2026_1_GPTeam$$' | grep -v '/pkg/gen/' | grep -v '_easyjson\.go' | grep -v 'mock_.*\.go'
+
+.PHONY: generate
+generate:
+	@echo "Удаление старой кодогенерации easyjson..."
+	find . -name '*_easyjson.go' -delete
+	@echo "Запуск генерации исключительно для файлов с директивой easyjson..."
+	@PATH=$$(go env GOPATH)/bin:$$PATH; \
+	for file in $$(grep -l '//go:generate.*easyjson' -r internal/ pkg/ 2>/dev/null); do \
+		echo "Generating easyjson for $$file..."; \
+		easyjson -all $$file; \
+	done
+	@echo "Готово!"
 
 .PHONY: proto
 proto:
@@ -48,7 +60,13 @@ test-cover:
 	@for pkg in $$(go list ./... | $(EXCLUDE_DIRS)); do \
 		echo "Testing $$pkg..."; \
 		go test $$pkg -coverprofile=coverage.tmp -covermode=atomic && \
-		tail -n +2 coverage.tmp >> coverage.out || true; \
+		grep -v '_easyjson\.go' coverage.tmp | grep -v 'mock_.*\.go' >> coverage.tmp.clean 2>/dev/null || true; \
+		if [ -f coverage.tmp.clean ]; then \
+			tail -n +2 coverage.tmp.clean >> coverage.out; \
+			rm -f coverage.tmp.clean; \
+		else \
+			tail -n +2 coverage.tmp >> coverage.out 2>/dev/null || true; \
+		fi; \
 	done
 	@rm -f coverage.tmp
 

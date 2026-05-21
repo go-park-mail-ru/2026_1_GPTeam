@@ -3,7 +3,6 @@ package groq
 import (
 	"bytes"
 	"context"
-	easyjson "github.com/mailru/easyjson"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -11,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	easyjson "github.com/mailru/easyjson"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/metrics"
@@ -22,6 +23,7 @@ var (
 	groqSTTURL  = "https://api.groq.com/openai/v1/audio/transcriptions"
 )
 
+//go:generate easyjson -all groq_client.go
 const parserSystemPromptTpl = `You are a financial transaction parser.
 Extract transaction data from Russian speech transcript and return ONLY valid JSON.
 If the transcript does NOT contain any financial transaction (e.g. general conversation, questions like "How are you"), return an empty JSON object: {}.

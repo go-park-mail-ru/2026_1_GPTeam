@@ -1,5 +1,6 @@
 package web_helpers
 
+//go:generate easyjson -all base.go
 import (
 	"fmt"
 	"net/http"

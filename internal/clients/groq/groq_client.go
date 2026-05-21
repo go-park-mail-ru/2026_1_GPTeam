@@ -3,7 +3,6 @@ package clients
 import (
 	"bytes"
 	"context"
-	easyjson "github.com/mailru/easyjson"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -12,11 +11,14 @@ import (
 	"strings"
 	"time"
 
+	easyjson "github.com/mailru/easyjson"
+
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/pkg/logger"
 	"go.uber.org/zap"
 )
 
+//go:generate easyjson -all groq_client.go
 const (
 	groqChatURL = "https://api.groq.com/openai/v1/chat/completions"
 	groqSTTURL  = "https://api.groq.com/openai/v1/audio/transcriptions"

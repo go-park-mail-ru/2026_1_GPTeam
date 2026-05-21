@@ -1,5 +1,6 @@
 package models
 
+//go:generate easyjson -all models.go
 import "time"
 
 type BucketModel struct {
