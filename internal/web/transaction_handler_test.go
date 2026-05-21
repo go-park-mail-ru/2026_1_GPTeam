@@ -3,7 +3,6 @@ package web
 import (
 	"bytes"
 	"context"
-	easyjson "github.com/mailru/easyjson"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -108,7 +107,6 @@ func TestTransactionHandler_Create(t *testing.T) {
 			body: web_helpers.TransactionRequest{Title: ""},
 			ctx:  context.WithValue(context.Background(), "user", testUser),
 			setupMocks: func(trxApp *appmocks.MockTransactionUseCase, enumsApp *appmocks.MockEnumsUseCase, accApp *appmocks.MockAccountUseCase) {
-				// Убрали GetCurrencyCodes
 				enumsApp.EXPECT().GetTransactionTypes().Return([]string{"INCOME"})
 				enumsApp.EXPECT().GetCategoryTypes().Return([]string{"salary"})
 			},
@@ -153,7 +151,7 @@ func TestTransactionHandler_Create(t *testing.T) {
 
 			handler := NewTransactionHandler(trxApp, enumsApp, accApp)
 
-			bodyBytes, _ := easyjson.Marshal(c.body)
+			bodyBytes, _ := marshalBody(c.body)
 			req := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewReader(bodyBytes)).WithContext(c.ctx)
 			w := httptest.NewRecorder()
 			handler.Transactions(w, req)
@@ -286,7 +284,7 @@ func TestTransactionHandler_Update(t *testing.T) {
 
 			handler := NewTransactionHandler(trxApp, enumsApp, accApp)
 
-			bodyBytes, _ := easyjson.Marshal(c.body)
+			bodyBytes, _ := marshalBody(c.body)
 			req := httptest.NewRequest(http.MethodPut, "/transactions/", bytes.NewReader(bodyBytes)).WithContext(c.ctx)
 			req.SetPathValue("id", c.id)
 

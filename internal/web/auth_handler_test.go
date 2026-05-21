@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	easyjson "github.com/mailru/easyjson"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	easyjson "github.com/mailru/easyjson"
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -31,6 +32,18 @@ func TestMain(m *testing.M) {
 
 func authUserCtx(user models.UserModel) context.Context {
 	return context.WithValue(context.Background(), "user", user)
+}
+
+// helper функция для marshal с поддержкой easyjson
+func marshalBody(body any) ([]byte, error) {
+	switch v := body.(type) {
+	case web_helpers.LoginBodyRequest:
+		return easyjson.Marshal(v)
+	case web_helpers.SignupBodyRequest:
+		return easyjson.Marshal(v)
+	default:
+		return json.Marshal(body)
+	}
 }
 
 func TestAuthHandler_Logout(t *testing.T) {
@@ -172,7 +185,7 @@ func TestAuthHandler_Login(t *testing.T) {
 
 			handler := NewAuthHandler(authSvc, userApp, accountApp)
 
-			bodyBytes, _ := easyjson.Marshal(c.body)
+			bodyBytes, _ := marshalBody(c.body)
 			req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 
@@ -317,7 +330,7 @@ func TestAuthHandler_SignUp(t *testing.T) {
 
 			handler := NewAuthHandler(authSvc, userApp, accountApp)
 
-			bodyBytes, _ := easyjson.Marshal(c.body)
+			bodyBytes, _ := marshalBody(c.body)
 			req := httptest.NewRequest(http.MethodPost, "/auth/signup", bytes.NewReader(bodyBytes))
 			req.Header.Set("Content-Type", "application/json")
 

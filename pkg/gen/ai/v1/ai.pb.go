@@ -179,8 +179,7 @@ func (x *ParseTransactionRequest) GetCategories() []string {
 
 type ParseTransactionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Draft         *TransactionDraft      `protobuf:"bytes,2,opt,name=draft,proto3" json:"draft,omitempty"`
+	Draft         *TransactionDraft      `protobuf:"bytes,1,opt,name=draft,proto3" json:"draft,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -215,13 +214,6 @@ func (*ParseTransactionResponse) Descriptor() ([]byte, []int) {
 	return file_proto_ai_v1_ai_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *ParseTransactionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
 func (x *ParseTransactionResponse) GetDraft() *TransactionDraft {
 	if x != nil {
 		return x.Draft
@@ -231,7 +223,7 @@ func (x *ParseTransactionResponse) GetDraft() *TransactionDraft {
 
 type TransactionDraft struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         float64                `protobuf:"double,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value         float64                `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
 	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`
 	Title         string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
@@ -316,21 +308,35 @@ func (x *TransactionDraft) GetDate() string {
 var File_proto_ai_v1_ai_proto protoreflect.FileDescriptor
 
 const file_proto_ai_v1_ai_proto_rawDesc = "" +
-	"\n\x16proto/ai/v1/ai.proto\x12\x05ai.v1\"6\n\x12TranscribeRequest\x12\x1c\n" +
-	"\naudio_data\x18\x01 \x01(\x0cR\taudioData\x12\x18\n\x08filename\x18\x02 \x01(\tR\x08fil" +
-	"ename\" \n\x13TranscribeResponse\x12\r\n\x04text\x18\x01 \x01(\tR\x04text\"Y\n\x17Pars" +
-	"eTransactionRequest\x12\x1c\n\ntranscript\x18\x01 \x01(\tR\ntranscript\x12\x14\n\x05t" +
-	"ypes\x18\x02 \x03(\tR\x05types\x12\x1c\n\ncategories\x18\x03 \x03(\tR\ncategories\"\x9c" +
-	"\x01\n\x18ParseTransactionResponse\x12\x18\n\x07success\x18\x01 \x01(\x08R\x07success" +
-	"\x12L\n\x05draft\x18\x02 \x01(\x0b2\x1e.ai.v1.ParseTransactionResponse.Transacti" +
-	"onDraftR\x05draft\x1aJ\n\x11TransactionDraft\x12\x14\n\x05value\x18\x01 \x01(\x01R\x05v" +
-	"alue\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type\x12\x1c\n\ncategory\x18\x03 \x01(\tR\nc" +
-	"ategory\x12\x14\n\x05title\x18\x04 \x01(\tR\x05title\x12\x20\n\x0bdescription\x18\x05 " +
-	"\x01(\tR\ndescription\x12\x12\n\x04date\x18\x06 \x01(\tR\x04date2\x86\x01\n\x08AiServ" +
-	"ice\x12J\n\nTranscribe\x12\x1c.ai.v1.TranscribeRequest\x1a\x1d.ai.v1.TranscribeR" +
-	"esponse\x12^\n\x10ParseTransaction\x12\".ai.v1.ParseTransactionRequest\x1a\".ai." +
-	"v1.ParseTransactionResponseB8Z?github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen" +
-	"/ai/v1;aiv1b\x06proto3"
+	"\n" +
+	"\x14proto/ai/v1/ai.proto\x12\x05ai.v1\"N\n" +
+	"\x11TranscribeRequest\x12\x1d\n" +
+	"\n" +
+	"audio_data\x18\x01 \x01(\fR\taudioData\x12\x1a\n" +
+	"\bfilename\x18\x02 \x01(\tR\bfilename\"(\n" +
+	"\x12TranscribeResponse\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"o\n" +
+	"\x17ParseTransactionRequest\x12\x1e\n" +
+	"\n" +
+	"transcript\x18\x01 \x01(\tR\n" +
+	"transcript\x12\x14\n" +
+	"\x05types\x18\x02 \x03(\tR\x05types\x12\x1e\n" +
+	"\n" +
+	"categories\x18\x03 \x03(\tR\n" +
+	"categories\"I\n" +
+	"\x18ParseTransactionResponse\x12-\n" +
+	"\x05draft\x18\x01 \x01(\v2\x17.ai.v1.TransactionDraftR\x05draft\"\xa4\x01\n" +
+	"\x10TransactionDraft\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\x01R\x05value\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x1a\n" +
+	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x14\n" +
+	"\x05title\x18\x04 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04date\x18\x06 \x01(\tR\x04date2\xa3\x01\n" +
+	"\tAiService\x12A\n" +
+	"\n" +
+	"Transcribe\x12\x18.ai.v1.TranscribeRequest\x1a\x19.ai.v1.TranscribeResponse\x12S\n" +
+	"\x10ParseTransaction\x12\x1e.ai.v1.ParseTransactionRequest\x1a\x1f.ai.v1.ParseTransactionResponseB=Z;github.com/go-park-mail-ru/2026_1_GPTeam/pkg/gen/ai/v1;aiv1b\x06proto3"
 
 var (
 	file_proto_ai_v1_ai_proto_rawDescOnce sync.Once
@@ -350,18 +356,19 @@ var file_proto_ai_v1_ai_proto_goTypes = []any{
 	(*TranscribeResponse)(nil),       // 1: ai.v1.TranscribeResponse
 	(*ParseTransactionRequest)(nil),  // 2: ai.v1.ParseTransactionRequest
 	(*ParseTransactionResponse)(nil), // 3: ai.v1.ParseTransactionResponse
-	(*TransactionDraft)(nil),         // 4: ai.v1.ParseTransactionResponse.TransactionDraft
+	(*TransactionDraft)(nil),         // 4: ai.v1.TransactionDraft
 }
 var file_proto_ai_v1_ai_proto_depIdxs = []int32{
-	0, // 0: ai.v1.AiService.Transcribe:input_type -> ai.v1.TranscribeRequest
-	2, // 1: ai.v1.AiService.ParseTransaction:input_type -> ai.v1.ParseTransactionRequest
-	1, // 2: ai.v1.AiService.Transcribe:output_type -> ai.v1.TranscribeResponse
-	3, // 3: ai.v1.AiService.ParseTransaction:output_type -> ai.v1.ParseTransactionResponse
-	4, // [4:5] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	4, // 0: ai.v1.ParseTransactionResponse.draft:type_name -> ai.v1.TransactionDraft
+	0, // 1: ai.v1.AiService.Transcribe:input_type -> ai.v1.TranscribeRequest
+	2, // 2: ai.v1.AiService.ParseTransaction:input_type -> ai.v1.ParseTransactionRequest
+	1, // 3: ai.v1.AiService.Transcribe:output_type -> ai.v1.TranscribeResponse
+	3, // 4: ai.v1.AiService.ParseTransaction:output_type -> ai.v1.ParseTransactionResponse
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_proto_ai_v1_ai_proto_init() }

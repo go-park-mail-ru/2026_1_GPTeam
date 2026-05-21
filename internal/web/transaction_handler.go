@@ -508,13 +508,13 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 	accountIdStr := r.FormValue("account_id")
 	accountId, err := strconv.Atoi(accountIdStr)
 	if err != nil {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", "Неверный id счёта"}})
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: "Неверный id счёта"}})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
 	account, err := obj.accountApp.GetById(r.Context(), authUser.Id, accountId)
 	if err != nil {
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", "Неверный id счёта"}})
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: "Неверный id счёта"}})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}
@@ -535,7 +535,7 @@ func (obj *TransactionHandler) Import(w http.ResponseWriter, r *http.Request) {
 	err = obj.transactionApp.BulkCreate(r.Context(), transactions, accounts)
 	if err != nil {
 		log.Warn("failed to create transactions", zap.Error(err))
-		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{"", err.Error()}})
+		response := web_helpers.NewValidationErrorResponse([]web_helpers.FieldError{{Field: "", Message: err.Error()}})
 		web_helpers.WriteResponseJSON(w, response.Code, response)
 		return
 	}

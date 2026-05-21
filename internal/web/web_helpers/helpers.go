@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/application/models"
+	easyjson "github.com/mailru/easyjson"
 )
 
 func WriteResponseJSON(w http.ResponseWriter, code int, response any) {
@@ -54,4 +55,15 @@ func NormalizePath(path string) string {
 	numIdRegex := regexp.MustCompile(`/\d+`)
 	path = numIdRegex.ReplaceAllString(path, "/:id")
 	return path
+}
+
+func marshalBody(body any) ([]byte, error) {
+	switch v := body.(type) {
+	case LoginBodyRequest:
+		return easyjson.Marshal(v)
+	case SignupBodyRequest:
+		return easyjson.Marshal(v)
+	default:
+		return json.Marshal(body)
+	}
 }

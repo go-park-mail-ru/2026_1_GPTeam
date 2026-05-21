@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	easyjson "github.com/mailru/easyjson"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -115,7 +114,7 @@ func TestUserHandler_UpdateProfile(t *testing.T) {
 			c.setupMocks(userApp, accountApp)
 			handler := NewUserHandler(userApp, accountApp)
 
-			bodyBytes, _ := easyjson.Marshal(c.body)
+			bodyBytes, _ := marshalBody(c.body)
 			req := httptest.NewRequest(http.MethodPatch, "/profile", bytes.NewReader(bodyBytes)).WithContext(c.ctx)
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
@@ -204,7 +203,7 @@ func TestUserHandler_UploadAvatar(t *testing.T) {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 		part, _ := writer.CreateFormFile("avatar", "test.png")
-		part.Write([]byte("\x89PNG\x0D\x0A\x1A\x0A" + "fake content that makes file bigger than 512 bytes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                "))
+		part.Write([]byte("\x89PNG\x0D\x0A\x1A\x0A" + "fake content that makes file bigger than 512 bytes                                                                                                                                                                                                                                                                ......"))
 		writer.Close()
 
 		req := httptest.NewRequest(http.MethodPost, "/avatar", body).WithContext(context.WithValue(context.Background(), "user", testUserPtr))

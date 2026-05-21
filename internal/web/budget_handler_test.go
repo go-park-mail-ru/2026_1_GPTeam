@@ -3,12 +3,14 @@ package web
 import (
 	"bytes"
 	"context"
-	easyjson "github.com/mailru/easyjson"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	easyjson "github.com/mailru/easyjson"
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -19,6 +21,16 @@ import (
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/repository"
 	"github.com/go-park-mail-ru/2026_1_GPTeam/internal/web/web_helpers"
 )
+
+// helper функция для marshal с поддержкой easyjson
+func marshalBody(body any) ([]byte, error) {
+	switch v := body.(type) {
+	case web_helpers.BudgetRequest:
+		return easyjson.Marshal(v)
+	default:
+		return json.Marshal(body)
+	}
+}
 
 func TestBudgetHandler_GetBudgets(t *testing.T) {
 	t.Parallel()
@@ -246,7 +258,7 @@ func TestBudgetHandler_Create(t *testing.T) {
 
 			handler := NewBudgetHandler(budgetApp, enumsApp)
 
-			bodyBytes, _ := easyjson.Marshal(c.body)
+			bodyBytes, _ := marshalBody(c.body)
 			if str, ok := c.body.(string); ok {
 				bodyBytes = []byte(str)
 			}

@@ -91,8 +91,6 @@ func TestGroqClient_Transcribe(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-
 			server := httptest.NewServer(c.handler)
 			defer server.Close()
 
@@ -220,8 +218,6 @@ func TestGroqClient_ParseTransaction(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-
 			server := httptest.NewServer(c.handler)
 			defer server.Close()
 
